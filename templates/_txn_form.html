@@ -29,7 +29,7 @@
     <label class="field field-big{{ ' has-error' if errors.amount }}">
       <span class="field-label">Amount</span>
       <span class="amount-input"><span class="dollar" aria-hidden="true">$</span>
-        <input name="amount" value="{{ form.amount }}" inputmode="decimal" autocomplete="off" placeholder="0.00"
+        <input name="amount" value="{{ form.amount }}" inputmode="numeric" data-cents autocomplete="off" placeholder="0.00"
                x-ref="amount" {% if not txn %}autofocus{% endif %} required></span>
       {% if errors.amount %}<span class="field-error">{{ errors.amount }}</span>{% endif %}
     </label>

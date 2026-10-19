@@ -69,6 +69,33 @@
     }
   });
 
+  // Cash-register amount entry for inputs with [data-cents]: digits fill in from the
+  // right, so typing 1 2 5 0 gives 12.50 and no decimal point key is needed.
+  function centsFromDigits(digits) {
+    digits = digits.replace(/\D/g, "").replace(/^0+/, "").slice(0, 9);
+    if (!digits) return "";
+    const padded = digits.padStart(3, "0");
+    return `${padded.slice(0, -2)}.${padded.slice(-2)}`;
+  }
+
+  function setCents(el, value) {
+    el.value = value;
+    el.setSelectionRange(value.length, value.length);
+  }
+
+  document.addEventListener("input", (e) => {
+    if (e.target.matches("input[data-cents]")) setCents(e.target, centsFromDigits(e.target.value));
+  });
+
+  // Pasted text like "12.5" or "$1,234.56" is read as a normal amount, not as raw digits.
+  document.addEventListener("paste", (e) => {
+    if (!e.target.matches("input[data-cents]")) return;
+    const m = (e.clipboardData.getData("text") || "").replace(/[$,\s]/g, "").match(/^(\d*)(?:\.(\d{0,2}))?/);
+    if (!m || !(m[1] || m[2])) return;
+    e.preventDefault();
+    setCents(e.target, centsFromDigits((m[1] || "") + (m[2] || "").padEnd(2, "0")));
+  });
+
   // Payee combobox: suggests past payees only. Never fills in the amount.
   document.addEventListener("alpine:init", () => {
     window.Alpine.data("payeeBox", (initial) => ({

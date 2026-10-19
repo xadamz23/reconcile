@@ -66,6 +66,22 @@ To roll back, set `RECONCILE_TAG` to an older tag and run the same command. If t
 - `TZ` sets what "today" means (the default date and the Today divider). It defaults to UTC.
 - The app has no auth of its own. It's meant to sit behind Cloudflare Zero Trust / Access. The manifest is requested with `crossorigin="use-credentials"` so PWA install works behind Access.
 
+## Importing from the old register app
+
+`scripts/import_register_csv.py` imports a CSV exported from the old app. It uses only the standard library, so it runs with the prod host's `python3` directly against the DB in the Docker volume. It does a dry run unless you pass `--apply`. Rows already in the register (same date, payee, amount and check number) are skipped, so re-running is safe. Set up the opening balance in the app first.
+
+```sh
+docker compose stop
+cp -a /var/lib/docker/volumes/reconcile_reconcile-data/_data ~/reconcile-backup
+DB=/var/lib/docker/volumes/reconcile_reconcile-data/_data/reconcile.db
+python3 import_register_csv.py export.csv "$DB"           # preview
+python3 import_register_csv.py export.csv "$DB" --apply   # import
+chown dockerapps:dockerapps "$DB"*
+docker compose start
+```
+
+Run it as root, because `/var/lib/docker` isn't reachable by other users. Then `chown` the DB files back to the container's user (uid 1000) so the app can still write to them.
+
 ## Icons
 
 The source artwork is `static/icons/icon.svg`, `static/icons/favicon.svg` and `scripts/maskable.svg`. The PNG and ICO files are generated from them and committed. To regenerate after editing:
