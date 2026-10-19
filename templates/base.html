@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}Reconcile{% endblock %}</title>
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#eff1e3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121c18" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Reconcile">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  {# Settling copies class/style between same-id elements and clobbers Alpine's x-show. #}
+  <meta name="htmx-config" content='{"attributesToSettle": [], "defaultSettleDelay": 0}'>
+  <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
+  <link rel="icon" href="{{ static_url('icons/favicon.svg') }}" type="image/svg+xml">
+  <link rel="icon" href="{{ static_url('icons/favicon.ico') }}" sizes="32x32">
+  <link rel="apple-touch-icon" href="{{ static_url('icons/apple-touch-icon.png') }}">
+  <link rel="preload" href="{{ static_url('fonts/schibsted-grotesk.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <style>
+    @font-face {
+      font-family: "Schibsted Grotesk";
+      src: url("{{ static_url('fonts/schibsted-grotesk.woff2') }}") format("woff2");
+      font-weight: 400 900;
+      font-display: swap;
+    }
+  </style>
+  <link rel="stylesheet" href="{{ static_url('css/app.css') }}">
+  <script src="{{ static_url('vendor/htmx.min.js') }}" defer></script>
+  <script src="{{ static_url('js/app.js') }}" defer></script>
+  <script src="{{ static_url('vendor/alpine.min.js') }}" defer></script>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  {% block body %}{% endblock %}
+</body>
+</html>

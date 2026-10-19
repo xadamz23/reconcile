@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Set up Reconcile{% endblock %}
+{% block body_class %}page-setup{% endblock %}
+{% block body %}
+<main class="setup">
+  <img class="setup-mark" src="{{ static_url('icons/icon.svg') }}" alt="" width="72" height="72">
+  <h1>Open the register</h1>
+  <p class="setup-lede">Start from your account's balance today. Everything you enter after this is checked against it.</p>
+  <form class="setup-form" method="post" action="/setup">
+    <label class="field">
+      <span class="field-label">Account name</span>
+      <input name="account_name" value="{{ form.account_name }}" placeholder="Checking" autocomplete="off">
+    </label>
+    <label class="field field-big{{ ' has-error' if errors and errors.opening }}">
+      <span class="field-label">Opening balance</span>
+      <span class="amount-input"><span class="dollar" aria-hidden="true">$</span>
+        <input name="opening" value="{{ form.opening }}" inputmode="decimal" placeholder="0.00" required autofocus></span>
+      {% if errors and errors.opening %}<span class="field-error">{{ errors.opening }}</span>{% endif %}
+    </label>
+    <label class="field{{ ' has-error' if errors and errors.date }}">
+      <span class="field-label">As of</span>
+      <input type="date" name="date" value="{{ form.date }}" required>
+      {% if errors and errors.date %}<span class="field-error">{{ errors.date }}</span>{% endif %}
+    </label>
+    <button class="btn btn-primary btn-wide" type="submit">Open register</button>
+  </form>
+</main>
+{% endblock %}

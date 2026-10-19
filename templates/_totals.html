@@ -1,0 +1,10 @@
+<dl id="totals" class="totals"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <div class="total total-balance">
+    <dt>Balance</dt>
+    <dd class="{{ 'neg' if balance < 0 }}">{{ balance | money }}</dd>
+  </div>
+  <div class="total total-verified">
+    <dt>Verified</dt>
+    <dd class="{{ 'neg' if verified < 0 }}">{{ verified | money }}</dd>
+  </div>
+</dl>

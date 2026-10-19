@@ -1,0 +1,22 @@
+{% if oob_totals %}
+  {% with oob = true %}{% include "_totals.html" %}{% endwith %}
+{% endif %}
+{% if filter_error %}
+  <p class="ledger-note ledger-error" role="alert">{{ filter_error }}</p>
+{% elif not rows %}
+  {% if filtering %}
+  <p class="ledger-note">Nothing matches these filters.
+    <a href="/">Clear filters</a></p>
+  {% else %}
+  <p class="ledger-note">No open transactions. Add one with the + button.</p>
+  {% endif %}
+{% else %}
+  {% set ns = namespace(seen_future=false, divided=false) %}
+  {% for row in rows %}
+    {% if row.date > today %}{% set ns.seen_future = true %}
+    {% elif ns.seen_future and not ns.divided %}{% set ns.divided = true %}
+      <div class="today-rule" role="separator"><span>Today</span></div>
+    {% endif %}
+    {% include "_row.html" %}
+  {% endfor %}
+{% endif %}

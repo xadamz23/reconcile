@@ -1,0 +1,13 @@
+<form id="rec-summary" class="rec-summary{{ ' is-balanced' if state.balanced }}" method="post" action="/reconcile/finish"
+      {% if oob %}hx-swap-oob="true"{% endif %} aria-live="polite">
+  <input type="hidden" name="end_date" value="{{ form.end_date }}">
+  <input type="hidden" name="balance" value="{{ form.balance }}">
+  <dl class="rec-figures">
+    <div><dt>Statement</dt><dd class="num">{{ state.statement_cents | money }}</dd></div>
+    <div><dt>Cleared</dt><dd class="num">{{ state.cleared_cents | money }}</dd></div>
+    <div class="rec-diff"><dt>Difference</dt><dd class="num">{{ state.difference_cents | money }}</dd></div>
+  </dl>
+  <button class="btn btn-primary" type="submit" {{ 'disabled' if not state.balanced }}>
+    {{ 'Finish statement' if state.balanced else 'Difference must be $0.00' }}
+  </button>
+</form>

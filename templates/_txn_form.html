@@ -1,0 +1,86 @@
+{% from "_icons.html" import icon %}
+{% set reconciled = txn and txn.status == 'reconciled' %}
+<form class="txn-form" hx-post="{{ '/txn/%d' % txn.id if txn else '/txn' }}" hx-target="#panel-body"
+      x-data="{ locked: {{ 'true' if reconciled else 'false' }} }" novalidate>
+  <div class="panel-bar">
+    <button class="icon-btn" type="button" data-panel-close aria-label="Close">{{ icon('close') }}</button>
+    <h2>{{ 'Edit transaction' if txn else 'New transaction' }}</h2>
+    {% if txn and not txn.is_opening %}
+    <button class="icon-btn danger" type="button" hx-post="/txn/{{ txn.id }}/delete" hx-target="#panel-body"
+            hx-confirm="Delete {{ txn.payee }} for {{ txn.amount_cents | money(signed=false) }}? This can't be undone."
+            aria-label="Delete transaction" :disabled="locked">{{ icon('trash') }}</button>
+    {% endif %}
+  </div>
+
+  {% if reconciled %}
+  <div class="lock-note" x-show="locked">
+    {{ icon('lock') }}
+    <p>This is part of a reconciled statement. Changing it will throw that statement out of balance.</p>
+    <button class="btn btn-quiet" type="button" @click="locked = false; $nextTick(() => $refs.amount.focus())">Edit anyway</button>
+  </div>
+  {% endif %}
+
+  <fieldset class="form-fields" :disabled="locked">
+    <div class="sign" role="radiogroup" aria-label="Type">
+      <label class="sign-opt sign-pay"><input type="radio" name="sign" value="-" {{ 'checked' if form.sign == '-' }}><span>Payment</span></label>
+      <label class="sign-opt sign-dep"><input type="radio" name="sign" value="+" {{ 'checked' if form.sign == '+' }}><span>Deposit</span></label>
+    </div>
+
+    <label class="field field-big{{ ' has-error' if errors.amount }}">
+      <span class="field-label">Amount</span>
+      <span class="amount-input"><span class="dollar" aria-hidden="true">$</span>
+        <input name="amount" value="{{ form.amount }}" inputmode="decimal" autocomplete="off" placeholder="0.00"
+               x-ref="amount" {% if not txn %}autofocus{% endif %} required></span>
+      {% if errors.amount %}<span class="field-error">{{ errors.amount }}</span>{% endif %}
+    </label>
+
+    <div class="field{{ ' has-error' if errors.payee }}" x-data='payeeBox({{ form.payee | tojson }})' @click.outside="close()">
+      <label class="field-label" for="payee">Payee</label>
+      <input id="payee" name="payee" x-model="value" autocomplete="off" required
+             role="combobox" aria-autocomplete="list" aria-controls="payee-list" :aria-expanded="open"
+             @input.debounce.150ms="fetch()" @focus="fetch()"
+             @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)"
+             @keydown.enter="if (open && active >= 0) { $event.preventDefault(); pick(items[active]) }"
+             @keydown.escape="if (open) { $event.stopPropagation(); close() }">
+      <ul id="payee-list" class="suggest" role="listbox" x-show="open" x-cloak>
+        <template x-for="(item, i) in items" :key="item">
+          <li role="option" :aria-selected="i === active" :class="i === active && 'is-active'"
+              @mousedown.prevent="pick(item)" x-text="item"></li>
+        </template>
+      </ul>
+      {% if errors.payee %}<span class="field-error">{{ errors.payee }}</span>{% endif %}
+    </div>
+
+    <div class="field-row">
+      <label class="field{{ ' has-error' if errors.date }}">
+        <span class="field-label">Date</span>
+        <input type="date" name="date" value="{{ form.date }}" required>
+        {% if errors.date %}<span class="field-error">{{ errors.date }}</span>{% endif %}
+      </label>
+      <label class="field field-narrow">
+        <span class="field-label">Check no.</span>
+        <input name="number" value="{{ form.number }}" inputmode="numeric" autocomplete="off" placeholder="Optional">
+      </label>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Note</span>
+      <textarea name="note" rows="2" placeholder="Optional">{{ form.note }}</textarea>
+    </label>
+
+    {% if not reconciled %}
+    <label class="verify-toggle">
+      <input type="checkbox" name="verified" value="1" {{ 'checked' if form.verified }}>
+      <span class="mark" aria-hidden="true">{{ icon('check') }}</span>
+      <span>Verified with the bank</span>
+    </label>
+    {% else %}
+    <input type="hidden" name="verified" value="1">
+    {% endif %}
+  </fieldset>
+
+  <div class="form-actions">
+    <button class="btn btn-quiet" type="button" data-panel-close>Cancel</button>
+    <button class="btn btn-primary" type="submit" :disabled="locked">{{ 'Save changes' if txn else 'Add transaction' }}</button>
+  </div>
+</form>

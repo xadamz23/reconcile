@@ -1,0 +1,19 @@
+{% from "_icons.html" import icon %}
+<article id="txn-{{ row.id }}" class="txn is-{{ row.status }}{% if row.date > today %} is-future{% endif %}">
+  {% if row.status == 'reconciled' %}
+  <span class="mark" title="Reconciled">{{ icon('check', 'Reconciled') }}</span>
+  {% else %}
+  <button class="mark" type="button" hx-post="/txn/{{ row.id }}/toggle" hx-target="#txn-{{ row.id }}" hx-swap="outerHTML"
+          aria-pressed="{{ 'true' if row.status == 'verified' else 'false' }}"
+          aria-label="{{ 'Verified' if row.status == 'verified' else 'Mark verified' }}: {{ row.payee }}">{{ icon('check') }}</button>
+  {% endif %}
+  <button class="txn-open" type="button" hx-get="/txn/{{ row.id }}/edit" hx-target="#panel-body">
+    <span class="txn-date">{{ row.date | pretty_date }}</span>
+    <span class="txn-no">{% if row.number %}#{{ row.number }}{% endif %}</span>
+    <span class="txn-payee">{{ row.payee }}{% if row.note %}<span class="txn-note">{{ row.note }}</span>{% endif %}</span>
+    <span class="txn-amt num {{ 'pay' if row.amount_cents < 0 else 'dep' }}">{{ ('−' if row.amount_cents < 0 else '+') }}{{ row.amount_cents | money(signed=false) }}</span>
+    <span class="txn-pay num">{% if row.amount_cents < 0 %}{{ row.amount_cents | money(signed=false) }}{% endif %}</span>
+    <span class="txn-dep num">{% if row.amount_cents > 0 %}{{ row.amount_cents | money(signed=false) }}{% endif %}</span>
+    <span class="txn-run num{{ ' neg' if row.running_cents < 0 }}">{{ row.running_cents | money }}</span>
+  </button>
+</article>

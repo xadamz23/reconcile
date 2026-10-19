@@ -1,0 +1,10 @@
+.venv
+.git
+.pytest_cache
+.playwright-mcp
+__pycache__
+data
+tests
+docs
+scripts
+*.db*

@@ -1,0 +1,98 @@
+# Reconcile — check register PWA (design + implementation plan)
+
+## Context
+Adam wants a personal check-register app, "Reconcile", to replace the Android app shown in `~/Downloads/r-*.png`. It's for entering checking-account transactions by hand and reconciling them against the bank. Only Adam uses it, mostly on his phone as an installed PWA but also on desktop. In prod it runs as an amd64 container behind Cloudflare Zero Trust, so the app has no auth of its own. The repo is empty (git init only).
+
+### What Adam decided (from Q&A)
+- **One** checking account. Transactions are entered **manually only** (no bank import).
+- Frontend: **htmx + Alpine.js** on Jinja templates rendered by FastAPI. SQLite.
+- **Payee autocomplete** suggests past payees but does **not** pre-fill the amount.
+- Strip whitespace from text before saving to the DB.
+- **Search/filter by payee and/or amount**, plus the inspiration filters: all / payments / deposits / unverified.
+- **Statement reconcile mode**. When a statement is finished, its items become **reconciled**: locked (editing asks for confirmation first) and hidden from the main list by default.
+- **Opening balance**: on first run the app asks for it and stores it as a reconciled "Opening balance" transaction.
+- **CSV export** only when Adam asks for it, from the menu. Nothing automatic.
+- Look: **ledger/paper**. Light/dark switches **automatically with the system** (`prefers-color-scheme`).
+- A good-looking PWA icon and a favicon. Static assets are cache-busted with hashlib. CLAUDE.md and README.md are written at the end. The frontend-design skill is used for the UI.
+
+### Assumptions (flag if wrong)
+- Text fields are trimmed at both ends (`.strip()`), not just the trailing end.
+- **Balance** sums every transaction, future-dated ones included, as the inspiration app does. **Verified** sums verified + reconciled transactions.
+- The list is newest first and shows a running balance on each row. A subtle "Today" divider separates future-dated rows.
+- No offline writes. The service worker caches the app shell and static assets and shows an offline page when there's no network.
+
+## Architecture
+- Python 3.12, managed with `uv`. FastAPI, Jinja2, uvicorn, stdlib `sqlite3` (no ORM). pytest + httpx for tests.
+- Money is stored as **integer cents** (signed: negative = payment, positive = deposit). Parsing and formatting live in one module.
+- htmx handles partial swaps (tap-to-verify, filter/search results, form submit). Alpine handles local UI state (the debit/credit sign toggle, the payee combobox, sheets and dialogs, the reconcile running difference). Both are **vendored** in `static/vendor/`, with no CDN, so they work offline and get hashed.
+
+### Layout
+```
+app/
+  main.py          # app factory, lifespan (migrate), Jinja env, static mount, routes include
+  config.py        # RECONCILE_DB_PATH (default ./data/reconcile.db)
+  db.py            # connection helper, PRAGMA user_version migrations, WAL
+  money.py         # parse "1,234.56" -> cents, format cents -> "$1,234.56"
+  repo.py          # all SQL: list/filter w/ running balance, totals, CRUD, payees, statements
+  assets.py        # hashlib sha256 of every file under static/ at startup -> static_url()
+  routes/register.py, transactions.py, reconcile.py, export.py, pwa.py
+templates/  base.html, register.html, _rows.html, _txn_form.html, reconcile.html, setup.html, offline.html
+static/     css/app.css, js/app.js, vendor/{htmx,alpine}.min.js, fonts/*.woff2, icons/*, manifest.webmanifest
+scripts/make_icons.py   # renders icon SVG -> PNG sizes (one-time, outputs committed)
+tests/
+Dockerfile, .dockerignore, pyproject.toml, README.md, CLAUDE.md
+docs/superpowers/specs/2026-10-18-reconcile-design.md  # copy of this design
+```
+
+### Data model (`PRAGMA user_version` migrations)
+- `transactions(id, date TEXT ISO, payee TEXT, amount_cents INT, number TEXT NULL, note TEXT NULL, status TEXT CHECK IN ('unverified','verified','reconciled'), statement_id INT NULL, is_opening INT DEFAULT 0, created_at, updated_at)`. Indexes on `date` and `payee`.
+- `statements(id, end_date, ending_balance_cents, reconciled_at)`
+- `settings(key PK, value)` stores `account_name`, e.g. "Adam's Checking".
+
+### Core behavior
+- **Register (`/`)**: a header shows the account name and the Balance and Verified totals. Rows are computed with `SUM(amount_cents) OVER (ORDER BY date, id)` for the running balance and displayed date-desc. Each row has a verify circle; tapping it uses `hx-post` to toggle unverified↔verified and swaps in the row plus the header totals (OOB swap). Tapping the row opens the edit form.
+- **Filters/search**: query params `kind=all|payments|deposits|unverified`, `q=` (payee, case-insensitive LIKE) and `amount=`. `amount` takes an exact value (`9.99`, matching either sign) or a range (`10-50`). Results come back via `hx-get` with `hx-push-url`, so filters survive a reload. Reconciled rows are hidden unless `show_reconciled=1`. The running balance always reflects the full ledger, even when filtered.
+- **Transaction form**: sign toggle, amount, payee combobox, date (defaults to today), number/code, note, verified. Server-side validation; errors re-render the form via htmx. Text fields are `.strip()`ped in one place (`repo` input normalization), and empty strings become NULL. Delete asks for confirmation. Editing a reconciled item shows a confirmation dialog first.
+- **Payee autocomplete**: `GET /payees?q=` returns distinct payees (case-insensitive dedupe) ranked by recent use and frequency, as an Alpine-driven dropdown. Picking one sets only the payee.
+- **Reconcile (`/reconcile`)**:
+  1. Enter the statement end date and ending balance.
+  2. The page lists non-reconciled items dated ≤ end date, each with a check.
+  3. A sticky bar shows *cleared balance (reconciled + checked) vs statement → difference*. Checking an item toggles it to verified on the server.
+  4. **Finish** is enabled only when the difference is $0.00. It creates a `statements` row and sets those verified items to `reconciled` with that `statement_id`.
+  5. Past statements are listed below.
+- **First run**: if there are no transactions, `/` redirects to `/setup`, which asks for the account name, opening balance and date.
+- **CSV export**: `GET /export.csv` is a menu item that streams all transactions.
+
+### Cache busting, PWA, deployment
+- `assets.py`: at startup, walk `static/`, take the first 10 hex chars of each file's sha256, and expose a Jinja global `static_url('css/app.css')` that returns `/static/css/app.css?v=<hash>`. Responses with `?v=` get `Cache-Control: public, max-age=31536000, immutable`.
+- `/sw.js` and `/manifest.webmanifest` are served from the root with `no-cache`. The SW cache name includes a combined hash of all assets, so a deploy replaces the old cache. The SW caches static assets first and fetches HTML from the network first, falling back to `offline.html`.
+- Behind Cloudflare Access: `<link rel="manifest" crossorigin="use-credentials">`. uvicorn runs with `--proxy-headers --forwarded-allow-ips='*'`.
+- Icons: one hand-designed SVG (a ledger page with ruled lines and a check mark, in the paper and ink palette), with `favicon.svg`, `favicon.ico`, 192/512 PNGs, a 512 maskable icon and a 180 `apple-touch-icon`. `theme-color` meta tags are set for both light and dark. PNGs are rendered by `scripts/make_icons.py` (cairosvg or rsvg-convert, whichever is available) and committed.
+- Dockerfile: `python:3.12-slim` + uv, non-root user, `/data` volume, `RECONCILE_DB_PATH=/data/reconcile.db`. README documents `docker buildx build --platform linux/amd64 -t reconcile .` (the build machine is arm64).
+
+### UI (frontend-design skill used during implementation)
+- Ledger/paper palette as CSS custom properties, with a dark "night ledger" variant under `prefers-color-scheme: dark`. Numerals are tabular. Fonts are self-hosted woff2 (picked during the design pass).
+- Mobile: a sticky header with the totals, full-width rows, a floating "+" button, the form as a full-screen sheet, and filters/search in a bottom sheet. Safe-area insets are respected.
+- Desktop (≥900px): a centered register with the transaction form in a right-side panel instead of a sheet, keyboard friendly (`n` = new, `/` = search, `Esc` = close).
+
+## Implementation order (TDD for logic)
+1. Scaffold: `uv init` and deps, the app factory, config, db and migrations, `.gitignore`. Commit the spec copy.
+2. `money.py` + tests (parsing edge cases, sign, formatting).
+3. `repo.py` + tests: whitespace stripping, CRUD, running balance, totals, filters (kind/payee/amount exact and range), payee suggestions, reconcile difference and finish, opening balance.
+4. Routes + templates (register, form, setup, reconcile, export), with route tests via TestClient.
+5. `assets.py` cache busting + test. PWA files, SW, icons, favicon.
+6. Visual design pass with the frontend-design skill (CSS, light/dark, mobile/desktop).
+7. Dockerfile, README.md, CLAUDE.md.
+
+## Verification
+- `uv run pytest`: all tests pass.
+- `uv run uvicorn app.main:app --reload`, then drive it with Playwright MCP:
+  - complete setup
+  - add payments, deposits and a future-dated item
+  - toggle verify and check the totals
+  - search by payee and by amount
+  - reconcile a statement down to $0.00 and finish it; check that reconciled rows hide
+  - export CSV
+- Screenshots at 390px and 1280px in light and dark (`browser_emulate_media`).
+- Confirm `?v=` hashes change when a CSS file changes. Confirm the manifest and icons load and the SW registers.
+- `docker buildx build --platform linux/amd64 .` succeeds. If possible, `docker run` it and hit `/`.

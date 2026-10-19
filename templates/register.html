@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ account_name }}{% endblock %}
+{% block body_class %}page-register{% endblock %}
+{% block body %}
+<div class="shell" x-data="{ searching: {{ 'true' if filtering else 'false' }} }">
+  <main class="register">
+    <header class="masthead">
+      <div class="masthead-bar">
+        <h1 class="account">{{ account_name }}</h1>
+        <div class="masthead-actions">
+          <button class="icon-btn only-mobile" type="button" @click="searching = !searching; $nextTick(() => searching && $refs.q.focus())"
+                  :aria-pressed="searching" aria-label="Search and filter">{{ icon('search') }}</button>
+          <div class="menu" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
+            <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
+            <div class="menu-pop" role="menu" x-show="open" x-transition.origin.top.right x-cloak>
+              <a role="menuitem" href="/reconcile">{{ icon('scale') }}Reconcile a statement</a>
+              <a role="menuitem" href="/export.csv" download>{{ icon('download') }}Export CSV</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% include "_totals.html" %}
+    </header>
+
+    <form id="filters" class="filters" :class="searching && 'is-open'" role="search"
+          hx-get="/" hx-target="#ledger" hx-push-url="true"
+          hx-trigger="input changed delay:250ms from:.filters-text, change">
+      <div class="filters-text">
+        <label class="field-inline">
+          <span class="visually-hidden">Payee</span>
+          {{ icon('search') }}
+          <input type="search" name="q" value="{{ filters.q }}" placeholder="Payee" autocomplete="off" x-ref="q" id="filter-q">
+        </label>
+        <label class="field-inline field-amount">
+          <span class="visually-hidden">Amount</span>
+          <span class="dollar" aria-hidden="true">$</span>
+          <input type="text" name="amount" value="{{ filters.amount }}" placeholder="Amount" title="An exact amount like 9.99, or a range like 10-50" inputmode="decimal" autocomplete="off">
+        </label>
+      </div>
+      <fieldset class="kinds">
+        <legend class="visually-hidden">Show</legend>
+        {% for value, label in [('all', 'All'), ('payments', 'Payments'), ('deposits', 'Deposits'), ('unverified', 'Unverified')] %}
+        <label class="kind"><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if filters.kind == value }}><span>{{ label }}</span></label>
+        {% endfor %}
+      </fieldset>
+      <label class="toggle-reconciled">
+        <input type="checkbox" name="show_reconciled" value="true" {{ 'checked' if filters.show_reconciled }}>
+        <span>Show reconciled</span>
+      </label>
+    </form>
+
+    <div class="ledger-head" aria-hidden="true">
+      <span></span><span>Date</span><span>No.</span><span>Payee</span>
+      <span class="num">Payment</span><span class="num">Deposit</span><span class="num">Balance</span>
+    </div>
+    <section id="ledger" class="ledger" aria-label="Transactions"
+             hx-get="/" hx-include="#filters" hx-trigger="ledger-changed from:body" hx-target="this">
+      {% include "_ledger.html" %}
+    </section>
+  </main>
+
+  <aside id="panel" class="panel" aria-label="Transaction" aria-hidden="true">
+    <div id="panel-body" class="panel-body">
+      <div class="panel-empty">
+        <p>Select a transaction to edit it, or add a new one.</p>
+        <button class="btn btn-primary" type="button" hx-get="/txn/new" hx-target="#panel-body">{{ icon('plus') }}New transaction</button>
+      </div>
+    </div>
+  </aside>
+
+  <button class="fab" type="button" hx-get="/txn/new" hx-target="#panel-body" aria-label="New transaction" title="New transaction (n)">{{ icon('plus') }}</button>
+</div>
+{% endblock %}
