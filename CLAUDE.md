@@ -26,6 +26,7 @@ Single-user check register PWA. FastAPI + Jinja2 + htmx + Alpine.js + SQLite (st
 - Running balance is a window function over the **whole** ledger, applied before filters, so filtered rows still show true balances.
 - Statuses are `unverified` → `verified` → `reconciled`. Toggling never touches `reconciled`. `update_txn` keeps `reconciled` as is. The opening balance (`is_opening=1`) is reconciled and can't be deleted.
 - Cleared balance for reconciling = all reconciled + verified items dated on or before the statement's closing date.
+- CSRF: middleware in `app/main.py` rejects any non-GET request that a browser marks as cross-site (`Sec-Fetch-Site`, falling back to `Origin` vs `Host`). Auth is only Cloudflare Access, so this is the one thing stopping other sites from posting forms. Requests with neither header (curl, TestClient) are allowed.
 - Avoid the font's tabular figures (`tnum`): Schibsted Grotesk also makes `.` and `,` tabular-width, which looks broken.
 
 ## Design

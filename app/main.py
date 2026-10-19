@@ -1,8 +1,10 @@
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -21,6 +23,25 @@ class HashedStaticFiles(StaticFiles):
         else:
             response.headers["Cache-Control"] = "no-cache"
         return response
+
+
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def is_cross_site(request: Request) -> bool:
+    """CSRF guard: true when a browser says this request came from another site.
+
+    Auth lives in Cloudflare Access, so the app must not trust a request just
+    because it carries the Access cookie. Clients that send neither header
+    (curl, tests) aren't browsers and can't be driven by a malicious page.
+    """
+    fetch_site = request.headers.get("sec-fetch-site")
+    if fetch_site is not None:
+        return fetch_site not in ("same-origin", "none")
+    origin = request.headers.get("origin")
+    if origin is not None:
+        return urlsplit(origin).netloc != request.headers.get("host")
+    return False
 
 
 def _pretty_date(iso: str) -> str:
@@ -47,6 +68,12 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
     templates.env.filters.update(money=format_cents, plain_amount=plain_amount, pretty_date=_pretty_date)
     app.state.assets = assets
     app.state.templates = templates
+
+    @app.middleware("http")
+    async def reject_cross_site_writes(request: Request, call_next):
+        if request.method not in SAFE_METHODS and is_cross_site(request):
+            return PlainTextResponse("Cross-site request blocked", status_code=403)
+        return await call_next(request)
 
     app.mount("/static", HashedStaticFiles(directory=config.STATIC_DIR), name="static")
 
