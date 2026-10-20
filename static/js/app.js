@@ -76,12 +76,17 @@
 
   // Cash-register amount entry for inputs with [data-cents]: digits fill in from the
   // right, so typing 1 2 5 0 gives 12.50 and no decimal point key is needed.
-  function centsFromDigits(digits) {
+  // data-cents="signed" (the statement balance, which can be overdrawn) also takes a
+  // minus: typing "-" flips the sign.
+  function centsFromDigits(digits, negative = false) {
+    const sign = negative ? "-" : "";
     digits = digits.replace(/\D/g, "").replace(/^0+/, "").slice(0, 9);
-    if (!digits) return "";
+    if (!digits) return sign;
     const padded = digits.padStart(3, "0");
-    return `${padded.slice(0, -2)}.${padded.slice(-2)}`;
+    return `${sign}${padded.slice(0, -2)}.${padded.slice(-2)}`;
   }
+
+  const signed = (el) => el.dataset.cents === "signed";
 
   function setCents(el, value) {
     el.value = value;
@@ -89,16 +94,20 @@
   }
 
   document.addEventListener("input", (e) => {
-    if (e.target.matches("input[data-cents]")) setCents(e.target, centsFromDigits(e.target.value));
+    if (!e.target.matches("input[data-cents]")) return;
+    // An odd number of minus signs means the latest "-" turned it negative.
+    const negative = signed(e.target) && (e.target.value.match(/-/g) || []).length % 2 === 1;
+    setCents(e.target, centsFromDigits(e.target.value, negative));
   });
 
   // Pasted text like "12.5" or "$1,234.56" is read as a normal amount, not as raw digits.
   document.addEventListener("paste", (e) => {
     if (!e.target.matches("input[data-cents]")) return;
-    const m = (e.clipboardData.getData("text") || "").replace(/[$,\s]/g, "").match(/^(\d*)(?:\.(\d{0,2}))?/);
-    if (!m || !(m[1] || m[2])) return;
+    const m = (e.clipboardData.getData("text") || "").replace(/[$,\s]/g, "").match(/^(-)?(\d*)(?:\.(\d{0,2}))?/);
+    if (!m || !(m[2] || m[3])) return;
     e.preventDefault();
-    setCents(e.target, centsFromDigits((m[1] || "") + (m[2] || "").padEnd(2, "0")));
+    const negative = signed(e.target) && Boolean(m[1]);
+    setCents(e.target, centsFromDigits((m[2] || "") + (m[3] || "").padEnd(2, "0"), negative));
   });
 
   // Clicking Payment/Deposit leaves focus where it was (usually the amount), so typing

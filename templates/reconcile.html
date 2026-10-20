@@ -29,7 +29,7 @@
         <label class="field">
           <span class="field-label">Ending balance</span>
           <span class="amount-input"><span class="dollar" aria-hidden="true">$</span>
-            <input name="balance" value="{{ form.balance }}" inputmode="decimal" placeholder="0.00" required></span>
+            <input name="balance" value="{{ form.balance }}" inputmode="numeric" data-cents="signed" autocomplete="off" placeholder="0.00" required></span>
         </label>
       </div>
       {% if error %}<p class="field-error" role="alert">{{ error }}</p>{% endif %}
