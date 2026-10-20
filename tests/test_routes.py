@@ -64,7 +64,7 @@ def test_edit_form_and_update(ready):
     ready.post("/txn", data={"sign": "-", "amount": "8", "payee": "Goodwill", "date": "2026-10-17"}, headers=HX)
     tid = repo.list_txns(conn_of(ready), q="Goodwill")[0]["id"]
     r = ready.get(f"/txn/{tid}/edit", headers=HX)
-    assert 'value="8.00"' in r.text and "Save changes" in r.text
+    assert 'value="8.00"' in r.text and ">Save</button>" in r.text
     ready.post(f"/txn/{tid}", data={"sign": "-", "amount": "9", "payee": "Goodwill", "date": "2026-10-17",
                                     "verified": "1"}, headers=HX)
     t = repo.get_txn(conn_of(ready), tid)

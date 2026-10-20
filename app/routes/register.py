@@ -17,7 +17,7 @@ def register_context(conn: sqlite3.Connection, kind: str, q: str, amount: str, s
     try:
         rows = repo.list_txns(conn, kind=kind, q=q, amount=amount, show_reconciled=show_reconciled)
     except ValueError:
-        rows, error = [], f"“{amount}” isn't an amount. Try 9.99 or a range like 10-50."
+        rows, error = [], f"“{amount}” isn't an amount. Try 45, 9.99 or a range like 10-50."
     balance, verified = repo.totals(conn)
     return {
         "rows": rows,

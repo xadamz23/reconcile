@@ -1,10 +1,10 @@
 """All SQL lives here. Functions take a sqlite3 connection opened by app.db."""
 
+import re
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import date as Date
 
-from app.money import parse_cents
 
 OPENING_PAYEE = "Opening balance"
 KINDS = ("all", "payments", "deposits", "unverified")
@@ -136,18 +136,39 @@ def totals(conn: sqlite3.Connection) -> tuple[int, int]:
     return row["balance"], row["verified"]
 
 
+_PARTIAL_AMOUNT_RE = re.compile(r"^(\d*)(?:\.(\d{0,2}))?$")
+
+
+def _partial_amount(text: str) -> tuple[int, int]:
+    """The cents range a partly typed amount covers.
+
+    Whole dollars cover that dollar ('45' -> 45.00-45.99), one cents digit covers
+    ten cents ('20.0' -> 20.00-20.09), and two cents digits are exact.
+    """
+    cleaned = text.strip().replace("$", "").replace(",", "").replace(" ", "")
+    match = _PARTIAL_AMOUNT_RE.match(cleaned)
+    if not match or not (match.group(1) or match.group(2)):
+        raise ValueError(f"Not an amount: {text!r}")
+    whole, frac = match.group(1), match.group(2) or ""
+    base = int(whole or "0") * 100 + int(frac.ljust(2, "0"))
+    return base, base + (99, 9, 0)[len(frac)]
+
+
 def parse_amount_filter(text: str) -> tuple[int | None, int | None]:
-    """'9.99' -> exact; '10-50' -> range; '10-' / '-50' -> open range. Absolute cents."""
+    """Search box amount -> (min, max) absolute cents; None means unbounded.
+
+    '45' / '20.0' / '20.08' are partial amounts (see _partial_amount).
+    '10-50' is a range whose ends are partial too (10.00-50.99); '10-' and '-50' are open.
+    """
     text = text.strip()
     if "-" in text:
         lo_s, hi_s = text.split("-", 1)
-        lo = abs(parse_cents(lo_s)) if lo_s.strip() else None
-        hi = abs(parse_cents(hi_s)) if hi_s.strip() else None
+        lo = _partial_amount(lo_s)[0] if lo_s.strip() else None
+        hi = _partial_amount(hi_s)[1] if hi_s.strip() else None
         if lo is None and hi is None:
             raise ValueError("Empty amount range")
         return lo, hi
-    exact = abs(parse_cents(text))
-    return exact, exact
+    return _partial_amount(text)
 
 
 def list_txns(

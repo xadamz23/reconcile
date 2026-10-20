@@ -100,10 +100,37 @@ def test_filtered_rows_keep_full_ledger_running_balance(ledger):
         ("5-50", {"SiriusXM", "Fozzys"}),
         ("10 - 50", {"Fozzys"}),
         ("1000-", {"Paycheck"}),
+        # Partial amounts: whole dollars match that dollar, one cents digit narrows to ten cents.
+        ("45", {"Fozzys"}),
+        ("45.", {"Fozzys"}),
+        ("45.3", {"Fozzys"}),
+        ("45.4", set()),
+        ("9", {"SiriusXM"}),
+        ("9.9", {"SiriusXM"}),
+        ("-9", {"SiriusXM"}),
     ],
 )
 def test_amount_filter(ledger, amount, expected):
     assert {r["payee"] for r in repo.list_txns(ledger, amount=amount)} == expected
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("20.08", (2008, 2008)),
+        ("20.0", (2000, 2009)),
+        ("20", (2000, 2099)),
+        ("20.", (2000, 2099)),
+        ("$1,234.5", (123450, 123459)),
+        (".5", (50, 59)),
+        ("10-50", (1000, 5099)),
+        ("10.5-20.25", (1050, 2025)),
+        ("100-", (10000, None)),
+        ("-20", (None, 2099)),
+    ],
+)
+def test_parse_amount_filter(text, expected):
+    assert repo.parse_amount_filter(text) == expected
 
 
 def test_amount_and_payee_combined(ledger):

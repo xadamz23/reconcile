@@ -317,20 +317,15 @@ button.mark:hover .icon { border-color: var(--green); }
 .panel-bar {
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; gap: 0.5rem;
-  padding: calc(var(--safe-t) + 0.25rem) 0.5rem 0.25rem;
+  padding: calc(var(--safe-t) + 0.25rem) var(--gutter) 0.25rem 0.5rem;
   background: var(--paper); border-bottom: 1px solid var(--rule);
 }
 .panel-bar h2 { flex: 1; font-size: 1.125rem; font-weight: 650; }
+.btn-bar { min-height: 2.5rem; padding: 0 1.125rem; }
 
 .txn-form { display: flex; flex-direction: column; min-height: 100dvh; }
-.form-fields { display: grid; gap: 1.25rem; margin: 0; padding: 1.25rem var(--gutter); border: 0; min-width: 0; }
+.form-fields { display: grid; gap: 1.25rem; margin: 0; padding: 1.25rem var(--gutter) calc(1.5rem + var(--safe-b)); border: 0; min-width: 0; }
 .form-fields:disabled { opacity: 0.55; }
-.form-actions {
-  position: sticky; bottom: 0; margin-top: auto;
-  display: grid; grid-template-columns: 1fr 2fr; gap: 0.75rem;
-  padding: 0.75rem var(--gutter) calc(0.75rem + var(--safe-b));
-  background: var(--paper); border-top: 1px solid var(--rule);
-}
 
 .sign { display: grid; grid-template-columns: 1fr 1fr; border: 1.5px solid var(--ink); border-radius: var(--radius-s); overflow: hidden; }
 .sign-opt { position: relative; }
@@ -516,7 +511,6 @@ button.mark:hover .icon { border-color: var(--green); }
   }
   .panel-bar { padding-top: 0.75rem; background: var(--paper-raised); }
   .txn-form { min-height: 100dvh; }
-  .form-actions { background: var(--paper-raised); }
 
   .rec-summary { grid-template-columns: 1fr 15rem; align-items: center; }
   .rec-start { grid-template-columns: 1fr auto; align-items: end; }
