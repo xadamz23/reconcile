@@ -96,6 +96,15 @@
     setCents(e.target, centsFromDigits((m[1] || "") + (m[2] || "").padEnd(2, "0")));
   });
 
+  // Switching Payment/Deposit puts the cursor back in the amount, ready to keep typing.
+  document.addEventListener("change", (e) => {
+    if (!e.target.matches(".txn-form input[name=sign]")) return;
+    const amount = e.target.form.querySelector("input[data-cents]");
+    if (!amount || amount.disabled) return;
+    amount.focus();
+    amount.setSelectionRange(amount.value.length, amount.value.length);
+  });
+
   // Payee combobox: suggests past payees only. Never fills in the amount.
   document.addEventListener("alpine:init", () => {
     window.Alpine.data("payeeBox", (initial) => ({
