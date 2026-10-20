@@ -1,6 +1,10 @@
+import re
+from datetime import date, timedelta
+
 import pytest
 
 from app import repo
+from app.routes import register
 
 HX = {"HX-Request": "true"}
 
@@ -111,6 +115,51 @@ def test_ledger_partial_filters(ready):
     assert "SiriusXM" in r.text and "Fozzys" not in r.text
     r = ready.get("/?amount=abc")
     assert "isn&#39;t an amount" in r.text
+
+
+def _cursor(html):
+    m = re.search(r'"before": "([^"]+)"', html)
+    return m and m.group(1)
+
+
+@pytest.fixture
+def paged(ready, monkeypatch):
+    monkeypatch.setattr(register, "PAGE_SIZE", 2)
+    conn = conn_of(ready)
+    today = date.today()
+    # Two future rows, then three past ones (newest first).
+    for offset, payee in [(2, "Future A"), (1, "Future B"), (-1, "Past C"), (-2, "Past D"), (-3, "Past E")]:
+        repo.create_txn(conn, repo.TxnInput((today + timedelta(days=offset)).isoformat(), payee, -100))
+    return ready
+
+
+def test_ledger_pages_load_through_the_placeholder(paged):
+    page = paged.get("/").text
+    assert "Future A" in page and "Future B" in page and "Past C" not in page
+    assert 'class="today-rule"' not in page
+    cursor = _cursor(page)
+    r = paged.get(f"/?before={cursor}", headers=HX)
+    assert "<html" not in r.text and 'id="totals"' not in r.text
+    # The page break fell between the future rows and the past ones: the rule comes first.
+    assert r.text.index('class="today-rule"') < r.text.index("Past C")
+    assert "Past D" in r.text and "Future B" not in r.text
+    last = paged.get(f"/?before={_cursor(r.text)}", headers=HX).text
+    assert "Past E" in last and "ledger-more" not in last and "today-rule" not in last
+
+
+def test_ledger_refresh_keeps_loaded_rows(paged):
+    r = paged.get("/?rows=4", headers={**HX, "HX-Target": "ledger"})
+    assert "Past D" in r.text and "Past E" not in r.text and "ledger-more" in r.text
+    r = paged.get("/?rows=0", headers={**HX, "HX-Target": "ledger"})
+    assert "Future B" in r.text and "Past C" not in r.text
+    # Next-page requests also carry `rows` (htmx merges hx-vals from ancestors): still one page.
+    cursor = _cursor(r.text)
+    r = paged.get(f"/?before={cursor}&rows=4", headers=HX)
+    assert "Past D" in r.text and "Past E" not in r.text
+
+
+def test_ledger_rejects_a_bad_cursor(paged):
+    assert paged.get("/?before=yesterday", headers=HX).status_code == 400
 
 
 def test_show_reconciled_counts_as_filtering(ready):

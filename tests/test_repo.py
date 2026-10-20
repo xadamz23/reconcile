@@ -88,6 +88,27 @@ def test_filtered_rows_keep_full_ledger_running_balance(ledger):
     assert row["running_cents"] == 295469
 
 
+def test_paging_with_cursor_walks_the_whole_list(ledger):
+    # Same-date rows are split by id, so none repeat or go missing between pages.
+    add(ledger, "2026-10-05", "Kroger", -1200)
+    add(ledger, "2026-10-05", "Shell", -3000)
+    everything = [r["id"] for r in repo.list_txns(ledger, show_reconciled=True)]
+    seen, before = [], None
+    while page := repo.list_txns(ledger, show_reconciled=True, before=before, limit=2):
+        seen += [r["id"] for r in page]
+        before = (page[-1]["date"], page[-1]["id"])
+    assert seen == everything
+    assert repo.list_txns(ledger, show_reconciled=True, before=before, limit=2) == []
+
+
+def test_cursor_combines_with_filters_and_keeps_running_balance(ledger):
+    add(ledger, "2026-10-08", "Fozzys", -1000)
+    first, second = repo.list_txns(ledger, q="fozz")
+    [page] = repo.list_txns(ledger, q="fozz", before=(first["date"], first["id"]), limit=5)
+    assert page["id"] == second["id"]
+    assert page["running_cents"] == second["running_cents"] == 295469
+
+
 @pytest.mark.parametrize(
     "amount,expected",
     [

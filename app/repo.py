@@ -169,9 +169,18 @@ def list_txns(
     q: str | None = None,
     amount: str | None = None,
     show_reconciled: bool = False,
+    before: tuple[str, int] | None = None,
+    limit: int | None = None,
 ) -> list[sqlite3.Row]:
-    """Newest first. running_cents is computed over the whole ledger before filtering."""
+    """Newest first. running_cents is computed over the whole ledger before filtering.
+
+    For paging, `before` is the (date, id) of the last row already shown: only rows
+    after it in this order are returned, at most `limit` of them.
+    """
     where, params = [], []
+    if before is not None:
+        where.append("(date, id) < (?, ?)")
+        params.extend(before)
     if kind == "payments":
         where.append("amount_cents < 0")
     elif kind == "deposits":
@@ -199,6 +208,9 @@ def list_txns(
     if where:
         sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY date DESC, id DESC"
+    if limit is not None:
+        sql += " LIMIT ?"
+        params.append(limit)
     return conn.execute(sql, params).fetchall()
 
 

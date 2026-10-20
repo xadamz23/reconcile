@@ -1,8 +1,9 @@
 {% extends "base.html" %}
-{% from "_icons.html" import icon %}
+{% from "_icons.html" import icon, sprite %}
 {% block title %}{{ account_name }}{% endblock %}
 {% block body_class %}page-register{% endblock %}
 {% block body %}
+{{ sprite(['lock']) }}
 <div class="shell" x-data="filterBar({{ 'true' if filtering else 'false' }})" @filters-escape.window="cancel()">
   <main class="register">
     <header class="masthead">
@@ -58,8 +59,10 @@
       <span>Date</span><span>No.</span><span>Payee</span>
       <span class="num">Payment</span><span class="num">Deposit</span><span class="num">Balance</span>
     </div>
+    {# Refetching after a save asks for as many rows as are loaded, so the list keeps its place. #}
     <section id="ledger" class="ledger" aria-label="Transactions"
-             hx-get="/" hx-include="#filters" hx-trigger="ledger-changed from:body" hx-target="this">
+             hx-get="/" hx-include="#filters" hx-trigger="ledger-changed from:body" hx-target="this"
+             hx-vals='js:{rows: document.querySelectorAll("#ledger .txn").length}'>
       {% include "_ledger.html" %}
     </section>
   </main>

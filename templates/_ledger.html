@@ -11,12 +11,5 @@
   <p class="ledger-note">No open transactions. Add one with the + button.</p>
   {% endif %}
 {% else %}
-  {% set ns = namespace(seen_future=false, divided=false) %}
-  {% for row in rows %}
-    {% if row.date > today %}{% set ns.seen_future = true %}
-    {% elif ns.seen_future and not ns.divided %}{% set ns.divided = true %}
-      <div class="today-rule" role="separator"><span>Today</span></div>
-    {% endif %}
-    {% include "_row.html" %}
-  {% endfor %}
+  {% include "_ledger_rows.html" %}
 {% endif %}

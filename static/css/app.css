@@ -295,6 +295,7 @@ button.mark:hover .icon { border-color: var(--green); }
 .today-rule::after { content: ""; flex: 1; border-top: 1.5px dashed var(--green); opacity: 0.6; }
 
 .ledger-note { padding: 2.5rem var(--gutter); color: var(--ink-soft); text-align: center; }
+.ledger-more { padding: 1.25rem var(--gutter); color: var(--ink-faint); font-size: 0.875rem; text-align: center; }
 .ledger-note a { font-weight: 600; }
 .ledger-error { color: var(--red); }
 

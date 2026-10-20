@@ -1,0 +1,16 @@
+{# One page of ledger rows, newest first. When there are more, it ends with a
+   placeholder that swaps itself for the next page as it scrolls into view. #}
+{# The Today rule goes above the first row on or before today, if future rows came
+   first; on a later page that's known from the last row of the page before. #}
+{% set ns = namespace(seen_future=(before_date or '') > today, divided=false) %}
+{% for row in rows %}
+  {% if row.date > today %}{% set ns.seen_future = true %}
+  {% elif ns.seen_future and not ns.divided %}{% set ns.divided = true %}
+    <div class="today-rule" role="separator"><span>Today</span></div>
+  {% endif %}
+  {% include "_row.html" %}
+{% endfor %}
+{% if next_cursor %}
+<div class="ledger-more" hx-get="/" hx-vals='{"before": "{{ next_cursor }}"}' hx-include="#filters"
+     hx-trigger="revealed" hx-target="this" hx-swap="outerHTML">Loading more…</div>
+{% endif %}
