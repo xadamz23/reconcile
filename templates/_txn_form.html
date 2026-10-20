@@ -10,7 +10,7 @@
             hx-confirm="Delete {{ txn.payee }} for {{ txn.amount_cents | money(signed=false) }}? This can't be undone."
             aria-label="Delete transaction" :disabled="locked">{{ icon('trash') }}</button>
     {% endif %}
-    <button class="btn btn-primary btn-bar" type="submit" :disabled="locked">Save</button>
+    <button class="icon-btn save" type="submit" :disabled="locked" aria-label="Save" title="Save">{{ icon('save') }}</button>
   </div>
 
   {% if reconciled %}

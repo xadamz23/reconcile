@@ -98,6 +98,7 @@ button { cursor: pointer; }
 .icon-btn:hover { background: var(--paper-sunk); }
 .icon-btn[aria-pressed="true"] { background: var(--paper-sunk); }
 .icon-btn.danger { color: var(--red); }
+.icon-btn.save { color: var(--green); }
 .icon-btn:disabled { opacity: 0.35; cursor: default; background: none; }
 
 .btn {
@@ -326,7 +327,6 @@ button.mark:hover .icon { border-color: var(--green); }
   background: var(--paper); border-bottom: 1px solid var(--rule);
 }
 .panel-bar h2 { flex: 1; font-size: 1.125rem; font-weight: 650; }
-.btn-bar { min-height: 2.5rem; padding: 0 1.125rem; }
 
 .txn-form { display: flex; flex-direction: column; min-height: 100dvh; }
 .form-fields { display: grid; gap: 1.25rem; margin: 0; padding: 1.25rem var(--gutter) calc(1.5rem + var(--safe-b)); border: 0; min-width: 0; }
