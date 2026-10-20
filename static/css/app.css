@@ -455,7 +455,8 @@ button.mark:hover .icon { border-color: var(--green); }
     display: grid; grid-template-columns: minmax(0, 1fr) 26rem;
     max-width: 82rem; margin: 0 auto; min-height: 100dvh;
   }
-  .shell > main { min-width: 0; border-right: 1px solid var(--rule); }
+  /* The ledger lays itself out by its own width, not the window's (the panel takes 26rem). */
+  .shell > main { min-width: 0; border-right: 1px solid var(--rule); container: ledger / inline-size; }
   .shell > .reconcile { max-width: none; margin: 0; }
 
   .only-mobile { display: none; }
@@ -471,6 +472,39 @@ button.mark:hover .icon { border-color: var(--green); }
   .toggle-reconciled { margin-left: auto; }
   .filters-clear { display: inline-flex; }
 
+  .fab { display: none; }
+
+  .panel {
+    position: sticky; top: 0; inset: auto;
+    height: 100dvh; transform: none; visibility: visible;
+    background: var(--paper-raised);
+    transition: none;
+  }
+  .panel-open { overflow: auto; }
+  .panel-empty {
+    display: grid; gap: 1rem; justify-items: start; align-content: center;
+    min-height: 100dvh; padding: 2rem;
+    color: var(--ink-soft);
+  }
+  .panel-bar { padding-top: 0.75rem; background: var(--paper-raised); }
+  .txn-form { min-height: 100dvh; }
+
+  .rec-summary { grid-template-columns: 1fr 15rem; align-items: center; }
+  .rec-start { grid-template-columns: 1fr auto; align-items: end; }
+  .rec-start .rec-hint { grid-column: 1 / -1; }
+}
+
+/* Wide enough for the inputs and kinds on one line: the switch drops below the
+   inputs on the left edge and Clear sits on the right edge, under Balance. */
+@container ledger (min-width: 46.5rem) {
+  .filters, .filters.is-open { display: grid; grid-template-columns: auto auto 1fr; row-gap: 0.625rem; }
+  .toggle-reconciled { grid-column: 1; margin-left: 0; }
+  .filters-clear { grid-column: 2 / -1; justify-self: end; }
+}
+
+/* Columnar register once the columns fit with room left for Payee; below this the
+   desktop keeps the two-line rows. */
+@container ledger (min-width: 48rem) {
   /* Date, No., Payee, Payment, Deposit, Balance */
   .ledger-head, .txn { grid-template-columns: 7.5rem 4.5rem minmax(0, 1fr) 7.5rem 7.5rem 8.5rem; }
   .ledger-head {
@@ -507,35 +541,6 @@ button.mark:hover .icon { border-color: var(--green); }
   .txn-rec { grid-template-columns: 3.25rem 7.5rem 4.5rem minmax(0, 1fr) 8rem; padding-left: 0; }
   .txn-rec .txn-open { grid-column: 2 / -1; }
   .txn-rec .txn-amt { display: block; text-align: right; }
-
-  .fab { display: none; }
-
-  .panel {
-    position: sticky; top: 0; inset: auto;
-    height: 100dvh; transform: none; visibility: visible;
-    background: var(--paper-raised);
-    transition: none;
-  }
-  .panel-open { overflow: auto; }
-  .panel-empty {
-    display: grid; gap: 1rem; justify-items: start; align-content: center;
-    min-height: 100dvh; padding: 2rem;
-    color: var(--ink-soft);
-  }
-  .panel-bar { padding-top: 0.75rem; background: var(--paper-raised); }
-  .txn-form { min-height: 100dvh; }
-
-  .rec-summary { grid-template-columns: 1fr 15rem; align-items: center; }
-  .rec-start { grid-template-columns: 1fr auto; align-items: end; }
-  .rec-start .rec-hint { grid-column: 1 / -1; }
-}
-
-/* Wide enough for the inputs and kinds on one line: the switch drops below the
-   inputs on the left edge and Clear sits on the right edge, under Balance. */
-@media (min-width: 1160px) {
-  .filters, .filters.is-open { display: grid; grid-template-columns: auto auto 1fr; row-gap: 0.625rem; }
-  .toggle-reconciled { grid-column: 1; margin-left: 0; }
-  .filters-clear { grid-column: 2 / -1; justify-self: end; }
 }
 
 @media (prefers-reduced-motion: reduce) {
