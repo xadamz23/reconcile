@@ -530,6 +530,14 @@ button.mark:hover .icon { border-color: var(--green); }
   .rec-start .rec-hint { grid-column: 1 / -1; }
 }
 
+/* Wide enough for the inputs and kinds on one line: the switch drops below the
+   inputs on the left edge and Clear sits on the right edge, under Balance. */
+@media (min-width: 1160px) {
+  .filters, .filters.is-open { display: grid; grid-template-columns: auto auto 1fr; row-gap: 0.625rem; }
+  .toggle-reconciled { grid-column: 1; margin-left: 0; }
+  .filters-clear { grid-column: 2 / -1; justify-self: end; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
