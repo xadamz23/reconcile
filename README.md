@@ -37,33 +37,21 @@ The image is built on the dev machine (arm64) for amd64 and pushed to Docker Hub
 ### Release
 
 ```sh
-git tag v0.1.0 && git push origin v0.1.0
-scripts/release.sh
+scripts/deploy-reconcile-from-arm64.sh v0.1.0
 ```
 
-`release.sh` refuses to run with uncommitted changes, or if HEAD isn't exactly at a tag. It runs the tests, then pushes `:<tag>` and `:latest`.
+It tags HEAD and pushes the tag, builds `:<tag>` for amd64 and pushes it, then SSHes to the server as root and runs `/home/dockerapps/reconcile/update-app.sh <tag>`. It doesn't run the tests, so run `uv run pytest` first. Only `:<tag>` is pushed, not `:latest`.
 
 ### Prod server
 
-Put `compose.yaml` on the server with a `.env` next to it:
+`scripts/update-app.sh` lives on the server at `/home/dockerapps/reconcile/update-app.sh`. If the running container already has that tag, it does nothing. Otherwise it runs `docker compose down`, writes `docker-compose.yaml` pinned to the tag, and runs `docker compose up -d`. To roll back, run it with an older tag. If the Hub repo is private, run `docker login` on the server once.
 
-```sh
-TZ=America/Chicago
-RECONCILE_TAG=v0.1.0
-```
-
-Then deploy or update with:
-
-```sh
-docker compose pull && docker compose up -d
-```
-
-To roll back, set `RECONCILE_TAG` to an older tag and run the same command. If the Hub repo is private, run `docker login` on the server once.
+`compose.yaml` in the repo is a generic version of the same service that reads `RECONCILE_TAG`, `TZ` and `RECONCILE_PORT` from `.env`. The server doesn't use it.
 
 - The SQLite DB lives in the `reconcile-data` volume (`/data/reconcile.db` in the container). Back that up.
-- The app listens on `127.0.0.1:8000` only, for cloudflared on the same host. Change the port with `RECONCILE_PORT`.
+- On the server the app is published on port 8004 and joins the external `proxied_to_localhost` network.
 - The container runs read-only as uid 1000, with no capabilities and rotated logs.
-- `TZ` sets what "today" means (the default date and the Today divider). It defaults to UTC.
+- `TZ` sets what "today" means (the default date and the Today divider). The server uses `America/Chicago`.
 - The app has no auth of its own. It's meant to sit behind Cloudflare Zero Trust / Access. The manifest is requested with `crossorigin="use-credentials"` so PWA install works behind Access.
 
 ## Importing from the old register app

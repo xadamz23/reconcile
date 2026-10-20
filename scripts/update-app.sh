@@ -16,16 +16,8 @@ docker compose down
 echo "[INFO] updating tag in compose file to $tag"
 
 cat <<EOF > docker-compose.yaml
-# Production compose file. The image is built and pushed from the dev machine
-# (scripts/release.sh); the server only needs this file and a .env next to it:
-#
-#   TZ=America/Chicago
-#   RECONCILE_TAG=v0.1.0      # a git tag; defaults to latest
-#   RECONCILE_PORT=8000       # optional
-#
-# Deploy or update:
-#   docker compose pull && docker compose up -d
-# Roll back: set RECONCILE_TAG to an older tag and run the same command.
+# Written by update-app.sh, which deploy-reconcile-from-arm64.sh runs with the
+# release tag. Don't edit by hand: the next deploy overwrites it.
 
 services:
   reconcile:
@@ -37,8 +29,6 @@ services:
       # Sets what "today" means (default transaction date, the Today divider).
       TZ: America/Chicago
     ports:
-      # Bound to localhost only: Cloudflare (cloudflared on this host) is the way in.
-      # If cloudflared runs in another container, drop this and put both on a shared network.
       - "0.0.0.0:8004:8000"
     volumes:
       - reconcile-data:/data

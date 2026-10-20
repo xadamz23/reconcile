@@ -1,5 +1,6 @@
-# Production compose file. The image is built and pushed from the dev machine
-# (scripts/release.sh); the server only needs this file and a .env next to it:
+# Generic compose file, driven by a .env. The prod server doesn't use it:
+# scripts/update-app.sh writes its own docker-compose.yaml pinned to a tag.
+# To run it this way instead, put this file and a .env next to each other:
 #
 #   TZ=America/Chicago
 #   RECONCILE_TAG=v0.1.0      # a git tag; defaults to latest

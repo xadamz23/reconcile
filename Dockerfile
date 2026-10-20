@@ -1,4 +1,4 @@
-# Prod image (amd64). Built and pushed by scripts/release.sh; for a local build:
+# Prod image (amd64). Built and pushed by scripts/deploy-reconcile-from-arm64.sh; for a local build:
 #   docker buildx build --platform linux/amd64 -t reconcile:latest --load .
 FROM python:3.12-slim
 
