@@ -96,13 +96,17 @@
     setCents(e.target, centsFromDigits((m[1] || "") + (m[2] || "").padEnd(2, "0")));
   });
 
-  // Switching Payment/Deposit puts the cursor back in the amount, ready to keep typing.
-  document.addEventListener("change", (e) => {
-    if (!e.target.matches(".txn-form input[name=sign]")) return;
-    const amount = e.target.form.querySelector("input[data-cents]");
-    if (!amount || amount.disabled) return;
-    amount.focus();
-    amount.setSelectionRange(amount.value.length, amount.value.length);
+  // Clicking Payment/Deposit leaves focus where it was (usually the amount), so typing
+  // carries on. A label click would otherwise move focus to its hidden radio.
+  document.addEventListener("mousedown", (e) => {
+    if (e.target.closest(".sign-opt")) e.preventDefault();
+  });
+  document.addEventListener("click", (e) => {
+    const opt = e.target.closest(".sign-opt");
+    if (!opt || e.target.matches("input")) return; // Space on the radio itself clicks the input
+    e.preventDefault();
+    const radio = opt.querySelector("input");
+    if (!radio.matches(":disabled")) radio.checked = true;
   });
 
   // Payee combobox: suggests past payees only. Never fills in the amount.
