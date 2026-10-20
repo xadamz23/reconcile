@@ -7,7 +7,8 @@ from datetime import date as Date
 
 
 OPENING_PAYEE = "Opening balance"
-KINDS = ("all", "payments", "deposits", "unverified")
+KINDS = ("all", "payments", "deposits")
+DRAFT_DATE, DRAFT_BALANCE = "rec_end_date", "rec_balance_cents"
 
 
 def _like_contains(text: str) -> str:
@@ -86,17 +87,15 @@ def create_txn(conn: sqlite3.Connection, t: TxnInput) -> int:
 
 
 def update_txn(conn: sqlite3.Connection, txn_id: int, t: TxnInput) -> None:
-    # Reconciled items stay reconciled; the verified checkbox only applies to the others.
+    # Status is left alone: only the reconcile tick and finish_statement change it.
     conn.execute(
         """
         UPDATE transactions
            SET date = ?, payee = ?, amount_cents = ?, number = ?, note = ?,
-               status = CASE WHEN status = 'reconciled' THEN status ELSE ? END,
                updated_at = datetime('now')
          WHERE id = ?
         """,
-        (t.date, t.payee, t.amount_cents, t.number, t.note,
-         "verified" if t.verified else "unverified", txn_id),
+        (t.date, t.payee, t.amount_cents, t.number, t.note, txn_id),
     )
 
 
@@ -124,16 +123,9 @@ def toggle_verified(conn: sqlite3.Connection, txn_id: int) -> str | None:
     return row["status"] if row else None
 
 
-def totals(conn: sqlite3.Connection) -> tuple[int, int]:
-    """(balance, verified balance) in cents. Balance includes future-dated items."""
-    row = conn.execute(
-        """
-        SELECT COALESCE(SUM(amount_cents), 0) AS balance,
-               COALESCE(SUM(CASE WHEN status != 'unverified' THEN amount_cents END), 0) AS verified
-          FROM transactions
-        """
-    ).fetchone()
-    return row["balance"], row["verified"]
+def balance(conn: sqlite3.Connection) -> int:
+    """Balance in cents, future-dated items included."""
+    return conn.execute("SELECT COALESCE(SUM(amount_cents), 0) FROM transactions").fetchone()[0]
 
 
 _PARTIAL_AMOUNT_RE = re.compile(r"^(\d*)(?:\.(\d{0,2}))?$")
@@ -184,9 +176,7 @@ def list_txns(
         where.append("amount_cents < 0")
     elif kind == "deposits":
         where.append("amount_cents > 0")
-    elif kind == "unverified":
-        where.append("status = 'unverified'")
-    if not show_reconciled and kind != "unverified":
+    if not show_reconciled:
         where.append("status != 'reconciled'")
     if q := clean_text(q):
         where.append("payee LIKE ? ESCAPE '\\'")
@@ -210,19 +200,6 @@ def list_txns(
         sql += " WHERE " + " AND ".join(where)
     sql += " ORDER BY date DESC, id DESC"
     return conn.execute(sql, params).fetchall()
-
-
-def get_txn_with_running(conn: sqlite3.Connection, txn_id: int) -> sqlite3.Row | None:
-    return conn.execute(
-        """
-        WITH ledger AS (
-            SELECT *, SUM(amount_cents) OVER (ORDER BY date, id) AS running_cents
-              FROM transactions
-        )
-        SELECT * FROM ledger WHERE id = ?
-        """,
-        (txn_id,),
-    ).fetchone()
 
 
 def suggest_payees(conn: sqlite3.Connection, q: str | None, limit: int = 8) -> list[str]:
@@ -268,6 +245,37 @@ class ReconcileState:
         return self.difference_cents == 0
 
 
+def get_draft(conn: sqlite3.Connection) -> tuple[str, int] | None:
+    """The in-progress reconcile as (end_date, statement cents), or None."""
+    end_date = get_setting(conn, DRAFT_DATE)
+    cents = get_setting(conn, DRAFT_BALANCE)
+    if end_date is None or cents is None:
+        return None
+    return end_date, int(cents)
+
+
+def save_draft(conn: sqlite3.Connection, end_date: str, statement_cents: int) -> None:
+    Date.fromisoformat(end_date)
+    with conn:
+        conn.execute("BEGIN")
+        set_setting(conn, DRAFT_DATE, end_date)
+        set_setting(conn, DRAFT_BALANCE, str(statement_cents))
+
+
+def _clear_draft(conn: sqlite3.Connection) -> None:
+    conn.execute("DELETE FROM settings WHERE key IN (?, ?)", (DRAFT_DATE, DRAFT_BALANCE))
+
+
+def discard_draft(conn: sqlite3.Connection) -> None:
+    """Abandon the in-progress reconcile and untick everything ticked on it."""
+    with conn:
+        conn.execute("BEGIN")
+        _clear_draft(conn)
+        conn.execute(
+            "UPDATE transactions SET status = 'unverified', updated_at = datetime('now') WHERE status = 'verified'"
+        )
+
+
 def reconcile_state(conn: sqlite3.Connection, end_date: str, statement_cents: int) -> ReconcileState:
     Date.fromisoformat(end_date)
     cleared = conn.execute(
@@ -278,7 +286,7 @@ def reconcile_state(conn: sqlite3.Connection, end_date: str, statement_cents: in
         (end_date,),
     ).fetchone()[0]
     candidates = conn.execute(
-        "SELECT * FROM transactions WHERE status != 'reconciled' AND date <= ? ORDER BY date DESC, id DESC",
+        "SELECT * FROM transactions WHERE status != 'reconciled' AND date <= ? ORDER BY date, id",
         (end_date,),
     ).fetchall()
     return ReconcileState(end_date, statement_cents, cleared, candidates)
@@ -298,6 +306,7 @@ def finish_statement(conn: sqlite3.Connection, end_date: str, statement_cents: i
             "WHERE status = 'verified' AND date <= ?",
             (sid, end_date),
         )
+        _clear_draft(conn)
     return sid
 
 

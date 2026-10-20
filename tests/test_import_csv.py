@@ -58,7 +58,7 @@ def test_apply_imports_and_projects_totals(tmp_path, db_path):
     assert plan.balance_after == 69529 + 2500 - 7000 - 2422
     assert plan.verified_after == 69529 - 2422
     conn = db.connect(db_path)
-    assert repo.totals(conn) == (plan.balance_after, plan.verified_after)
+    assert repo.balance(conn) == plan.balance_after
     [t] = repo.list_txns(conn, q="Cleaning")
     assert (t["payee"], t["number"], t["status"]) == ("Cleaning Lady", "2270", "unverified")
 

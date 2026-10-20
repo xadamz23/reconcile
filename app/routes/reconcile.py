@@ -1,37 +1,31 @@
 import sqlite3
 from datetime import date
-from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import RedirectResponse
 
 from app import repo
-from app.money import parse_cents
-from app.routes.deps import get_conn, render
+from app.money import parse_cents, plain_amount
+from app.routes.deps import get_conn, is_htmx, render
 
 router = APIRouter()
 
 
-def _state(conn, end_date: str, balance: str) -> repo.ReconcileState | None:
-    try:
-        return repo.reconcile_state(conn, end_date, parse_cents(balance))
-    except ValueError:
-        return None
+def _state(conn) -> repo.ReconcileState | None:
+    draft = repo.get_draft(conn)
+    return repo.reconcile_state(conn, *draft) if draft else None
 
 
-@router.get("/reconcile")
-def reconcile(
-    request: Request,
-    end_date: str = "",
-    balance: str = "",
-    done: int | None = None,
-    conn: sqlite3.Connection = Depends(get_conn),
-):
-    state = _state(conn, end_date, balance) if end_date and balance else None
-    error = "Enter the statement's closing date and ending balance." if (end_date or balance) and not state else None
+def _page(request: Request, conn, form: dict | None = None, error: str | None = None, done: int | None = None):
+    state = _state(conn)
+    if form is None and state:
+        sign = "-" if state.statement_cents < 0 else ""
+        form = {"end_date": state.end_date, "balance": sign + plain_amount(state.statement_cents)}
+    elif form is None:
+        form = {"end_date": date.today().isoformat(), "balance": ""}
     return render(request, "reconcile.html", {
         "state": state,
-        "form": {"end_date": end_date or date.today().isoformat(), "balance": balance},
+        "form": form,
         "error": error,
         "done": done,
         "last": repo.last_statement(conn),
@@ -40,35 +34,51 @@ def reconcile(
     })
 
 
-@router.post("/reconcile/{txn_id}/toggle")
-def reconcile_toggle(
+@router.get("/reconcile")
+def reconcile(request: Request, done: int | None = None, conn: sqlite3.Connection = Depends(get_conn)):
+    if is_htmx(request) and request.headers.get("HX-Target") == "rec-body":
+        return render(request, "_reconcile_body.html", {"state": _state(conn)})
+    return _page(request, conn, done=done)
+
+
+@router.post("/reconcile/start")
+def reconcile_start(
     request: Request,
-    txn_id: int,
-    end_date: str = Form(...),
-    balance: str = Form(...),
-    conn: sqlite3.Connection = Depends(get_conn),
-):
-    if repo.get_txn(conn, txn_id) is None:
-        raise HTTPException(404)
-    repo.toggle_verified(conn, txn_id)
-    state = _state(conn, end_date, balance)
-    if state is None:
-        raise HTTPException(400)
-    return render(request, "_reconcile_toggled.html", {
-        "row": repo.get_txn(conn, txn_id),
-        "state": state,
-        "form": {"end_date": end_date, "balance": balance},
-    })
-
-
-@router.post("/reconcile/finish")
-def reconcile_finish(
-    end_date: str = Form(...),
-    balance: str = Form(...),
+    end_date: str = Form(""),
+    balance: str = Form(""),
     conn: sqlite3.Connection = Depends(get_conn),
 ):
     try:
-        sid = repo.finish_statement(conn, end_date, parse_cents(balance))
+        repo.save_draft(conn, end_date, parse_cents(balance))
     except ValueError:
-        return RedirectResponse("/reconcile?" + urlencode({"end_date": end_date, "balance": balance}), status_code=303)
+        error = "Enter the statement's closing date and ending balance."
+        return _page(request, conn, form={"end_date": end_date, "balance": balance}, error=error)
+    return RedirectResponse("/reconcile", status_code=303)
+
+
+@router.post("/reconcile/discard")
+def reconcile_discard(conn: sqlite3.Connection = Depends(get_conn)):
+    repo.discard_draft(conn)
+    return RedirectResponse("/reconcile", status_code=303)
+
+
+@router.post("/reconcile/{txn_id}/toggle")
+def reconcile_toggle(request: Request, txn_id: int, conn: sqlite3.Connection = Depends(get_conn)):
+    if repo.get_txn(conn, txn_id) is None:
+        raise HTTPException(404)
+    if repo.get_draft(conn) is None:
+        raise HTTPException(400, "No reconcile in progress")
+    repo.toggle_verified(conn, txn_id)
+    return render(request, "_reconcile_toggled.html", {"row": repo.get_txn(conn, txn_id), "state": _state(conn)})
+
+
+@router.post("/reconcile/finish")
+def reconcile_finish(conn: sqlite3.Connection = Depends(get_conn)):
+    draft = repo.get_draft(conn)
+    if draft is None:
+        return RedirectResponse("/reconcile", status_code=303)
+    try:
+        sid = repo.finish_statement(conn, *draft)
+    except ValueError:
+        return RedirectResponse("/reconcile", status_code=303)
     return RedirectResponse(f"/reconcile?done={sid}", status_code=303)

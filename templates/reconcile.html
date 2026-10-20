@@ -3,59 +3,69 @@
 {% block title %}Reconcile statement{% endblock %}
 {% block body_class %}page-reconcile{% endblock %}
 {% block body %}
-<main class="reconcile">
-  <header class="masthead masthead-plain">
-    <div class="masthead-bar">
-      <a class="icon-btn" href="/" aria-label="Back to register">{{ icon('back') }}</a>
-      <h1 class="account">Reconcile statement</h1>
-    </div>
-  </header>
+<div class="{{ 'shell' if state else 'solo' }}">
+  <main class="reconcile">
+    <header class="masthead masthead-plain">
+      <div class="masthead-bar">
+        <a class="icon-btn" href="/" aria-label="Back to register">{{ icon('back') }}</a>
+        <h1 class="account">Reconcile statement</h1>
+      </div>
+    </header>
 
-  {% if done %}
-  <p class="banner banner-ok" role="status">{{ icon('check') }}Statement reconciled. Its items are now locked and hidden from the register.</p>
-  {% endif %}
+    {% if done %}
+    <p class="banner banner-ok" role="status">{{ icon('check') }}Statement reconciled. Its items are now locked and hidden from the register.</p>
+    {% endif %}
 
-  <form class="rec-start" method="get" action="/reconcile">
-    <p class="rec-hint">
-      {% if last %}Last reconciled through {{ last.end_date | pretty_date }} at {{ last.ending_balance_cents | money }}.
-      {% else %}Enter the closing date and ending balance from your bank statement.{% endif %}
-    </p>
-    <div class="field-row">
-      <label class="field">
-        <span class="field-label">Statement closing date</span>
-        <input type="date" name="end_date" value="{{ form.end_date }}" required>
-      </label>
-      <label class="field">
-        <span class="field-label">Ending balance</span>
-        <span class="amount-input"><span class="dollar" aria-hidden="true">$</span>
-          <input name="balance" value="{{ form.balance }}" inputmode="decimal" placeholder="0.00" required></span>
-      </label>
+    <form class="rec-start" method="post" action="/reconcile/start">
+      <p class="rec-hint">
+        {% if last %}Last reconciled through {{ last.end_date | pretty_date }} at {{ last.ending_balance_cents | money }}.
+        {% else %}Enter the closing date and ending balance from your bank statement.{% endif %}
+      </p>
+      <div class="field-row">
+        <label class="field">
+          <span class="field-label">Statement closing date</span>
+          <input type="date" name="end_date" value="{{ form.end_date }}" required>
+        </label>
+        <label class="field">
+          <span class="field-label">Ending balance</span>
+          <span class="amount-input"><span class="dollar" aria-hidden="true">$</span>
+            <input name="balance" value="{{ form.balance }}" inputmode="decimal" placeholder="0.00" required></span>
+        </label>
+      </div>
+      {% if error %}<p class="field-error" role="alert">{{ error }}</p>{% endif %}
+      <div class="rec-actions">
+        <button class="btn {{ 'btn-quiet' if state else 'btn-primary' }}" type="submit">{{ 'Update' if state else 'Start reconciling' }}</button>
+        {% if state %}
+        <button class="btn btn-quiet btn-danger" type="submit" form="rec-discard">Discard</button>
+        {% endif %}
+      </div>
+    </form>
+
+    {% if state %}
+    <form id="rec-discard" method="post" action="/reconcile/discard"
+          onsubmit="return confirm('Discard this reconcile? Every item ticked on it will be unticked.')"></form>
+    <div id="rec-body" hx-get="/reconcile" hx-trigger="ledger-changed from:body" hx-target="this">
+      {% include "_reconcile_body.html" %}
     </div>
-    {% if error %}<p class="field-error" role="alert">{{ error }}</p>{% endif %}
-    <button class="btn {{ 'btn-quiet' if state else 'btn-primary' }}" type="submit">{{ 'Update' if state else 'Start reconciling' }}</button>
-  </form>
+    {% endif %}
+
+    {% if statements %}
+    <section class="history" aria-labelledby="history-h">
+      <h2 id="history-h">Reconciled statements</h2>
+      <ul>
+        {% for s in statements %}
+        <li><span>{{ s.end_date | pretty_date }}</span><span class="history-items">{{ s.item_count }} item{{ 's' if s.item_count != 1 }}</span><span class="num">{{ s.ending_balance_cents | money }}</span></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </main>
 
   {% if state %}
-    {% include "_reconcile_summary.html" %}
-    <section class="ledger rec-list" aria-label="Items on or before {{ state.end_date | pretty_date }}">
-      {% if state.candidates %}
-      <p class="rec-hint">Tick every item that appears on the statement.</p>
-      {% for row in state.candidates %}{% include "_rec_row.html" %}{% endfor %}
-      {% else %}
-      <p class="ledger-note">No open items on or before {{ state.end_date | pretty_date }}.</p>
-      {% endif %}
-    </section>
+  {% with new_url = "/txn/new?" ~ {"date": state.end_date, "verified": 1} | urlencode,
+          panel_text = "Tap an item to fix it, or add one that's on the statement but missing here." %}
+  {% include "_panel.html" %}
+  {% endwith %}
   {% endif %}
-
-  {% if statements %}
-  <section class="history" aria-labelledby="history-h">
-    <h2 id="history-h">Reconciled statements</h2>
-    <ul>
-      {% for s in statements %}
-      <li><span>{{ s.end_date | pretty_date }}</span><span class="history-items">{{ s.item_count }} item{{ 's' if s.item_count != 1 }}</span><span class="num">{{ s.ending_balance_cents | money }}</span></li>
-      {% endfor %}
-    </ul>
-  </section>
-  {% endif %}
-</main>
+</div>
 {% endblock %}

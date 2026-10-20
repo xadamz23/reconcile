@@ -3,8 +3,13 @@
     <dt>Balance</dt>
     <dd class="{{ 'neg' if balance < 0 }}">{{ balance | money }}</dd>
   </div>
-  <div class="total total-verified">
-    <dt>Verified</dt>
-    <dd class="{{ 'neg' if verified < 0 }}">{{ verified | money }}</dd>
+  <div class="total total-last">
+    {% if last %}
+    <dt>Reconciled through {{ last.end_date | pretty_date }}</dt>
+    <dd class="{{ 'neg' if last.ending_balance_cents < 0 }}">{{ last.ending_balance_cents | money }}</dd>
+    {% else %}
+    <dt>Reconciled</dt>
+    <dd>Not yet</dd>
+    {% endif %}
   </div>
 </dl>

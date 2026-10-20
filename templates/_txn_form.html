@@ -69,13 +69,8 @@
       <textarea name="note" rows="2" placeholder="Optional">{{ form.note }}</textarea>
     </label>
 
-    {% if not reconciled %}
-    <label class="verify-toggle">
-      <input type="checkbox" name="verified" value="1" {{ 'checked' if form.verified }}>
-      <span class="mark" aria-hidden="true">{{ icon('check') }}</span>
-      <span>Verified with the bank</span>
-    </label>
-    {% else %}
+    {% if form.verified %}
+    {# Added from the reconcile screen: it's on the statement, so it starts ticked. #}
     <input type="hidden" name="verified" value="1">
     {% endif %}
   </fieldset>

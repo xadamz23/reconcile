@@ -1,0 +1,13 @@
+{# Transaction form panel (side panel on desktop, sheet on mobile) and the FAB.
+   Expects new_url (where "New transaction" loads the form from) and panel_text. #}
+{% from "_icons.html" import icon %}
+<aside id="panel" class="panel" aria-label="Transaction" aria-hidden="true">
+  <div id="panel-body" class="panel-body">
+    <div class="panel-empty">
+      <p>{{ panel_text }}</p>
+      <button class="btn btn-primary" type="button" hx-get="{{ new_url }}" hx-target="#panel-body">{{ icon('plus') }}New transaction</button>
+    </div>
+  </div>
+</aside>
+
+<button class="fab" type="button" hx-get="{{ new_url }}" hx-target="#panel-body" aria-label="New transaction" title="New transaction (n)">{{ icon('plus') }}</button>

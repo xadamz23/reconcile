@@ -14,7 +14,7 @@
           <div class="menu" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
             <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
             <div class="menu-pop" role="menu" x-show="open" x-transition.origin.top.right x-cloak>
-              <a role="menuitem" href="/reconcile">{{ icon('scale') }}Reconcile a statement</a>
+              <a role="menuitem" href="/reconcile">{{ icon('scale') }}{{ 'Continue reconciling' if reconciling else 'Reconcile a statement' }}</a>
               <a role="menuitem" href="/export.csv" download>{{ icon('download') }}Export CSV</a>
             </div>
           </div>
@@ -40,7 +40,7 @@
       </div>
       <fieldset class="kinds">
         <legend class="visually-hidden">Show</legend>
-        {% for value, label in [('all', 'All'), ('payments', 'Payments'), ('deposits', 'Deposits'), ('unverified', 'Unverified')] %}
+        {% for value, label in [('all', 'All'), ('payments', 'Payments'), ('deposits', 'Deposits')] %}
         <label class="kind"><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if filters.kind == value }}><span>{{ label }}</span></label>
         {% endfor %}
       </fieldset>
@@ -51,7 +51,7 @@
     </form>
 
     <div class="ledger-head" aria-hidden="true">
-      <span></span><span>Date</span><span>No.</span><span>Payee</span>
+      <span>Date</span><span>No.</span><span>Payee</span>
       <span class="num">Payment</span><span class="num">Deposit</span><span class="num">Balance</span>
     </div>
     <section id="ledger" class="ledger" aria-label="Transactions"
@@ -60,15 +60,8 @@
     </section>
   </main>
 
-  <aside id="panel" class="panel" aria-label="Transaction" aria-hidden="true">
-    <div id="panel-body" class="panel-body">
-      <div class="panel-empty">
-        <p>Select a transaction to edit it, or add a new one.</p>
-        <button class="btn btn-primary" type="button" hx-get="/txn/new" hx-target="#panel-body">{{ icon('plus') }}New transaction</button>
-      </div>
-    </div>
-  </aside>
-
-  <button class="fab" type="button" hx-get="/txn/new" hx-target="#panel-body" aria-label="New transaction" title="New transaction (n)">{{ icon('plus') }}</button>
+  {% with new_url = "/txn/new", panel_text = "Select a transaction to edit it, or add a new one." %}
+  {% include "_panel.html" %}
+  {% endwith %}
 </div>
 {% endblock %}

@@ -16,15 +16,16 @@ Single-user check register PWA. FastAPI + Jinja2 + htmx + Alpine.js + SQLite (st
 - `app/db.py`: migrations are an append-only list keyed by `PRAGMA user_version`. Add a new entry and never edit an old one.
 - `app/assets.py`: hashes every file in `static/` at startup. Templates must reference assets via `static_url('path')`, which yields `?v=<hash>` URLs that are served `immutable`.
 - `app/routes/`: one router per area. `deps.render()` injects `today`.
-- `templates/_*.html` are htmx partials. `templates/sw.js` is the service worker, rendered by `routes/pwa.py`.
+- `templates/_*.html` are htmx partials. `_panel.html` (form panel + FAB) is shared by the register and reconcile pages. `templates/sw.js` is the service worker, rendered by `routes/pwa.py`.
 
 ## Gotchas
 
 - Asset hashes are computed at startup. Without the `--reload-include` flags (which need `watchfiles`, a dev dep), CSS/JS edits keep their old hash and the browser serves the old immutable copy.
 - htmx `attributesToSettle` is set to `[]` in `base.html`. The default settle step copies `class`/`style` between same-id elements and breaks Alpine's `x-show`.
-- After a save, routes return `HX-Reswap: none` plus `HX-Trigger: ledger-changed, panel-close`. `#ledger` refetches itself on `ledger-changed`. htmx still fires `afterSwap` on these responses, so `app.js` opens the panel only on GET.
+- After a save, routes return `HX-Reswap: none` plus `HX-Trigger: ledger-changed, panel-close`. `#ledger` (register) and `#rec-body` (reconcile) refetch themselves on `ledger-changed`. htmx still fires `afterSwap` on these responses, so `app.js` opens the panel only on GET.
 - Running balance is a window function over the **whole** ledger, applied before filters, so filtered rows still show true balances.
-- Statuses are `unverified` → `verified` → `reconciled`. Toggling never touches `reconciled`. `update_txn` keeps `reconciled` as is. The opening balance (`is_opening=1`) is reconciled and can't be deleted.
+- Statuses are `unverified` → `verified` → `reconciled`. `verified` only means "ticked on the in-progress reconcile": there is no verify control in the register or the form. Only the reconcile tick, `finish_statement` and `discard_draft` change status; `update_txn` never does. A new transaction added from the reconcile screen (`/txn/new?date=…&verified=1`) starts ticked. The opening balance (`is_opening=1`) is reconciled and can't be deleted.
+- The in-progress reconcile (closing date + statement balance) is a draft in `settings` (`rec_end_date`, `rec_balance_cents`). Reconcile routes read it instead of taking form fields. Finishing clears it; discarding clears it and unticks every `verified` item.
 - Cleared balance for reconciling = all reconciled + verified items dated on or before the statement's closing date.
 - CSRF: middleware in `app/main.py` rejects any non-GET request that a browser marks as cross-site (`Sec-Fetch-Site`, falling back to `Origin` vs `Host`). Auth is only Cloudflare Access, so this is the one thing stopping other sites from posting forms. Requests with neither header (curl, TestClient) are allowed.
 - `scripts/import_register_csv.py` is stdlib-only (it runs on the prod host, not in the venv) and writes SQL directly, against `SCHEMA_VERSION`. Bump that constant and re-check its INSERT when adding a migration.

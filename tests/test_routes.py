@@ -65,10 +65,19 @@ def test_edit_form_and_update(ready):
     tid = repo.list_txns(conn_of(ready), q="Goodwill")[0]["id"]
     r = ready.get(f"/txn/{tid}/edit", headers=HX)
     assert 'value="8.00"' in r.text and ">Save</button>" in r.text
-    ready.post(f"/txn/{tid}", data={"sign": "-", "amount": "9", "payee": "Goodwill", "date": "2026-10-17",
-                                    "verified": "1"}, headers=HX)
+    assert 'name="verified"' not in r.text
+    ready.post(f"/txn/{tid}", data={"sign": "-", "amount": "9", "payee": "Goodwill", "date": "2026-10-17"},
+               headers=HX)
     t = repo.get_txn(conn_of(ready), tid)
-    assert t["amount_cents"] == -900 and t["status"] == "verified"
+    assert t["amount_cents"] == -900 and t["status"] == "unverified"
+
+
+def test_new_from_reconcile_is_dated_and_ticked(ready):
+    r = ready.get("/txn/new?date=2026-10-31&verified=1", headers=HX)
+    assert 'value="2026-10-31"' in r.text and 'name="verified" value="1"' in r.text
+    ready.post("/txn", data={"sign": "-", "amount": "5", "payee": "Bank fee", "date": "2026-10-31",
+                             "verified": "1"}, headers=HX)
+    assert repo.list_txns(conn_of(ready), q="Bank fee")[0]["status"] == "verified"
 
 
 def test_reconciled_edit_shows_lock(ready):
@@ -85,13 +94,11 @@ def test_delete(ready):
     assert repo.get_txn(conn_of(ready), tid) is None
 
 
-def test_toggle_returns_row_and_oob_totals(ready):
+def test_register_has_no_verify_controls(ready):
     ready.post("/txn", data={"sign": "-", "amount": "8", "payee": "Goodwill", "date": "2026-10-17"}, headers=HX)
-    tid = repo.list_txns(conn_of(ready), q="Goodwill")[0]["id"]
-    r = ready.post(f"/txn/{tid}/toggle", headers=HX)
-    assert f'id="txn-{tid}"' in r.text and "is-verified" in r.text
-    assert 'id="totals"' in r.text and 'hx-swap-oob="true"' in r.text
-    assert "$992.00" in r.text
+    r = ready.get("/")
+    assert "/toggle" not in r.text and "Unverified" not in r.text
+    assert "Reconciled" in r.text and "Not yet" in r.text
 
 
 def test_ledger_partial_filters(ready):
@@ -114,20 +121,54 @@ def test_payees_endpoint(ready):
 def test_reconcile_flow(ready):
     ready.post("/txn", data={"sign": "-", "amount": "100", "payee": "Rent", "date": "2026-10-05"}, headers=HX)
     tid = repo.list_txns(conn_of(ready), q="Rent")[0]["id"]
-    r = ready.get("/reconcile?end_date=2026-10-31&balance=900")
-    assert "Rent" in r.text and "Difference must be $0.00" in r.text
-    r = ready.post(f"/reconcile/{tid}/toggle", data={"end_date": "2026-10-31", "balance": "900"}, headers=HX)
+    r = ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "900"}, follow_redirects=False)
+    assert r.status_code == 303
+    r = ready.get("/reconcile")
+    assert "Rent" in r.text and "Difference must be $0.00" in r.text and 'value="900.00"' in r.text
+    assert "Continue reconciling" in ready.get("/").text
+    r = ready.post(f"/reconcile/{tid}/toggle", headers=HX)
     assert "is-balanced" in r.text and "Finish statement" in r.text
-    r = ready.post("/reconcile/finish", data={"end_date": "2026-10-31", "balance": "900"}, follow_redirects=False)
+    r = ready.post("/reconcile/finish", follow_redirects=False)
     assert r.status_code == 303 and "done=" in r.headers["location"]
     assert repo.get_txn(conn_of(ready), tid)["status"] == "reconciled"
+    assert repo.get_draft(conn_of(ready)) is None
     assert "Statement reconciled" in ready.get(r.headers["location"]).text
+    assert "Reconciled through Oct 31, 2026" in ready.get("/").text
 
 
-def test_reconcile_finish_unbalanced_redirects_back(ready):
-    r = ready.post("/reconcile/finish", data={"end_date": "2026-10-31", "balance": "5"}, follow_redirects=False)
-    assert r.status_code == 303 and "balance=5" in r.headers["location"]
+def test_reconcile_start_validation(ready):
+    r = ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "lots"})
+    assert r.status_code == 200 and "ending balance" in r.text
+    assert repo.get_draft(conn_of(ready)) is None
+
+
+def test_reconcile_body_partial(ready):
+    ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "900"})
+    r = ready.get("/reconcile", headers={**HX, "HX-Target": "rec-body"})
+    assert 'id="rec-summary"' in r.text and "<html" not in r.text
+
+
+def test_reconcile_finish_unbalanced_stays(ready):
+    ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "5"})
+    r = ready.post("/reconcile/finish", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/reconcile"
     assert repo.list_statements(conn_of(ready)) == []
+
+
+def test_reconcile_toggle_needs_draft(ready):
+    opening = repo.list_txns(conn_of(ready), show_reconciled=True)[-1]
+    assert ready.post(f"/reconcile/{opening['id']}/toggle", headers=HX).status_code == 400
+
+
+def test_reconcile_discard(ready):
+    ready.post("/txn", data={"sign": "-", "amount": "100", "payee": "Rent", "date": "2026-10-05"}, headers=HX)
+    tid = repo.list_txns(conn_of(ready), q="Rent")[0]["id"]
+    ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "900"})
+    ready.post(f"/reconcile/{tid}/toggle", headers=HX)
+    r = ready.post("/reconcile/discard", follow_redirects=False)
+    assert r.status_code == 303
+    assert repo.get_draft(conn_of(ready)) is None
+    assert repo.get_txn(conn_of(ready), tid)["status"] == "unverified"
 
 
 def test_export_csv(ready):

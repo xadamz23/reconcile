@@ -1,13 +1,12 @@
 {% from "_icons.html" import icon %}
 <article id="rec-{{ row.id }}" class="txn txn-rec is-{{ row.status }}">
   <button class="mark" type="button" hx-post="/reconcile/{{ row.id }}/toggle" hx-target="#rec-{{ row.id }}" hx-swap="outerHTML"
-          hx-vals='{{ {"end_date": form.end_date, "balance": form.balance} | tojson }}'
           aria-pressed="{{ 'true' if row.status == 'verified' else 'false' }}"
           aria-label="{{ 'On statement' if row.status == 'verified' else 'Mark on statement' }}: {{ row.payee }}">{{ icon('check') }}</button>
-  <div class="txn-open">
+  <button class="txn-open" type="button" hx-get="/txn/{{ row.id }}/edit" hx-target="#panel-body">
     <span class="txn-date">{{ row.date | pretty_date }}</span>
     <span class="txn-no">{% if row.number %}#{{ row.number }}{% endif %}</span>
     <span class="txn-payee">{{ row.payee }}</span>
     <span class="txn-amt num {{ 'pay' if row.amount_cents < 0 else 'dep' }}">{{ ('−' if row.amount_cents < 0 else '+') }}{{ row.amount_cents | money(signed=false) }}</span>
-  </div>
+  </button>
 </article>

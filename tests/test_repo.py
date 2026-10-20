@@ -45,10 +45,8 @@ def test_blank_payee_rejected(conn):
         add(conn, "2026-10-05", "   ", -800)
 
 
-def test_totals(ledger):
-    balance, verified = repo.totals(ledger)
-    assert balance == 100000 + 200000 - 4531 - 999
-    assert verified == 100000 + 200000
+def test_balance(ledger):
+    assert repo.balance(ledger) == 100000 + 200000 - 4531 - 999
 
 
 def test_list_newest_first_with_full_ledger_running_balance(ledger):
@@ -75,7 +73,6 @@ def test_same_date_orders_by_id(conn):
         ("all", {"SiriusXM", "Fozzys", "Paycheck"}),
         ("payments", {"SiriusXM", "Fozzys"}),
         ("deposits", {"Paycheck"}),
-        ("unverified", {"SiriusXM", "Fozzys"}),
     ],
 )
 def test_kind_filter(ledger, kind, expected):
@@ -169,7 +166,8 @@ def test_update_and_delete(ledger):
         ledger, row["id"], TxnInput(date="2026-10-11", payee="Sirius XM ", amount_cents=-1099, verified=True)
     )
     t = repo.get_txn(ledger, row["id"])
-    assert (t["payee"], t["amount_cents"], t["status"]) == ("Sirius XM", -1099, "verified")
+    # Editing never changes status; only reconcile ticks do.
+    assert (t["payee"], t["amount_cents"], t["status"]) == ("Sirius XM", -1099, "unverified")
     repo.delete_txn(ledger, row["id"])
     assert repo.get_txn(ledger, row["id"]) is None
 
@@ -196,8 +194,8 @@ def test_suggest_payees_excludes_opening(ledger):
 
 def test_reconcile_state(ledger):
     state = repo.reconcile_state(ledger, "2026-10-06", 295469)
-    # Candidates: non-reconciled items dated on/before end date.
-    assert {r["payee"] for r in state.candidates} == {"Fozzys", "Paycheck"}
+    # Candidates: non-reconciled items dated on/before end date, oldest first.
+    assert [r["payee"] for r in state.candidates] == ["Paycheck", "Fozzys"]
     # Cleared: reconciled opening + verified paycheck.
     assert state.cleared_cents == 300000
     assert state.difference_cents == 295469 - 300000
@@ -229,3 +227,23 @@ def test_verified_after_end_date_not_cleared(ledger):
     [s] = repo.list_txns(ledger, q="Sirius")
     repo.toggle_verified(ledger, s["id"])
     assert repo.reconcile_state(ledger, "2026-10-06", 0).cleared_cents == 300000
+
+
+def test_draft_round_trip_and_finish_clears_it(ledger):
+    assert repo.get_draft(ledger) is None
+    repo.save_draft(ledger, "2026-10-06", 295469)
+    assert repo.get_draft(ledger) == ("2026-10-06", 295469)
+    fozzys = repo.list_txns(ledger, q="Fozzys")[0]
+    repo.toggle_verified(ledger, fozzys["id"])
+    repo.finish_statement(ledger, "2026-10-06", 295469)
+    assert repo.get_draft(ledger) is None
+
+
+def test_discard_draft_unticks(ledger):
+    repo.save_draft(ledger, "2026-10-06", 1)
+    fozzys = repo.list_txns(ledger, q="Fozzys")[0]
+    repo.toggle_verified(ledger, fozzys["id"])
+    repo.discard_draft(ledger)
+    assert repo.get_draft(ledger) is None
+    assert repo.get_txn(ledger, fozzys["id"])["status"] == "unverified"
+    assert repo.list_txns(ledger, show_reconciled=True)[-1]["status"] == "reconciled"  # opening untouched

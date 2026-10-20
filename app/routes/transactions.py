@@ -2,7 +2,7 @@ import json
 import sqlite3
 from datetime import date
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
 
 from app import repo
@@ -26,7 +26,6 @@ def _form_from_txn(t: sqlite3.Row) -> dict:
         "date": t["date"],
         "number": t["number"] or "",
         "note": t["note"] or "",
-        "verified": t["status"] != "unverified",
     }
 
 
@@ -63,9 +62,14 @@ def _require(conn, txn_id: int) -> sqlite3.Row:
 
 
 @router.get("/txn/new")
-def new_txn(request: Request):
-    form = {"sign": "-", "amount": "", "payee": "", "date": date.today().isoformat(),
-            "number": "", "note": "", "verified": False}
+def new_txn(request: Request, on_date: str = Query("", alias="date"), verified: bool = False):
+    """verified=1 and date come from the reconcile screen: the item is on the statement."""
+    try:
+        on_date = date.fromisoformat(on_date).isoformat()
+    except ValueError:
+        on_date = date.today().isoformat()
+    form = {"sign": "-", "amount": "", "payee": "", "date": on_date,
+            "number": "", "note": "", "verified": verified}
     return _form_response(request, form)
 
 
@@ -109,15 +113,6 @@ def delete_txn(txn_id: int, conn: sqlite3.Connection = Depends(get_conn)):
         raise HTTPException(400, "The opening balance can be edited but not deleted")
     repo.delete_txn(conn, txn_id)
     return Response(status_code=200, headers=DONE_HEADERS)
-
-
-@router.post("/txn/{txn_id}/toggle")
-def toggle_txn(request: Request, txn_id: int, conn: sqlite3.Connection = Depends(get_conn)):
-    _require(conn, txn_id)
-    repo.toggle_verified(conn, txn_id)
-    balance, verified = repo.totals(conn)
-    ctx = {"row": repo.get_txn_with_running(conn, txn_id), "balance": balance, "verified": verified}
-    return render(request, "_row_toggled.html", ctx)
 
 
 @router.get("/payees")
