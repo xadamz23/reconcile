@@ -7,7 +7,7 @@ Built for phone use as an installed PWA, with a full columnar register on deskto
 ## Features
 
 - **Register**: newest first, with a running balance on every row, plus the **Balance** (everything, future-dated included) and the last reconciled statement's date and balance. A "Today" divider separates future-dated items.
-- **Search and filter**: by payee (substring, case-insensitive) and/or amount. Amounts match partially: `45` finds $45.00 to $45.99, `20.0` finds $20.00 to $20.09, and `20.08` is exact. Ranges work too (`10-50` is $10.00 to $50.99; also `100-` and `-20`). Also All / Payments / Deposits. Filters live in the URL.
+- **Search and filter**: by payee (substring, case-insensitive) and/or amount. Amounts match as you type: `5` finds amounts whose dollars start with 5 ($5.xx, $50 to $59.99, $500 to $599.99), `20.` finds $20.00 to $20.99, `20.0` finds $20.00 to $20.09, and `20.08` is exact. Ranges work too (`10-50` is $10.00 to $50.99; also `100-` and `-20`). Also All / Payments / Deposits. Filters live in the URL.
 - **Payee autocomplete**: suggests past payees by prefix, then by how often they're used. It never fills in an amount.
 - **Reconcile a statement**: enter the closing date and ending balance, then tick items (oldest first) until the difference is $0.00 and finish. Tap an item to fix it, or add one that's on the statement but missing; it's dated on the closing date and already ticked. An unfinished reconcile is remembered until you finish or discard it. Finished items become *reconciled*: locked, hidden from the register by default, and editable only after confirming.
 - **CSV export** from the menu, on demand only.

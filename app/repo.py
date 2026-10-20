@@ -131,14 +131,17 @@ def balance(conn: sqlite3.Connection) -> int:
 _PARTIAL_AMOUNT_RE = re.compile(r"^(\d*)(?:\.(\d{0,2}))?$")
 
 
+def _clean_amount(text: str) -> str:
+    return text.strip().replace("$", "").replace(",", "").replace(" ", "")
+
+
 def _partial_amount(text: str) -> tuple[int, int]:
     """The cents range a partly typed amount covers.
 
     Whole dollars cover that dollar ('45' -> 45.00-45.99), one cents digit covers
     ten cents ('20.0' -> 20.00-20.09), and two cents digits are exact.
     """
-    cleaned = text.strip().replace("$", "").replace(",", "").replace(" ", "")
-    match = _PARTIAL_AMOUNT_RE.match(cleaned)
+    match = _PARTIAL_AMOUNT_RE.match(_clean_amount(text))
     if not match or not (match.group(1) or match.group(2)):
         raise ValueError(f"Not an amount: {text!r}")
     whole, frac = match.group(1), match.group(2) or ""
@@ -146,10 +149,11 @@ def _partial_amount(text: str) -> tuple[int, int]:
     return base, base + (99, 9, 0)[len(frac)]
 
 
-def parse_amount_filter(text: str) -> tuple[int | None, int | None]:
-    """Search box amount -> (min, max) absolute cents; None means unbounded.
+def parse_amount_filter(text: str) -> str | tuple[int | None, int | None]:
+    """Search box amount -> a dollar prefix, or (min, max) absolute cents where None is unbounded.
 
-    '45' / '20.0' / '20.08' are partial amounts (see _partial_amount).
+    Bare digits are a prefix of the whole dollars, so '5' finds $5, $51.86 and $500 as you type.
+    '20.' / '20.0' / '20.08' are partial amounts (see _partial_amount).
     '10-50' is a range whose ends are partial too (10.00-50.99); '10-' and '-50' are open.
     """
     text = text.strip()
@@ -160,6 +164,8 @@ def parse_amount_filter(text: str) -> tuple[int | None, int | None]:
         if lo is None and hi is None:
             raise ValueError("Empty amount range")
         return lo, hi
+    if re.fullmatch(r"[0-9]+", digits := _clean_amount(text)):
+        return digits
     return _partial_amount(text)
 
 
@@ -191,13 +197,18 @@ def list_txns(
         where.append("payee LIKE ? ESCAPE '\\'")
         params.append(_like_contains(q))
     if amount := clean_text(amount):
-        lo, hi = parse_amount_filter(amount)
-        if lo is not None:
-            where.append("ABS(amount_cents) >= ?")
-            params.append(lo)
-        if hi is not None:
-            where.append("ABS(amount_cents) <= ?")
-            params.append(hi)
+        match parse_amount_filter(amount):
+            case str(prefix):
+                # Whole dollars as text; integer division truncates the cents.
+                where.append("CAST(ABS(amount_cents) / 100 AS TEXT) LIKE ?")
+                params.append(prefix + "%")
+            case (lo, hi):
+                if lo is not None:
+                    where.append("ABS(amount_cents) >= ?")
+                    params.append(lo)
+                if hi is not None:
+                    where.append("ABS(amount_cents) <= ?")
+                    params.append(hi)
     sql = """
         WITH ledger AS (
             SELECT *, SUM(amount_cents) OVER (ORDER BY date, id) AS running_cents

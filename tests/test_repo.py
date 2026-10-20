@@ -118,8 +118,10 @@ def test_cursor_combines_with_filters_and_keeps_running_balance(ledger):
         ("5-50", {"SiriusXM", "Fozzys"}),
         ("10 - 50", {"Fozzys"}),
         ("1000-", {"Paycheck"}),
-        # Partial amounts: whole dollars match that dollar, one cents digit narrows to ten cents.
+        # Bare digits match dollars that start with them; once there's a '.', it's that dollar,
+        # and one cents digit narrows to ten cents.
         ("45", {"Fozzys"}),
+        ("2", {"Paycheck"}),
         ("45.", {"Fozzys"}),
         ("45.3", {"Fozzys"}),
         ("45.4", set()),
@@ -133,11 +135,33 @@ def test_amount_filter(ledger, amount, expected):
 
 
 @pytest.mark.parametrize(
+    "amount,expected",
+    [
+        ("5", {"Coffee", "Jackson", "Rent", "Paycheck2"}),
+        ("51", {"Jackson"}),
+        ("5.", {"Coffee"}),
+        ("51.", {"Jackson"}),
+        ("51.8", {"Jackson"}),
+        ("51.86", {"Jackson"}),
+        ("500", {"Rent"}),
+        ("5-6", {"Coffee"}),
+    ],
+)
+def test_amount_filter_matches_dollar_prefix(ledger, amount, expected):
+    add(ledger, "2026-10-11", "Coffee", -580)
+    add(ledger, "2026-10-12", "Jackson", -5186)
+    add(ledger, "2026-10-13", "Rent", -50000)
+    add(ledger, "2026-10-14", "Paycheck2", 52000)
+    assert {r["payee"] for r in repo.list_txns(ledger, amount=amount)} == expected
+
+
+@pytest.mark.parametrize(
     "text,expected",
     [
         ("20.08", (2008, 2008)),
         ("20.0", (2000, 2009)),
-        ("20", (2000, 2099)),
+        ("20", "20"),
+        ("$1,234", "1234"),
         ("20.", (2000, 2099)),
         ("$1,234.5", (123450, 123459)),
         (".5", (50, 59)),
