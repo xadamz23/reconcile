@@ -25,7 +25,7 @@ def register_context(conn: sqlite3.Connection, kind: str, q: str, amount: str, s
         "reconciling": repo.get_draft(conn) is not None,
         "account_name": repo.get_setting(conn, "account_name", "Checking"),
         "filters": {"kind": kind, "q": q, "amount": amount, "show_reconciled": show_reconciled},
-        "filtering": bool(q.strip() or amount.strip() or kind != "all"),
+        "filtering": bool(q.strip() or amount.strip() or kind != "all" or show_reconciled),
         "filter_error": error,
     }
 

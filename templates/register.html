@@ -3,14 +3,16 @@
 {% block title %}{{ account_name }}{% endblock %}
 {% block body_class %}page-register{% endblock %}
 {% block body %}
-<div class="shell" x-data="{ searching: {{ 'true' if filtering else 'false' }} }">
+<div class="shell" x-data="filterBar({{ 'true' if filtering else 'false' }})" @filters-escape.window="cancel()">
   <main class="register">
     <header class="masthead">
       <div class="masthead-bar">
         <h1 class="account">{{ account_name }}</h1>
         <div class="masthead-actions">
-          <button class="icon-btn only-mobile" type="button" @click="searching = !searching; $nextTick(() => searching && $refs.q.focus())"
-                  :aria-pressed="searching" aria-label="Search and filter">{{ icon('search') }}</button>
+          <button class="icon-btn only-mobile" type="button" @click="open()" x-show="!searching"
+                  aria-label="Search and filter">{{ icon('search') }}</button>
+          <button class="icon-btn only-mobile" type="button" @click="cancel()" x-show="searching" x-cloak
+                  aria-label="Close search and clear filters">{{ icon('close') }}</button>
           <div class="menu" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
             <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
             <div class="menu-pop" role="menu" x-show="open" x-transition.origin.top.right x-cloak>
@@ -23,7 +25,8 @@
       {% include "_totals.html" %}
     </header>
 
-    <form id="filters" class="filters" :class="searching && 'is-open'" role="search"
+    <form id="filters" class="filters" :class="searching && 'is-open'" role="search" x-ref="filters"
+          @input="sync()" @change="sync()"
           hx-get="/" hx-target="#ledger" hx-push-url="true"
           hx-trigger="input changed delay:250ms from:.filters-text, change">
       <div class="filters-text">
@@ -48,6 +51,7 @@
         <input type="checkbox" name="show_reconciled" value="true" {{ 'checked' if filters.show_reconciled }}>
         <span>Show reconciled</span>
       </label>
+      <button class="btn btn-quiet filters-clear" type="button" @click="clear()" x-show="active" x-cloak>{{ icon('close') }}Clear</button>
     </form>
 
     <div class="ledger-head" aria-hidden="true">

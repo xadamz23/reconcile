@@ -113,6 +113,11 @@ def test_ledger_partial_filters(ready):
     assert "isn&#39;t an amount" in r.text
 
 
+def test_show_reconciled_counts_as_filtering(ready):
+    assert "filterBar(false)" in ready.get("/").text
+    assert "filterBar(true)" in ready.get("/?show_reconciled=true").text
+
+
 def test_payees_endpoint(ready):
     ready.post("/txn", data={"sign": "-", "amount": "8", "payee": "Goodwill", "date": "2026-10-17"}, headers=HX)
     assert ready.get("/payees?q=good").json() == ["Goodwill"]

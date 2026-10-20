@@ -59,6 +59,11 @@
       closePanel();
       return;
     }
+    // Otherwise Esc leaves search (unless it's closing the masthead menu).
+    if (e.key === "Escape" && !document.querySelector('.menu [aria-expanded="true"]')) {
+      window.dispatchEvent(new CustomEvent("filters-escape"));
+      return;
+    }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === "n" && document.querySelector(".fab")) {
       e.preventDefault();
@@ -109,8 +114,39 @@
     if (!radio.matches(":disabled")) radio.checked = true;
   });
 
-  // Payee combobox: suggests past payees only. Never fills in the amount.
   document.addEventListener("alpine:init", () => {
+    // Register filter bar. `searching` shows the bar on mobile (it's always shown on
+    // desktop); `active` is whether any filter is set.
+    window.Alpine.data("filterBar", (filtering) => ({
+      searching: filtering,
+      active: filtering,
+      sync() {
+        const f = this.$refs.filters;
+        this.active = Boolean(f.q.value.trim() || f.amount.value.trim() || f.kind.value !== "all" || f.show_reconciled.checked);
+      },
+      open() {
+        this.searching = true;
+        this.$nextTick(() => this.$refs.q.focus());
+      },
+      clear() {
+        const f = this.$refs.filters;
+        if (!this.active) return;
+        f.q.value = "";
+        f.amount.value = "";
+        f.kind.value = "all";
+        f.show_reconciled.checked = false;
+        this.active = false;
+        window.htmx.trigger(f, "change"); // one refetch for the whole reset
+      },
+      // Mobile close button and Esc: clear the filters and hide the bar.
+      cancel() {
+        this.clear();
+        this.searching = false;
+        if (this.$refs.filters.contains(document.activeElement)) document.activeElement.blur();
+      },
+    }));
+
+    // Payee combobox: suggests past payees only. Never fills in the amount.
     window.Alpine.data("payeeBox", (initial) => ({
       value: initial,
       items: [],

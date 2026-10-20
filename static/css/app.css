@@ -214,6 +214,8 @@ button { cursor: pointer; }
   background-color: var(--ink); border-color: var(--ink);
   background-image: var(--tick);
 }
+.filters-clear { justify-self: start; min-height: 2.125rem; padding: 0 0.75rem; gap: 0.25rem; font-size: 0.9375rem; }
+.filters-clear .icon { width: 1rem; height: 1rem; }
 
 /* ---------- Ledger rows ---------- */
 
