@@ -48,7 +48,7 @@
         {% endfor %}
       </fieldset>
       <label class="toggle-reconciled">
-        <input type="checkbox" name="show_reconciled" value="true" {{ 'checked' if filters.show_reconciled }}>
+        <input type="checkbox" role="switch" name="show_reconciled" value="true" {{ 'checked' if filters.show_reconciled }}>
         <span>Show reconciled</span>
       </label>
       <button class="btn btn-quiet filters-clear" type="button" @click="clear()" x-show="active" x-cloak>{{ icon('close') }}Clear</button>

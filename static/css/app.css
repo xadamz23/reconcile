@@ -18,7 +18,6 @@
   --focus: #2f5fae;
   --shadow: 0 1px 0 rgba(30, 42, 59, 0.06), 0 12px 32px -12px rgba(30, 42, 59, 0.28);
   /* Checkbox tick, stroked in --paper (data URIs can't use custom properties). */
-  --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23eff1e3' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
 
   --font: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
   --row-h: 4rem;
@@ -47,7 +46,6 @@
     --green-wash: #1d3a2b;
     --focus: #8fb3ff;
     --shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 16px 40px -12px rgba(0, 0, 0, 0.7);
-    --tick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23121c18' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");
     color-scheme: dark;
   }
 }
@@ -205,15 +203,21 @@ button { cursor: pointer; }
 .toggle-reconciled input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
 
 .toggle-reconciled { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9375rem; color: var(--ink-soft); cursor: pointer; justify-self: start; }
+/* Switch: the span's ::before is the track, ::after the knob. */
+.toggle-reconciled span { position: relative; padding-left: 2.75rem; }
+.toggle-reconciled span::before,
+.toggle-reconciled span::after { content: ""; position: absolute; top: 50%; translate: 0 -50%; transition: 150ms ease-out; }
 .toggle-reconciled span::before {
-  content: ""; display: inline-block; vertical-align: -0.2em; margin-right: 0.5rem;
-  width: 1.1rem; height: 1.1rem; border: 1.5px solid var(--rule-strong); border-radius: 4px;
-  background: var(--paper-raised) center / 0.8rem no-repeat;
+  left: 0; width: 2.25rem; height: 1.375rem;
+  border: 1.5px solid var(--rule-strong); border-radius: 999px; background: var(--paper-raised);
 }
-.toggle-reconciled input:checked + span::before {
-  background-color: var(--ink); border-color: var(--ink);
-  background-image: var(--tick);
+.toggle-reconciled span::after {
+  left: 0.25rem; width: 0.875rem; height: 0.875rem;
+  border-radius: 50%; background: var(--ink-faint);
 }
+.toggle-reconciled input:checked + span { color: var(--ink); }
+.toggle-reconciled input:checked + span::before { background: var(--ink); border-color: var(--ink); }
+.toggle-reconciled input:checked + span::after { background: var(--paper); transform: translateX(0.875rem); }
 /* Desktop only: on mobile the masthead's close button clears and hides the bar. */
 .filters-clear { display: none; min-height: 2.125rem; padding: 0 0.75rem; gap: 0.25rem; font-size: 0.9375rem; }
 .filters-clear .icon { width: 1rem; height: 1rem; }
