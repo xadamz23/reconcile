@@ -455,8 +455,10 @@ button.mark:hover .icon { border-color: var(--green); }
     display: grid; grid-template-columns: minmax(0, 1fr) 26rem;
     max-width: 82rem; margin: 0 auto; min-height: 100dvh;
   }
-  /* The ledger lays itself out by its own width, not the window's (the panel takes 26rem). */
-  .shell > main { min-width: 0; border-right: 1px solid var(--rule); container: ledger / inline-size; }
+  /* Pages lay themselves out by their own width, not the window's (the panel takes 26rem).
+     Containment makes main the containing block for anything position: fixed inside it. */
+  main { container: ledger / inline-size; }
+  .shell > main { min-width: 0; border-right: 1px solid var(--rule); }
   .shell > .reconcile { max-width: none; margin: 0; }
 
   .only-mobile { display: none; }
@@ -488,7 +490,11 @@ button.mark:hover .icon { border-color: var(--green); }
   }
   .panel-bar { padding-top: 0.75rem; background: var(--paper-raised); }
   .txn-form { min-height: 100dvh; }
+}
 
+/* Reconcile figures beside the Finish button, and the statement fields beside their
+   buttons, once they fit; narrower, they stack as on mobile. */
+@container ledger (min-width: 42rem) {
   .rec-summary { grid-template-columns: 1fr 15rem; align-items: center; }
   .rec-start { grid-template-columns: 1fr auto; align-items: end; }
   .rec-start .rec-hint { grid-column: 1 / -1; }
@@ -526,7 +532,10 @@ button.mark:hover .icon { border-color: var(--green); }
   .txn-no { font-size: 0.9375rem; }
   .txn-payee { font-size: 1rem; display: flex; gap: 0.75rem; align-items: baseline; }
   .txn-payee .icon { align-self: center; margin-right: -0.375rem; }
-  .txn-note { display: inline; font-size: 0.875rem; font-weight: 400; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
+  /* Name and note each truncate with an ellipsis. The note only gets the space the
+     name leaves (zero basis), so the name is cut only when it can't fit on its own. */
+  .txn-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .txn-note { display: inline; min-width: 0; flex: 1 1 0; font-size: 0.875rem; font-weight: 400; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
   .txn-amt { display: none; }
   .txn-pay, .txn-dep, .txn-run {
     align-self: stretch; padding-inline: 0.75rem;

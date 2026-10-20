@@ -6,7 +6,7 @@
   <button class="txn-open" type="button" hx-get="/txn/{{ row.id }}/edit" hx-target="#panel-body">
     <span class="txn-date">{{ row.date | pretty_date }}</span>
     <span class="txn-no">{% if row.number %}#{{ row.number }}{% endif %}</span>
-    <span class="txn-payee">{{ row.payee }}</span>
+    <span class="txn-payee"><span class="txn-name">{{ row.payee }}</span></span>
     <span class="txn-amt num {{ 'pay' if row.amount_cents < 0 else 'dep' }}">{{ ('−' if row.amount_cents < 0 else '+') }}{{ row.amount_cents | money(signed=false) }}</span>
   </button>
 </article>
