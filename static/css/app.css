@@ -447,6 +447,65 @@ button.mark:hover .icon { border-color: var(--green); }
 .history li { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; padding: 0.625rem 0; border-bottom: 1px solid var(--rule); }
 .history-items { color: var(--ink-faint); }
 
+/* ---------- Spending ---------- */
+
+/* Payments per payee. Each bar is a span whose width (--w) the server sets relative
+   to the biggest payee: no chart library. Two-line rows here; one line on desktop. */
+.spending { max-width: 52rem; margin: 0 auto; padding-bottom: calc(2rem + var(--safe-b)); }
+.spend-periods { padding: 0.75rem var(--gutter); background: var(--paper-sunk); border-bottom: 1px solid var(--rule); }
+
+.spend-total {
+  display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: 1rem;
+  padding: 1rem var(--gutter) 0.75rem;
+  border-bottom: 4px double var(--ink);
+}
+.spend-total-label { font-weight: 600; }
+.spend-total-amt { font-size: 2rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1.1; }
+.spend-total-sub { grid-column: 1 / -1; font-size: 0.9375rem; color: var(--ink-soft); }
+
+.spend-head { display: none; }
+.spend-list { list-style: none; margin: 0; padding: 0; }
+.spend-row {
+  display: grid;
+  /* Share and count get fixed widths so the bar tracks all end at the same place. */
+  grid-template-columns: minmax(0, 1fr) 2.75rem auto;
+  grid-template-areas: "payee payee amt" "bar share n";
+  column-gap: 0.75rem; row-gap: 0.375rem; align-items: center;
+  padding: 0.75rem var(--gutter);
+  border-bottom: 1px solid var(--rule);
+  text-decoration: none;
+}
+.spend-row:hover { background: color-mix(in oklab, var(--paper-sunk) 60%, transparent); }
+.spend-payee {
+  grid-area: payee; min-width: 0;
+  font-size: 1.0625rem; font-weight: 550;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.spend-sub { font-size: 0.875rem; font-weight: 400; color: var(--ink-faint); }
+.spend-amt { grid-area: amt; font-size: 1.0625rem; font-weight: 600; }
+.spend-share { grid-area: share; font-size: 0.875rem; color: var(--ink-soft); }
+.spend-n { grid-area: n; min-width: 6.25rem; font-size: 0.875rem; color: var(--ink-faint); }
+.spend-n::before { content: "· "; }
+.spend-bar { grid-area: bar; height: 0.5rem; border-radius: 999px; background: var(--paper-sunk); overflow: hidden; }
+.spend-bar span {
+  display: block; width: var(--w); height: 100%;
+  background: var(--red); border-radius: inherit;
+  transform-origin: left; animation: grow-bar 420ms cubic-bezier(0.3, 0.7, 0.2, 1) backwards;
+}
+@keyframes grow-bar { from { transform: scaleX(0); } }
+
+/* "Everything else": a summary row that expands to the payees it folds together. */
+.spend-rest > summary { list-style: none; cursor: pointer; }
+.spend-rest > summary::-webkit-details-marker { display: none; }
+.spend-rest > summary .spend-bar span { background: var(--ink-faint); }
+.spend-rest > summary .spend-sub::after {
+  content: ""; display: inline-block; width: 0.4rem; height: 0.4rem; margin-left: 0.4rem;
+  border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
+  transform: translateY(-0.2em) rotate(45deg); transition: transform 150ms ease-out;
+}
+.spend-rest[open] > summary .spend-sub::after { transform: translateY(0.05em) rotate(-135deg); }
+.spend-rest .spend-list { background: color-mix(in oklab, var(--paper-sunk) 40%, transparent); }
+
 /* ---------- Desktop: a real columnar register with a side panel ---------- */
 
 @media (min-width: 900px) {
@@ -551,6 +610,25 @@ button.mark:hover .icon { border-color: var(--green); }
   .txn-rec { grid-template-columns: 3.25rem 7.5rem 4.5rem minmax(0, 1fr) 8rem; padding-left: 0; }
   .txn-rec .txn-open { grid-column: 2 / -1; }
   .txn-rec .txn-amt { display: block; text-align: right; }
+}
+
+/* Spending on one line per payee, the bars lined up in their own column so the
+   list reads as a bar chart: Payee, bar, Share, Payments, Amount. */
+@container ledger (min-width: 40rem) {
+  .spend-head, .spend-row { grid-template-columns: minmax(0, 15rem) minmax(0, 1fr) 3.5rem 5.5rem 7.5rem; column-gap: 1rem; }
+  .spend-row { grid-template-areas: "payee bar share n amt"; padding-block: 0.625rem; }
+  .spend-head {
+    display: grid; align-items: end;
+    padding: 0.75rem var(--gutter) 0.375rem;
+    font-size: 0.8125rem; font-weight: 600; color: var(--ink-soft);
+    border-bottom: 1.5px solid var(--rule-strong);
+  }
+  .spend-payee, .spend-amt { font-size: 1rem; }
+  .spend-share, .spend-n { font-size: 0.9375rem; }
+  .spend-n { min-width: 0; }
+  .spend-n::before { content: none; }
+  .spend-n-unit { display: none; }
+  .spend-bar { height: 0.875rem; border-radius: 3px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

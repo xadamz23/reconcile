@@ -77,9 +77,9 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
 
     app.mount("/static", HashedStaticFiles(directory=config.STATIC_DIR), name="static")
 
-    from app.routes import export, pwa, reconcile, register, transactions
+    from app.routes import export, pwa, reconcile, register, spending, transactions
 
-    for module in (register, transactions, reconcile, export, pwa):
+    for module in (register, transactions, reconcile, spending, export, pwa):
         app.include_router(module.router)
     return app
 

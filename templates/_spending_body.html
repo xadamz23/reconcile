@@ -1,0 +1,39 @@
+{# Payments per payee for the chosen period, biggest first. The bars are plain
+   CSS: each fill's width comes from --w, set relative to the biggest payee. #}
+{% macro cells(item, sub=None) -%}
+  <span class="spend-payee"><span class="spend-name">{{ item.payee }}</span>{% if sub %} <span class="spend-sub">{{ sub }}</span>{% endif %}</span>
+  <span class="spend-bar" aria-hidden="true"><span style="--w: {{ item.bar }}"></span></span>
+  <span class="spend-share num">{{ item.share }}</span>
+  <span class="spend-n num">{{ item.n }}<span class="spend-n-unit"> payment{{ 's' if item.n != 1 }}</span></span>
+  <span class="spend-amt num">{{ item.total_cents | money }}</span>
+{%- endmacro %}
+
+{% macro rows(items) -%}
+<ol class="spend-list">
+  {% for item in items %}
+  <li><a class="spend-row" href="{{ item.href }}">{{ cells(item) }}</a></li>
+  {% endfor %}
+</ol>
+{%- endmacro %}
+
+{% if top %}
+<div class="spend-total">
+  <p class="spend-total-label">Paid out</p>
+  <p class="spend-total-amt num">{{ total_cents | money }}</p>
+  <p class="spend-total-sub">{{ range_label }} · {{ payee_count }} payee{{ 's' if payee_count != 1 }} · {{ payment_count }} payment{{ 's' if payment_count != 1 }}</p>
+</div>
+
+<div class="spend-head" aria-hidden="true">
+  <span>Payee</span><span></span><span class="num">Share</span><span class="num">Payments</span><span class="num">Amount</span>
+</div>
+{{ rows(top) }}
+
+{% if rest %}
+<details class="spend-rest">
+  <summary class="spend-row">{{ cells(rest_item, rest | length ~ " payees") }}</summary>
+  {{ rows(rest) }}
+</details>
+{% endif %}
+{% else %}
+<p class="ledger-note">No payments for {{ range_label }}.</p>
+{% endif %}

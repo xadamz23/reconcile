@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Spending{% endblock %}
+{% block body_class %}page-spending{% endblock %}
+{% block body %}
+<div class="solo">
+  <main class="spending">
+    <header class="masthead masthead-plain">
+      <div class="masthead-bar">
+        <a class="icon-btn" href="/" aria-label="Back to register">{{ icon('back') }}</a>
+        <h1 class="account">Spending</h1>
+      </div>
+    </header>
+
+    <form class="spend-periods" action="/spending"
+          hx-get="/spending" hx-target="#spending-body" hx-push-url="true" hx-trigger="change">
+      <fieldset class="kinds">
+        <legend class="visually-hidden">Period</legend>
+        {% for value, label in periods.items() %}
+        <label class="kind"><input type="radio" name="period" value="{{ value }}" {{ 'checked' if period == value }}><span>{{ label }}</span></label>
+        {% endfor %}
+      </fieldset>
+    </form>
+
+    <div id="spending-body">
+      {% include "_spending_body.html" %}
+    </div>
+  </main>
+</div>
+{% endblock %}

@@ -4,7 +4,7 @@ from datetime import date, timedelta
 import pytest
 
 from app import repo
-from app.routes import register
+from app.routes import register, spending
 
 HX = {"HX-Request": "true"}
 
@@ -244,3 +244,77 @@ def test_pwa_endpoints(ready):
     assert ready.app.state.assets.version in sw.text
     assert ready.get("/offline").status_code == 200
     assert ready.get("/favicon.ico").status_code == 200
+
+
+# --- Spending ---
+
+
+def pay(client, on: date, payee: str, cents: int):
+    repo.create_txn(conn_of(client), repo.TxnInput(on.isoformat(), payee, -cents))
+
+
+@pytest.mark.parametrize("period, today, start", [
+    ("month", date(2026, 10, 21), "2026-10-01"),
+    ("3m", date(2026, 10, 21), "2026-08-01"),
+    ("3m", date(2026, 2, 5), "2025-12-01"),
+    ("year", date(2026, 10, 21), "2026-01-01"),
+])
+def test_period_range(period, today, start):
+    assert spending.period_range(period, today) == (start, today.isoformat())
+
+
+def test_spending_page(ready):
+    today = date.today()
+    pay(ready, today, "Rent", 165000)
+    pay(ready, today, "Kroger", 2000)
+    pay(ready, today, "kroger", 3000)
+    r = ready.get("/spending")
+    assert r.status_code == 200
+    text = r.text
+    assert "$1,700.00" in text  # paid out
+    assert "2 payees" in text and "3 payments" in text
+    assert text.index("Rent") < text.index("kroger")  # biggest first, latest spelling
+    assert "/?q=kroger&amp;kind=payments&amp;show_reconciled=true" in text
+    assert "Opening balance" not in text
+    assert "Everything else" not in text
+
+
+def test_spending_folds_the_tail(ready):
+    today = date.today()
+    for i in range(12):
+        pay(ready, today, f"Payee {i:02d}", 10000 - i)
+    text = ready.get("/spending").text
+    assert "Everything else" in text and "spend-sub\">2 payees<" in text
+    # One payee past the top ten is shown as itself, not folded.
+    conn = conn_of(ready)
+    conn.execute("DELETE FROM transactions WHERE payee = 'Payee 11'")
+    assert "Everything else" not in ready.get("/spending").text
+
+
+def test_spending_period_param(ready):
+    today = date.today()
+    pay(ready, today, "Today shop", 500)
+    pay(ready, date(today.year, 1, 1), "New year shop", 700)
+    pay(ready, today + timedelta(days=3), "Future shop", 900)
+    month = ready.get("/spending").text
+    year = ready.get("/spending?period=year").text
+    assert "Today shop" in month and "Future shop" not in month
+    assert "New year shop" in year and "Future shop" not in year
+    if today.month != 1:
+        assert "New year shop" not in month
+    assert ready.get("/spending?period=bogus").text == month
+
+
+def test_spending_body_partial_and_empty_state(ready):
+    r = ready.get("/spending?period=3m", headers={**HX, "HX-Target": "spending-body"})
+    assert "<html" not in r.text
+    assert "No payments" in r.text
+
+
+def test_spending_needs_setup(client):
+    r = client.get("/spending", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/setup"
+
+
+def test_register_menu_links_to_spending(ready):
+    assert 'href="/spending"' in ready.get("/").text

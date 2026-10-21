@@ -18,6 +18,7 @@
             <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
             <div class="menu-pop" role="menu" x-show="open" x-transition.origin.top.right x-cloak>
               <a role="menuitem" href="/reconcile">{{ icon('scale') }}{{ 'Continue reconciling' if reconciling else 'Reconcile a statement' }}</a>
+              <a role="menuitem" href="/spending">{{ icon('chart') }}Spending</a>
               <a role="menuitem" href="/export.csv" download>{{ icon('download') }}Export CSV</a>
             </div>
           </div>

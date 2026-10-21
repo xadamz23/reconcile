@@ -249,6 +249,30 @@ def suggest_payees(conn: sqlite3.Connection, q: str | None, limit: int = 8) -> l
     return [r["payee"] for r in latest[:limit]]
 
 
+def spending_by_payee(conn: sqlite3.Connection, start: str, end: str) -> list[sqlite3.Row]:
+    """Payments dated start..end (inclusive) totalled per payee, biggest first.
+
+    Payees group case-insensitively under their most recent spelling. total_cents is
+    positive; n is the number of payments. Every status counts; the opening balance doesn't.
+    """
+    Date.fromisoformat(start)
+    Date.fromisoformat(end)
+    return conn.execute(
+        """
+        SELECT payee, total_cents, n FROM (
+            SELECT payee, -SUM(amount_cents) OVER w AS total_cents, COUNT(*) OVER w AS n,
+                   ROW_NUMBER() OVER (PARTITION BY payee COLLATE NOCASE ORDER BY date DESC, id DESC) AS rn
+              FROM transactions
+             WHERE amount_cents < 0 AND is_opening = 0 AND date BETWEEN ? AND ?
+            WINDOW w AS (PARTITION BY payee COLLATE NOCASE)
+        )
+         WHERE rn = 1
+         ORDER BY total_cents DESC, payee COLLATE NOCASE
+        """,
+        (start, end),
+    ).fetchall()
+
+
 # --- Statement reconciliation ---
 
 

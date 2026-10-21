@@ -234,6 +234,34 @@ def test_suggest_payees_excludes_opening(ledger):
     assert "Opening balance" not in repo.suggest_payees(ledger, "op")
 
 
+# --- Spending ---
+
+
+def test_spending_by_payee_groups_case_and_sorts_by_total(conn):
+    add(conn, "2026-10-02", "kroger", -2000)
+    add(conn, "2026-10-08", "Kroger", -3050, status="reconciled")
+    add(conn, "2026-10-04", "Rent", -165000)
+    add(conn, "2026-10-06", "Shell", -4000)
+    rows = repo.spending_by_payee(conn, "2026-10-01", "2026-10-31")
+    assert [(r["payee"], r["total_cents"], r["n"]) for r in rows] == [
+        ("Rent", 165000, 1),
+        ("Kroger", 5050, 2),  # latest spelling, reconciled items count
+        ("Shell", 4000, 1),
+    ]
+
+
+def test_spending_by_payee_counts_only_payments_in_range(conn):
+    repo.setup(conn, "Checking", -5000, "2026-10-01")  # a negative opening balance isn't spending
+    add(conn, "2026-10-03", "Paycheck", 200000)
+    add(conn, "2026-09-30", "Kroger", -1000)
+    add(conn, "2026-10-01", "Kroger", -200)
+    add(conn, "2026-10-21", "Kroger", -300)
+    add(conn, "2026-10-22", "Kroger", -400)
+    rows = repo.spending_by_payee(conn, "2026-10-01", "2026-10-21")
+    assert [(r["payee"], r["total_cents"], r["n"]) for r in rows] == [("Kroger", 500, 2)]
+    assert repo.spending_by_payee(conn, "2026-11-01", "2026-11-30") == []
+
+
 # --- Statement reconciliation ---
 
 
