@@ -1,4 +1,4 @@
-{# Mobile bottom bar: Register, Search, + (new transaction), Spending, Reconcile.
+{# Mobile bottom bar: Reconcile, Spending, + (new transaction), Search, Register.
    Hidden on desktop. Expects active ("register", "spending" or "reconcile") and,
    on pages with a form panel, new_url (where + loads the form from). Off the
    register, Search links back to it, as does + without a panel; app.js acts on the
@@ -9,19 +9,20 @@
 <a class="tab" href="{{ href }}"{% if active == name %} aria-current="page"{% endif %}>{{ icon(icon_name) }}<span>{{ label }}</span></a>
 {%- endmacro %}
 <nav class="tabbar" aria-label="Main">
-  {% if active == "register" %}
-  <a class="tab" href="/" :aria-current="searching ? false : 'page'">{{ icon('ledger') }}<span>Register</span></a>
-  <button class="tab" type="button" @click="open()" :aria-pressed="searching">{{ icon('search') }}<span>Search</span></button>
-  {% else %}
-  {{ tab("register", "/", "Register", "ledger") }}
-  <a class="tab" href="/#search">{{ icon('search') }}<span>Search</span></a>
-  {% endif %}
+  {# Right to left by how often a thumb reaches for them: Register sits under the right thumb. #}
+  {{ tab("reconcile", "/reconcile", "Reconcile", "scale") }}
+  {{ tab("spending", "/spending", "Spending", "chart") }}
   {% if new_url %}
   <button class="tab-add" type="button" hx-get="{{ new_url }}" hx-target="#panel-body" data-new-txn
           aria-label="New transaction" title="New transaction (n)">{{ icon('plus') }}</button>
   {% else %}
   <a class="tab-add" href="/#new" aria-label="New transaction">{{ icon('plus') }}</a>
   {% endif %}
-  {{ tab("spending", "/spending", "Spending", "chart") }}
-  {{ tab("reconcile", "/reconcile", "Reconcile", "scale") }}
+  {% if active == "register" %}
+  <button class="tab" type="button" @click="open()" :aria-pressed="searching">{{ icon('search') }}<span>Search</span></button>
+  <a class="tab" href="/" :aria-current="searching ? false : 'page'">{{ icon('ledger') }}<span>Register</span></a>
+  {% else %}
+  <a class="tab" href="/#search">{{ icon('search') }}<span>Search</span></a>
+  {{ tab("register", "/", "Register", "ledger") }}
+  {% endif %}
 </nav>

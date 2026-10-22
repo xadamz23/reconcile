@@ -8,11 +8,35 @@
   function openPanel() {
     const p = panel();
     if (!p) return;
-    if (!document.body.classList.contains("panel-open")) lastFocus = document.activeElement;
+    const wasOpen = document.body.classList.contains("panel-open");
+    if (!wasOpen) lastFocus = document.activeElement;
     document.body.classList.add("panel-open");
     p.setAttribute("aria-hidden", "false");
-    const first = p.querySelector("[autofocus]") || p.querySelector("input:not([type=radio]):not([type=hidden])");
-    if (first && window.matchMedia("(hover: hover)").matches) first.focus();
+    // A new transaction's amount takes focus (data-autofocus, not autofocus, which htmx
+    // would focus too early); on a pointer device an edit form's first field does too.
+    const first = p.querySelector("[data-autofocus]") ||
+      (window.matchMedia("(hover: hover)").matches && p.querySelector("input:not([type=radio]):not([type=hidden])"));
+    if (!first) return;
+    // On phones the sheet slides up. Focusing mid-slide opens the keyboard while the
+    // field is still below the screen, and Chrome pans the view down to it, leaving the
+    // top of the sheet cut off once it lands. So focus once it's in place.
+    if (wasOpen || window.matchMedia("(min-width: 900px)").matches) first.focus();
+    else afterSlide(p, () => {
+      if (document.body.classList.contains("panel-open")) first.focus({ preventScroll: true });
+    });
+  }
+
+  function afterSlide(el, fn) {
+    let done = false;
+    const run = () => {
+      if (done) return;
+      done = true;
+      el.removeEventListener("transitionend", onEnd);
+      fn();
+    };
+    const onEnd = (e) => { if (e.target === el) run(); };
+    el.addEventListener("transitionend", onEnd);
+    setTimeout(run, 320); // reduced motion has no transition, so no transitionend
   }
 
   function closePanel() {

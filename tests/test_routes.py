@@ -356,3 +356,15 @@ def test_reconcile_tab_bar(ready):
     bar = tabbar(text)
     assert 'hx-get="/txn/new?date=2026-10-31&amp;verified=1"' in bar and "data-new-txn" in bar
     assert 'class="fab"' not in text
+
+
+def test_tab_bar_order(ready):
+    bar = tabbar(ready.get("/spending").text)
+    order = ['href="/reconcile"', 'href="/spending"', 'href="/#new"', 'href="/#search"', 'href="/"']
+    assert [bar.index(t) for t in order] == sorted(bar.index(t) for t in order)
+
+
+def test_new_form_focuses_through_app_js_not_htmx(ready):
+    # htmx focuses [autofocus] mid-slide on phones, which opens the keyboard too early.
+    text = ready.get("/txn/new", headers=HX).text
+    assert "data-autofocus" in text and " autofocus" not in text

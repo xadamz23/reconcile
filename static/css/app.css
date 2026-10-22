@@ -301,7 +301,7 @@ button.mark:hover .icon { border-color: var(--green); }
 
 /* ---------- Tab bar (mobile) ---------- */
 
-/* Register, Search, +, Spending, Reconcile under the thumb. The + is an ink disc raised
+/* Reconcile, Spending, +, Search, Register under the thumb. The + is an ink disc raised
    out of the bar; a ring in the bar's colour cuts it a notch through the top rule. */
 .tabbar {
   position: fixed; z-index: 25; left: 0; right: 0; bottom: 0;
