@@ -65,9 +65,11 @@
       return;
     }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.key === "n" && document.querySelector(".fab")) {
+    // The FAB, or the + in the mobile tab bar (hidden on desktop, but click() still works).
+    const add = document.querySelector("[data-new-txn]");
+    if (e.key === "n" && add) {
       e.preventDefault();
-      document.querySelector(".fab").click();
+      add.click();
     } else if (e.key === "/" && document.getElementById("filter-q")) {
       e.preventDefault();
       document.getElementById("filter-q").focus();
@@ -133,8 +135,10 @@
         const f = this.$refs.filters;
         this.active = Boolean(f.q.value.trim() || f.amount.value.trim() || f.kind.value !== "all" || f.show_reconciled.checked);
       },
+      // From the mobile tab bar too, which may be tapped far down the list.
       open() {
         this.searching = true;
+        window.scrollTo({ top: 0 });
         this.$nextTick(() => this.$refs.q.focus());
       },
       clear() {
@@ -187,6 +191,16 @@
         this.active = -1;
       },
     }));
+  });
+
+  // The tab bar on other pages links to /#search and /#new: act on them once the
+  // register has loaded, then drop the hash so a reload doesn't do it again.
+  window.addEventListener("load", () => {
+    const hash = location.hash;
+    if (hash !== "#search" && hash !== "#new") return;
+    history.replaceState(null, "", location.pathname + location.search);
+    if (hash === "#search") window.dispatchEvent(new CustomEvent("filters-open"));
+    else document.querySelector("[data-new-txn]")?.click();
   });
 
   if ("serviceWorker" in navigator) {

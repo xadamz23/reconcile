@@ -314,6 +314,40 @@ button.mark:hover .icon { border-color: var(--green); }
 .fab .icon { width: 1.75rem; height: 1.75rem; stroke-width: 2.2; }
 .fab:active { transform: scale(0.96); }
 
+/* ---------- Tab bar (mobile) ---------- */
+
+/* Search, + and Spending under the thumb. The + is the FAB's ink disc, raised out of
+   the bar; a ring in the bar's colour cuts it a notch through the top rule. */
+.tabbar {
+  position: fixed; z-index: 25; left: 0; right: 0; bottom: 0;
+  display: grid; grid-template-columns: 1fr 5rem 1fr; align-items: center;
+  padding: 0.25rem env(safe-area-inset-right, 0px) calc(0.25rem + var(--safe-b)) env(safe-area-inset-left, 0px);
+  background: var(--paper-raised);
+  border-top: 1px solid var(--rule-strong);
+}
+.tab {
+  display: grid; justify-items: center; gap: 0.125rem;
+  min-height: 3.25rem; align-content: center;
+  border: 0; background: none; padding: 0;
+  color: var(--ink-soft); text-decoration: none;
+  font-size: 0.75rem; font-weight: 600;
+}
+.tab[aria-current="page"], .tab[aria-pressed="true"] { color: var(--ink); }
+/* The active tab's label is ruled under, like a ledger heading. */
+.tab[aria-current="page"] span, .tab[aria-pressed="true"] span {
+  text-decoration: underline 2px; text-underline-offset: 0.25em;
+}
+.tab-add {
+  justify-self: center;
+  display: grid; place-items: center;
+  width: 3.75rem; height: 3.75rem; margin-top: -1.75rem;
+  border: 0; border-radius: 50%;
+  background: var(--ink); color: var(--paper);
+  box-shadow: 0 0 0 0.375rem var(--paper-raised), var(--shadow);
+}
+.tab-add .icon { width: 1.75rem; height: 1.75rem; stroke-width: 2.2; }
+.tab-add:active { transform: scale(0.96); }
+
 /* ---------- Panel (transaction form) ---------- */
 
 .panel {
@@ -451,7 +485,8 @@ button.mark:hover .icon { border-color: var(--green); }
 
 /* Payments per payee. Each bar is a span whose width (--w) the server sets relative
    to the biggest payee: no chart library. Two-line rows here; one line on desktop. */
-.spending { max-width: 52rem; margin: 0 auto; padding-bottom: calc(2rem + var(--safe-b)); }
+/* Bottom padding clears the mobile tab bar (less on desktop, where there's none). */
+.spending { max-width: 52rem; margin: 0 auto; padding-bottom: calc(6rem + var(--safe-b)); }
 .spend-periods { padding: 0.75rem var(--gutter); background: var(--paper-sunk); border-bottom: 1px solid var(--rule); }
 
 .spend-total {
@@ -534,7 +569,8 @@ button.mark:hover .icon { border-color: var(--green); }
   .toggle-reconciled { margin-left: auto; }
   .filters-clear { display: inline-flex; }
 
-  .fab { display: none; }
+  .fab, .tabbar { display: none; }
+  .spending { padding-bottom: calc(2rem + var(--safe-b)); }
 
   .panel {
     position: sticky; top: 0; inset: auto;

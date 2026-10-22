@@ -2,7 +2,7 @@
 
 A personal check register for one checking account. Enter transactions by hand, tick them off as they clear the bank, and reconcile each statement down to $0.00.
 
-Built for phone use as an installed PWA, with a full columnar register on desktop.
+Built for phone use as an installed PWA, with a bottom bar for Search, adding a transaction and Spending, and a full columnar register on desktop.
 
 ## Features
 

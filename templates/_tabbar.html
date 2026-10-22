@@ -1,0 +1,17 @@
+{# Mobile bottom bar: Search, + (new transaction), Spending. Hidden on desktop.
+   Expects active ("register" or "spending"). On the register, Search and + act in
+   place (Search reads the shell's Alpine filterBar); elsewhere they link back to
+   the register, and app.js acts on the #search / #new hash after it loads. #}
+{% from "_icons.html" import icon %}
+<nav class="tabbar" aria-label="Main">
+  {% if active == "register" %}
+  <button class="tab" type="button" @click="open()" :aria-pressed="searching">{{ icon('search') }}<span>Search</span></button>
+  <button class="tab-add" type="button" hx-get="/txn/new" hx-target="#panel-body" data-new-txn
+          aria-label="New transaction" title="New transaction (n)">{{ icon('plus') }}</button>
+  <a class="tab" href="/spending">{{ icon('chart') }}<span>Spending</span></a>
+  {% else %}
+  <a class="tab" href="/#search">{{ icon('search') }}<span>Search</span></a>
+  <a class="tab-add" href="/#new" aria-label="New transaction">{{ icon('plus') }}</a>
+  <a class="tab" href="/spending"{% if active == "spending" %} aria-current="page"{% endif %}>{{ icon('chart') }}<span>Spending</span></a>
+  {% endif %}
+</nav>

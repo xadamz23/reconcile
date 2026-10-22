@@ -26,5 +26,7 @@
       {% include "_spending_body.html" %}
     </div>
   </main>
+
+  {% with active = "spending" %}{% include "_tabbar.html" %}{% endwith %}
 </div>
 {% endblock %}

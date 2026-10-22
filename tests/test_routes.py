@@ -318,3 +318,28 @@ def test_spending_needs_setup(client):
 
 def test_register_menu_links_to_spending(ready):
     assert 'href="/spending"' in ready.get("/").text
+
+
+# --- Mobile tab bar ---
+
+
+def test_register_has_tab_bar_instead_of_fab(ready):
+    text = ready.get("/").text
+    assert 'class="tabbar"' in text
+    assert "data-new-txn" in text and 'href="/spending"' in text
+    assert 'class="fab"' not in text
+    assert 'aria-label="Search and filter"' not in text  # the masthead search icon is gone
+    assert 'aria-label="Close search and clear filters"' in text  # the ✕ stays
+
+
+def test_spending_tab_bar_links_back_to_register(ready):
+    text = ready.get("/spending").text
+    assert 'href="/#search"' in text and 'href="/#new"' in text
+    assert 'aria-current="page"' in text
+
+
+def test_reconcile_keeps_the_fab(ready):
+    ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "1000"})
+    text = ready.get("/reconcile").text
+    assert 'class="fab"' in text and "data-new-txn" in text
+    assert 'class="tabbar"' not in text

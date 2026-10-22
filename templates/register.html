@@ -4,14 +4,13 @@
 {% block body_class %}page-register{% endblock %}
 {% block body %}
 {{ sprite(['lock']) }}
-<div class="shell" x-data="filterBar({{ 'true' if filtering else 'false' }})" @filters-escape.window="cancel()">
+<div class="shell" x-data="filterBar({{ 'true' if filtering else 'false' }})" @filters-escape.window="cancel()"
+     @filters-open.window="open()">
   <main class="register">
     <header class="masthead">
       <div class="masthead-bar">
         <h1 class="account">{{ account_name }}</h1>
         <div class="masthead-actions">
-          <button class="icon-btn only-mobile" type="button" @click="open()" x-show="!searching"
-                  aria-label="Search and filter">{{ icon('search') }}</button>
           <button class="icon-btn only-mobile" type="button" @click="cancel()" x-show="searching" x-cloak
                   aria-label="Close search and clear filters">{{ icon('close') }}</button>
           <div class="menu" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
@@ -68,8 +67,10 @@
     </section>
   </main>
 
-  {% with new_url = "/txn/new", panel_text = "Select a transaction to edit it, or add a new one." %}
+  {% with new_url = "/txn/new", panel_text = "Select a transaction to edit it, or add a new one.", no_fab = true %}
   {% include "_panel.html" %}
   {% endwith %}
+
+  {% with active = "register" %}{% include "_tabbar.html" %}{% endwith %}
 </div>
 {% endblock %}
