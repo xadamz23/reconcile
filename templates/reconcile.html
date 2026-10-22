@@ -7,7 +7,7 @@
   <main class="reconcile">
     <header class="masthead masthead-plain">
       <div class="masthead-bar">
-        <a class="icon-btn" href="/" aria-label="Back to register">{{ icon('back') }}</a>
+        <a class="icon-btn only-desktop" href="/" aria-label="Back to register">{{ icon('back') }}</a>
         <h1 class="account">Reconcile statement</h1>
       </div>
     </header>
@@ -61,11 +61,13 @@
     {% endif %}
   </main>
 
+  {% set new_url = "/txn/new?" ~ {"date": state.end_date, "verified": 1} | urlencode if state else None %}
   {% if state %}
-  {% with new_url = "/txn/new?" ~ {"date": state.end_date, "verified": 1} | urlencode,
-          panel_text = "Tap an item to fix it, or add one that's on the statement but missing here." %}
+  {% with panel_text = "Tap an item to fix it, or add one that's on the statement but missing here." %}
   {% include "_panel.html" %}
   {% endwith %}
   {% endif %}
+
+  {% with active = "reconcile" %}{% include "_tabbar.html" %}{% endwith %}
 </div>
 {% endblock %}

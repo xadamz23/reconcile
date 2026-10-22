@@ -322,24 +322,37 @@ def test_register_menu_links_to_spending(ready):
 
 # --- Mobile tab bar ---
 
+TABS = ['href="/"', "Search", 'href="/spending"', 'href="/reconcile"']
 
-def test_register_has_tab_bar_instead_of_fab(ready):
+
+def tabbar(text):
+    return text[text.index('class="tabbar"'):text.index("</nav>", text.index('class="tabbar"'))]
+
+
+def test_register_tab_bar(ready):
     text = ready.get("/").text
-    assert 'class="tabbar"' in text
-    assert "data-new-txn" in text and 'href="/spending"' in text
+    bar = tabbar(text)
+    assert all(t in bar for t in TABS)
+    assert 'hx-get="/txn/new"' in bar and "data-new-txn" in bar
+    assert ":aria-current=" in bar  # Register is current unless search is open
     assert 'class="fab"' not in text
     assert 'aria-label="Search and filter"' not in text  # the masthead search icon is gone
     assert 'aria-label="Close search and clear filters"' in text  # the ✕ stays
 
 
-def test_spending_tab_bar_links_back_to_register(ready):
-    text = ready.get("/spending").text
-    assert 'href="/#search"' in text and 'href="/#new"' in text
-    assert 'aria-current="page"' in text
+def test_spending_tab_bar(ready):
+    bar = tabbar(ready.get("/spending").text)
+    assert all(t in bar for t in TABS)
+    assert 'href="/#search"' in bar and 'href="/#new"' in bar
+    assert 'href="/spending" aria-current="page"' in bar
 
 
-def test_reconcile_keeps_the_fab(ready):
+def test_reconcile_tab_bar(ready):
+    bar = tabbar(ready.get("/reconcile").text)
+    assert 'href="/#new"' in bar  # no reconcile in progress, so no form panel here
+    assert 'href="/reconcile" aria-current="page"' in bar
     ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "1000"})
     text = ready.get("/reconcile").text
-    assert 'class="fab"' in text and "data-new-txn" in text
-    assert 'class="tabbar"' not in text
+    bar = tabbar(text)
+    assert 'hx-get="/txn/new?date=2026-10-31&amp;verified=1"' in bar and "data-new-txn" in bar
+    assert 'class="fab"' not in text

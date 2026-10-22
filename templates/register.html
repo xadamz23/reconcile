@@ -67,10 +67,10 @@
     </section>
   </main>
 
-  {% with new_url = "/txn/new", panel_text = "Select a transaction to edit it, or add a new one.", no_fab = true %}
+  {% with new_url = "/txn/new", panel_text = "Select a transaction to edit it, or add a new one." %}
   {% include "_panel.html" %}
   {% endwith %}
 
-  {% with active = "register" %}{% include "_tabbar.html" %}{% endwith %}
+  {% with active = "register", new_url = "/txn/new" %}{% include "_tabbar.html" %}{% endwith %}
 </div>
 {% endblock %}

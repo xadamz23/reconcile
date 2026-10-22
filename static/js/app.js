@@ -65,7 +65,8 @@
       return;
     }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-    // The FAB, or the + in the mobile tab bar (hidden on desktop, but click() still works).
+    // The panel's New transaction button or the tab bar's + (hidden at some widths,
+    // but click() still works).
     const add = document.querySelector("[data-new-txn]");
     if (e.key === "n" && add) {
       e.preventDefault();
