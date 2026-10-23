@@ -4,7 +4,10 @@
 #
 #   TZ=America/Chicago
 #   RECONCILE_TAG=v0.1.0      # a git tag; defaults to latest
-#   RECONCILE_PORT=8000       # optional
+#
+# It publishes no ports. cloudflared, in its own container, reaches it at
+# http://reconcile:8000 over the external cf-tunnel network. Create that once:
+#   docker network create cf-tunnel
 #
 # Deploy or update:
 #   docker compose pull && docker compose up -d
@@ -19,10 +22,8 @@ services:
     environment:
       # Sets what "today" means (default transaction date, the Today divider).
       TZ: ${TZ:-UTC}
-    ports:
-      # Bound to localhost only: Cloudflare (cloudflared on this host) is the way in.
-      # If cloudflared runs in another container, drop this and put both on a shared network.
-      - "127.0.0.1:${RECONCILE_PORT:-8000}:8000"
+    networks:
+      - cf-tunnel
     volumes:
       - reconcile-data:/data
     read_only: true
@@ -40,3 +41,7 @@ services:
 
 volumes:
   reconcile-data:
+
+networks:
+  cf-tunnel:
+    external: true

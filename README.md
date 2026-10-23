@@ -46,10 +46,10 @@ It tags HEAD and pushes the tag, builds `:<tag>` for amd64 and pushes it, then S
 
 `scripts/update-app.sh` lives on the server at `/home/dockerapps/reconcile/update-app.sh`. If the running container already has that tag, it does nothing. Otherwise it runs `docker compose down`, writes `docker-compose.yaml` pinned to the tag, and runs `docker compose up -d`. To roll back, run it with an older tag. If the Hub repo is private, run `docker login` on the server once.
 
-`compose.yaml` in the repo is a generic version of the same service that reads `RECONCILE_TAG`, `TZ` and `RECONCILE_PORT` from `.env`. The server doesn't use it.
+`compose.yaml` in the repo is a generic version of the same service that reads `RECONCILE_TAG` and `TZ` from `.env`. The server doesn't use it.
 
 - The SQLite DB lives in the `reconcile-data` volume (`/data/reconcile.db` in the container). Back that up.
-- On the server the app is published on port 8004 and joins the external `proxied_to_localhost` network.
+- The app publishes no ports. It joins the external `cf-tunnel` network (`docker network create cf-tunnel` once), and the Cloudflare Tunnel's public hostname routes to `http://reconcile:8000`.
 - The container runs read-only as uid 1000, with no capabilities and rotated logs.
 - `TZ` sets what "today" means (the default date and the Today divider). The server uses `America/Chicago`.
 - The app has no auth of its own. It's meant to sit behind Cloudflare Zero Trust / Access. The manifest is requested with `crossorigin="use-credentials"` so PWA install works behind Access.

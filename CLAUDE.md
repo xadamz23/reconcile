@@ -6,7 +6,7 @@ Single-user check register PWA. FastAPI + Jinja2 + htmx + Alpine.js + SQLite (st
 
 - Tests: `uv run pytest`
 - Dev server: `uv run uvicorn app.main:app --reload --reload-dir app --reload-dir static --reload-dir templates --reload-include '*.css' --reload-include '*.js' --reload-include '*.html'`
-- Release (prod is amd64, dev machine is arm64): `scripts/deploy-reconcile-from-arm64.sh vX.Y.Z`. It tags and pushes the tag, builds and pushes `docker.io/xadamz23/reconcile:<tag>` (no `:latest`), then SSHes to the server and runs `update-app.sh <tag>`. That script (a copy is in `scripts/`) rewrites the server's `docker-compose.yaml` with the tag and restarts. It doesn't run tests. The repo's `compose.yaml` is a generic `.env`-driven version the server doesn't use.
+- Release (prod is amd64, dev machine is arm64): `scripts/deploy-reconcile-from-arm64.sh vX.Y.Z`. It tags and pushes the tag, builds and pushes `docker.io/xadamz23/reconcile:<tag>` (no `:latest`), then SSHes to the server and runs `update-app.sh <tag>`. That script (a copy is in `scripts/`) rewrites the server's `docker-compose.yaml` with the tag and restarts. The server runs its own copy, so re-copy it to `/home/dockerapps/reconcile/` whenever it changes. It doesn't run tests. The repo's `compose.yaml` is a generic `.env`-driven version the server doesn't use.
 - Regenerate icons: `uv run --no-project --with resvg-py --with pillow python scripts/make_icons.py`
 
 ## Layout
