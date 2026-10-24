@@ -533,6 +533,9 @@ button.mark:hover .icon { border-color: var(--green); }
 /* Phones get the tab bar's Register tab instead (after .icon-btn, so it wins). */
 @media (max-width: 899.98px) {
   .only-desktop { display: none; }
+  /* The keyboard resizes the page (interactive-widget=resizes-content), so the
+     fixed tab bar would sit on top of it while typing. */
+  body:has(input:not([type="radio"], [type="checkbox"]):focus, textarea:focus) .tabbar { display: none; }
 }
 
 /* ---------- Desktop: a real columnar register, the form in a drawer ---------- */
