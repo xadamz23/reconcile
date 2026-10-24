@@ -3,12 +3,17 @@
 {% block title %}Reconcile statement{% endblock %}
 {% block body_class %}page-reconcile{% endblock %}
 {% block body %}
+{% set new_url = "/txn/new?" ~ {"date": state.end_date, "verified": 1} | urlencode if state else None %}
 <div class="{{ 'shell' if state else 'solo' }}">
   <main class="reconcile">
     <header class="masthead masthead-plain">
       <div class="masthead-bar">
         <a class="icon-btn only-desktop" href="/" aria-label="Back to register">{{ icon('back') }}</a>
         <h1 class="account">Reconcile statement</h1>
+        {% if state %}
+        <button class="btn btn-primary btn-new only-desktop" type="button" hx-get="{{ new_url }}" hx-target="#panel-body"
+                data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</button>
+        {% endif %}
       </div>
     </header>
 
@@ -61,12 +66,7 @@
     {% endif %}
   </main>
 
-  {% set new_url = "/txn/new?" ~ {"date": state.end_date, "verified": 1} | urlencode if state else None %}
-  {% if state %}
-  {% with panel_text = "Tap an item to fix it, or add one that's on the statement but missing here." %}
-  {% include "_panel.html" %}
-  {% endwith %}
-  {% endif %}
+  {% if state %}{% include "_panel.html" %}{% endif %}
 
   {% with active = "reconcile" %}{% include "_tabbar.html" %}{% endwith %}
 </div>

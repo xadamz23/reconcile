@@ -3,7 +3,6 @@
   const panel = () => document.getElementById("panel");
   const panelBody = () => document.getElementById("panel-body");
   let lastFocus = null;
-  let emptyPanel = null; // desktop placeholder, restored when the form closes
 
   function openPanel() {
     const p = panel();
@@ -20,7 +19,7 @@
     // On phones the sheet slides up. Focusing mid-slide opens the keyboard while the
     // field is still below the screen, and Chrome pans the view down to it, leaving the
     // top of the sheet cut off once it lands. So focus once it's in place.
-    if (wasOpen || window.matchMedia("(min-width: 900px)").matches) first.focus();
+    if (wasOpen || window.matchMedia("(min-width: 900px)").matches) first.focus({ preventScroll: true });
     else afterSlide(p, () => {
       if (document.body.classList.contains("panel-open")) first.focus({ preventScroll: true });
     });
@@ -44,26 +43,20 @@
     if (!p) return;
     document.body.classList.remove("panel-open");
     p.setAttribute("aria-hidden", "true");
-    // Wait for the mobile sheet to slide away before clearing it.
+    // Wait for the sheet or drawer to slide away before clearing it.
     setTimeout(() => {
-      if (emptyPanel === null || document.body.classList.contains("panel-open")) return;
-      panelBody().innerHTML = emptyPanel;
-      window.htmx.process(panelBody());
+      if (!document.body.classList.contains("panel-open")) panelBody().innerHTML = "";
     }, 260);
     document.querySelectorAll(".txn.is-selected").forEach((el) => el.classList.remove("is-selected"));
     if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
   }
-
-  document.addEventListener("DOMContentLoaded", () => {
-    if (panelBody()) emptyPanel = panelBody().innerHTML;
-  });
 
   document.addEventListener("htmx:afterSwap", (e) => {
     // Only loading a form opens the panel; saves fire afterSwap too (with HX-Reswap: none).
     if (e.detail.target.id === "panel-body" && e.detail.requestConfig.verb === "get") openPanel();
   });
 
-  // Highlight the row being edited (desktop side panel).
+  // Highlight the row being edited (beside the desktop drawer).
   document.addEventListener("htmx:beforeRequest", (e) => {
     const row = e.detail.elt.closest && e.detail.elt.closest(".txn-open");
     if (row) {
@@ -89,7 +82,7 @@
       return;
     }
     if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-    // The panel's New transaction button or the tab bar's + (hidden at some widths,
+    // The desktop New transaction button or the tab bar's + (one is always hidden,
     // but click() still works).
     const add = document.querySelector("[data-new-txn]");
     if (e.key === "n" && add) {

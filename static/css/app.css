@@ -17,6 +17,7 @@
   --green-wash: #d6e6d3;
   --focus: #2f5fae;
   --shadow: 0 1px 0 rgba(30, 42, 59, 0.06), 0 12px 32px -12px rgba(30, 42, 59, 0.28);
+  --scrim: rgba(30, 42, 59, 0.32);
   /* Checkbox tick, stroked in --paper (data URIs can't use custom properties). */
 
   --font: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
@@ -46,6 +47,7 @@
     --green-wash: #1d3a2b;
     --focus: #8fb3ff;
     --shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 16px 40px -12px rgba(0, 0, 0, 0.7);
+    --scrim: rgba(0, 0, 0, 0.6);
     color-scheme: dark;
   }
 }
@@ -346,7 +348,7 @@ button.mark:hover .icon { border-color: var(--green); }
 .panel-open .panel { transform: none; visibility: visible; transition-delay: 0s; }
 .panel-open { overflow: hidden; }
 .panel-body { min-height: 100%; }
-.panel-empty { display: none; }
+.panel-scrim { display: none; }
 
 .panel-bar {
   position: sticky; top: 0; z-index: 2;
@@ -533,23 +535,20 @@ button.mark:hover .icon { border-color: var(--green); }
   .only-desktop { display: none; }
 }
 
-/* ---------- Desktop: a real columnar register with a side panel ---------- */
+/* ---------- Desktop: a real columnar register, the form in a drawer ---------- */
 
 @media (min-width: 900px) {
   :root { --gutter: 1.5rem; --row-h: 3.25rem; }
 
-  .shell {
-    display: grid; grid-template-columns: minmax(0, 1fr) 26rem;
-    max-width: 82rem; margin: 0 auto; min-height: 100dvh;
-  }
-  /* Pages lay themselves out by their own width, not the window's (the panel takes 26rem).
+  .shell { max-width: 82rem; margin: 0 auto; }
+  /* Pages lay themselves out by their own width, not the window's.
      Containment makes main the containing block for anything position: fixed inside it. */
   main { container: ledger / inline-size; }
-  .shell > main { min-width: 0; border-right: 1px solid var(--rule); }
-  .shell > .reconcile { max-width: none; margin: 0; }
 
   .only-mobile { display: none; }
   .masthead { padding-top: 1rem; }
+  .btn-new { min-height: 2.5rem; padding: 0 1rem 0 0.75rem; margin-right: 0.5rem; font-size: 0.9375rem; }
+  .btn-new .icon { width: 1.125rem; height: 1.125rem; stroke-width: 2.2; }
   .totals { grid-template-columns: auto auto 1fr; gap: 2.5rem; align-items: baseline; }
   .total { flex-direction: column; align-items: flex-start; gap: 0; }
   .total dt { font-size: 0.875rem; }
@@ -564,18 +563,22 @@ button.mark:hover .icon { border-color: var(--green); }
   .tabbar { display: none; }
   .spending, .reconcile { padding-bottom: calc(2rem + var(--safe-b)); }
 
+  /* The form slides in from the right over a scrim, only while it's in use. */
   .panel {
-    position: sticky; top: 0; inset: auto;
-    height: 100dvh; transform: none; visibility: visible;
+    left: auto; width: 28rem;
     background: var(--paper-raised);
-    transition: none;
+    border-left: 1px solid var(--rule-strong);
+    box-shadow: -20px 0 60px -20px rgba(30, 42, 59, 0.4);
+    transform: translateX(100%);
   }
+  .panel-scrim {
+    display: block; position: fixed; inset: 0; z-index: 39;
+    background: var(--scrim);
+    opacity: 0; visibility: hidden;
+    transition: opacity 200ms, visibility 0s linear 200ms;
+  }
+  .panel-open .panel-scrim { opacity: 1; visibility: visible; transition-delay: 0s; }
   .panel-open { overflow: auto; }
-  .panel-empty {
-    display: grid; gap: 1rem; justify-items: start; align-content: center;
-    min-height: 100dvh; padding: 2rem;
-    color: var(--ink-soft);
-  }
   .panel-bar { padding-top: 0.75rem; background: var(--paper-raised); }
   .txn-form { min-height: 100dvh; }
 }

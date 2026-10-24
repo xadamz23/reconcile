@@ -1,12 +1,7 @@
-{# Transaction form panel (side panel on desktop, sheet on mobile). Expects new_url
-   (where "New transaction" loads the form from) and panel_text. On mobile the
-   tab bar's + opens it. #}
-{% from "_icons.html" import icon %}
+{# Transaction form panel: a full-screen sheet on mobile, a drawer over a scrim on
+   desktop. Empty until a form loads into it, from a row, the tab bar's + or the
+   desktop New transaction button. #}
+<div class="panel-scrim" data-panel-close></div>
 <aside id="panel" class="panel" aria-label="Transaction" aria-hidden="true">
-  <div id="panel-body" class="panel-body">
-    <div class="panel-empty">
-      <p>{{ panel_text }}</p>
-      <button class="btn btn-primary" type="button" hx-get="{{ new_url }}" hx-target="#panel-body" data-new-txn>{{ icon('plus') }}New transaction</button>
-    </div>
-  </div>
+  <div id="panel-body" class="panel-body"></div>
 </aside>
