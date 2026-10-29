@@ -12,7 +12,8 @@ Single-user check register PWA. FastAPI + Jinja2 + htmx + Alpine.js + SQLite (st
 ## Layout
 
 - `app/repo.py`: **all SQL**. Routes never write SQL themselves. Text is trimmed in `TxnInput.__post_init__` / `clean_text`, which is the one place whitespace stripping happens.
-- `app/money.py`: amounts are **signed integer cents** (negative = payment). Never use floats.
+- `app/money.py`: amounts are **signed integer cents** (negative = payment). Never use floats `parse_cents` caps them at `MAX_CENTS` ($9,999,999.99).
+- One SQLite connection is shared by all requests. `deps.get_conn` holds `app.state.db_lock` for the whole request, so routes must get the connection only through `Depends(get_conn)`.
 - `app/db.py`: migrations are an append-only list keyed by `PRAGMA user_version`. Add a new entry and never edit an old one.
 - `app/assets.py`: hashes every file in `static/` at startup. Templates must reference assets via `static_url('path')`, which yields `?v=<hash>` URLs that are served `immutable`.
 - `app/routes/`: one router per area. `deps.render()` injects `today`.
@@ -28,7 +29,7 @@ Single-user check register PWA. FastAPI + Jinja2 + htmx + Alpine.js + SQLite (st
 - The register pages its rows (`PAGE_SIZE` in `routes/register.py`). `_ledger_rows.html` ends with a placeholder that loads the next page (a `before=<date>:<id>` cursor) when it scrolls into view. The refresh after a save sends `rows=<count loaded>` so the list keeps its place. htmx merges `hx-vals` from every ancestor, even with `hx-disinherit`, so next-page requests carry `rows` too. The route ignores it when there's a cursor.
 - Row-repeated icons use `sprite()` once on the page plus `icon_ref()` per row (`_icons.html`), instead of a full inline SVG on every row.
 - Statuses are `unverified` → `verified` → `reconciled`. `verified` only means "ticked on the in-progress reconcile": there is no verify control in the register or the form. Only the reconcile tick, `finish_statement` and `discard_draft` change status; `update_txn` never does. A new transaction added from the reconcile screen (`/txn/new?date=…&verified=1`) starts ticked. The opening balance (`is_opening=1`) is reconciled and can't be deleted.
-- The in-progress reconcile (closing date + statement balance) is a draft in `settings` (`rec_end_date`, `rec_balance_cents`). Reconcile routes read it instead of taking form fields. Finishing clears it; discarding clears it and unticks every `verified` item.
+- The in-progress reconcile (closing date + statement balance) is a draft in `settings` (`rec_end_date`, `rec_balance_cents`). Reconcile routes read it instead of taking form fields. Finishing clears it and unticks any `verified` items dated after the closing date; discarding clears it and unticks every `verified` item.
 - Cleared balance for reconciling = all reconciled + verified items dated on or before the statement's closing date.
 - CSRF: middleware in `app/main.py` rejects any non-GET request that a browser marks as cross-site (`Sec-Fetch-Site`, falling back to `Origin` vs `Host`). Auth is only Cloudflare Access, so this is the one thing stopping other sites from posting forms. Requests with neither header (curl, TestClient) are allowed.
 - `scripts/import_register_csv.py` is stdlib-only (it runs on the prod host, not in the venv) and writes SQL directly, against `SCHEMA_VERSION`. Bump that constant and re-check its INSERT when adding a migration.

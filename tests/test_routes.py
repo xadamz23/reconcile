@@ -1,4 +1,5 @@
 import re
+import threading
 from datetime import date, timedelta
 
 import pytest
@@ -57,6 +58,37 @@ def test_create_txn_validation_rerenders_form(ready):
     assert "HX-Trigger" not in r.headers
     assert "Enter an amount" in r.text
     assert "Who was it paid" in r.text
+
+
+def test_huge_amounts_are_form_errors_not_crashes(ready):
+    r = ready.post("/txn", data={"sign": "-", "amount": "9" * 20, "payee": "X", "date": "2026-10-23"}, headers=HX)
+    assert r.status_code == 200
+    assert "HX-Trigger" not in r.headers
+    assert "Enter an amount" in r.text
+    r = ready.get("/", params={"amount": "999999999999999999999.5"}, headers={**HX, "HX-Target": "ledger"})
+    assert r.status_code == 200
+    assert "isn&#39;t an amount" in r.text
+
+
+def test_out_of_range_numbers_are_bad_requests(ready):
+    assert ready.get("/txn/99999999999999999999/edit").status_code == 400
+    assert ready.get("/", params={"rows": "9" * 20}).status_code == 400
+    assert ready.get("/", params={"before": "2026-10-01:" + "9" * 20}).status_code == 400
+
+
+def test_requests_take_turns_on_the_shared_connection(ready):
+    lock = ready.app.state.db_lock
+    result = {}
+    lock.acquire()
+    try:
+        t = threading.Thread(target=lambda: result.update(r=ready.get("/")))
+        t.start()
+        t.join(0.3)
+        assert t.is_alive(), "request ran while another held the DB lock"
+    finally:
+        lock.release()
+    t.join(5)
+    assert result["r"].status_code == 200
 
 
 def test_deposit_sign(ready):

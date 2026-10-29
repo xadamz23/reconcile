@@ -290,6 +290,18 @@ def test_finish_statement(ledger):
     assert stmt["item_count"] == 2
 
 
+def test_finish_statement_unticks_items_after_the_end_date(ledger):
+    # Ticked while the closing date was later, then the date moved earlier.
+    fozzys = repo.list_txns(ledger, q="Fozzys")[0]
+    [sirius] = repo.list_txns(ledger, q="Sirius")
+    repo.toggle_verified(ledger, fozzys["id"])
+    repo.toggle_verified(ledger, sirius["id"])
+    repo.finish_statement(ledger, "2026-10-06", 295469)
+    t = repo.get_txn(ledger, sirius["id"])
+    assert t["status"] == "unverified"
+    assert t["statement_id"] is None
+
+
 def test_finish_statement_refuses_when_unbalanced(ledger):
     with pytest.raises(ValueError):
         repo.finish_statement(ledger, "2026-10-06", 1)
@@ -320,3 +332,8 @@ def test_discard_draft_unticks(ledger):
     assert repo.get_draft(ledger) is None
     assert repo.get_txn(ledger, fozzys["id"])["status"] == "unverified"
     assert repo.list_txns(ledger, show_reconciled=True)[-1]["status"] == "reconciled"  # opening untouched
+
+
+def test_amount_filter_rejects_absurd_amounts(ledger):
+    with pytest.raises(ValueError):
+        repo.list_txns(ledger, amount="999999999999999999999.5")

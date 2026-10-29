@@ -14,13 +14,15 @@ from app.money import format_cents, parse_cents
         (".75", 75),
         ("0", 0),
         ("-5.00", -500),
+        ("9,999,999.99", 999999999),
+        ("-9999999.99", -999999999),
     ],
 )
 def test_parse_cents(text, expected):
     assert parse_cents(text) == expected
 
 
-@pytest.mark.parametrize("text", ["", "abc", "1.234", "1.2.3", "--1", "$"])
+@pytest.mark.parametrize("text", ["", "abc", "1.234", "1.2.3", "--1", "$", "10000000.00", "-10000000", "9" * 20])
 def test_parse_cents_rejects_garbage(text):
     with pytest.raises(ValueError):
         parse_cents(text)

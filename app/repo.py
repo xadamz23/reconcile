@@ -5,6 +5,8 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import date as Date
 
+from app.money import MAX_CENTS
+
 
 OPENING_PAYEE = "Opening balance"
 KINDS = ("all", "payments", "deposits")
@@ -146,6 +148,8 @@ def _partial_amount(text: str) -> tuple[int, int]:
         raise ValueError(f"Not an amount: {text!r}")
     whole, frac = match.group(1), match.group(2) or ""
     base = int(whole or "0") * 100 + int(frac.ljust(2, "0"))
+    if base > MAX_CENTS:
+        raise ValueError(f"Amount too large: {text!r}")
     return base, base + (99, 9, 0)[len(frac)]
 
 
@@ -352,6 +356,11 @@ def finish_statement(conn: sqlite3.Connection, end_date: str, statement_cents: i
             "UPDATE transactions SET status = 'reconciled', statement_id = ?, updated_at = datetime('now') "
             "WHERE status = 'verified' AND date <= ?",
             (sid, end_date),
+        )
+        # Anything still ticked is dated after the closing date, so it wasn't on this
+        # statement (the date was moved, or the draft's closing date was). Untick it.
+        conn.execute(
+            "UPDATE transactions SET status = 'unverified', updated_at = datetime('now') WHERE status = 'verified'"
         )
         _clear_draft(conn)
     return sid

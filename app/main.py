@@ -1,3 +1,4 @@
+import threading
 from contextlib import asynccontextmanager
 from datetime import date
 from pathlib import Path
@@ -57,6 +58,7 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
         conn = db.connect(path)
         db.migrate(conn)
         app.state.conn = conn
+        app.state.db_lock = threading.Lock()  # held per request by deps.get_conn
         yield
         conn.close()
 
@@ -74,6 +76,11 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
         if request.method not in SAFE_METHODS and is_cross_site(request):
             return PlainTextResponse("Cross-site request blocked", status_code=403)
         return await call_next(request)
+
+    @app.exception_handler(OverflowError)
+    async def number_too_large(request: Request, exc: OverflowError):
+        # An id, cursor or row count past SQLite's 64-bit integers.
+        return PlainTextResponse("Number too large", status_code=400)
 
     app.mount("/static", HashedStaticFiles(directory=config.STATIC_DIR), name="static")
 

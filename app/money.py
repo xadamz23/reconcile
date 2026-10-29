@@ -4,6 +4,10 @@ import re
 
 _MONEY_RE = re.compile(r"^(-)?\$?(\d*)(?:\.(\d{1,2}))?$")
 
+# $9,999,999.99: the most the 9-digit cash-register input in app.js can enter. Keeps
+# SUM() over the ledger far from SQLite's 64-bit limit.
+MAX_CENTS = 999_999_999
+
 
 def parse_cents(text: str) -> int:
     """Parse user input like "$1,234.56", "10", ".75" into integer cents."""
@@ -13,6 +17,8 @@ def parse_cents(text: str) -> int:
         raise ValueError(f"Not a valid amount: {text!r}")
     sign, whole, frac = match.groups()
     cents = int(whole or "0") * 100 + int((frac or "0").ljust(2, "0"))
+    if cents > MAX_CENTS:
+        raise ValueError(f"Amount too large: {text!r}")
     return -cents if sign else cents
 
 
