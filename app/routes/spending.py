@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 
 from app import repo
-from app.routes.deps import get_conn, is_htmx, render
+from app.routes.deps import get_conn, is_htmx, masthead_context, render
 
 router = APIRouter()
 
@@ -79,4 +79,4 @@ def spending(request: Request, period: str = "month", conn: sqlite3.Connection =
     ctx = spending_context(conn, period, date.today())
     if is_htmx(request) and request.headers.get("HX-Target") == "spending-body":
         return render(request, "_spending_body.html", ctx)
-    return render(request, "spending.html", ctx)
+    return render(request, "spending.html", {**ctx, **masthead_context(conn)})

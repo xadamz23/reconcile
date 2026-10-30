@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 
 from app import repo
 from app.money import parse_cents
-from app.routes.deps import get_conn, is_htmx, render
+from app.routes.deps import get_conn, is_htmx, masthead_context, render
 
 router = APIRouter()
 
@@ -46,10 +46,7 @@ def register_context(
         "rows": rows,
         "next_cursor": f"{rows[-1]['date']}:{rows[-1]['id']}" if more else None,
         "before_date": before[0] if before else None,
-        "balance": repo.balance(conn),
-        "last": repo.last_statement(conn),
-        "reconciling": repo.get_draft(conn) is not None,
-        "account_name": repo.get_setting(conn, "account_name", "Checking"),
+        **masthead_context(conn),
         "filters": {"kind": kind, "q": q, "amount": amount, "show_reconciled": show_reconciled},
         "filtering": bool(q.strip() or amount.strip() or kind != "all" or show_reconciled),
         "filter_error": error,

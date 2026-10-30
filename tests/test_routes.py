@@ -406,3 +406,20 @@ def test_new_form_focuses_through_app_js_not_htmx(ready):
     # htmx focuses [autofocus] mid-slide on phones, which opens the keyboard too early.
     text = ready.get("/txn/new", headers=HX).text
     assert "data-autofocus" in text and " autofocus" not in text
+
+
+# --- Masthead ---
+
+
+@pytest.mark.parametrize("path", ["/", "/reconcile", "/spending"])
+def test_every_page_has_the_same_masthead(ready, path):
+    text = ready.get(path).text
+    assert '<h1 class="account">Adam&#39;s Checking</h1>' in text
+    assert 'id="totals"' in text
+    assert 'aria-label="Menu"' in text
+
+
+def test_reconcile_refresh_updates_masthead_totals(ready):
+    ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "1000.00"})
+    r = ready.get("/reconcile", headers={"HX-Request": "true", "HX-Target": "rec-body"})
+    assert 'id="totals" class="totals" hx-swap-oob="true"' in r.text

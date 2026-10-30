@@ -4,18 +4,9 @@
 {% block body_class %}page-reconcile{% endblock %}
 {% block body %}
 {% set new_url = "/txn/new?" ~ {"date": state.end_date, "verified": 1} | urlencode if state else None %}
-<div class="{{ 'shell' if state else 'solo' }}">
+<div class="shell">
   <main class="reconcile">
-    <header class="masthead glass-strong">
-      <div class="masthead-bar">
-        <a class="icon-btn only-desktop" href="/" aria-label="Back to register">{{ icon('back') }}</a>
-        <h1 class="account">Reconcile statement</h1>
-        {% if state %}
-        <button class="btn accent btn-new only-desktop" type="button" hx-get="{{ new_url }}" hx-target="#panel-body"
-                data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</button>
-        {% endif %}
-      </div>
-    </header>
+    {% with back = true %}{% include "_masthead.html" %}{% endwith %}
 
     {% if done %}
     <p class="banner banner-ok" role="status">{{ icon('check') }}Statement reconciled. Its items are now locked and hidden from the register.</p>

@@ -1,3 +1,6 @@
+{% if oob_totals %}
+  {% with oob = true %}{% include "_totals.html" %}{% endwith %}
+{% endif %}
 {% if state %}
 {% include "_reconcile_summary.html" %}
 <section class="rec-list card card-list glass" aria-label="Items on or before {{ state.end_date | pretty_date }}">

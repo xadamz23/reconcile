@@ -18,7 +18,7 @@ Single-user check register PWA. FastAPI + Jinja2 + htmx + Alpine.js + SQLite (st
 - `app/assets.py`: hashes every file in `static/` at startup. Templates must reference assets via `static_url('path')`, which yields `?v=<hash>` URLs that are served `immutable`.
 - `app/routes/`: one router per area. `deps.render()` injects `today`.
 - `app/routes/spending.py`: the Spending page (payments per payee for a calendar period). Its bars are plain CSS (a span sized by `--w`, set server-side), with no chart library.
-- `templates/_*.html` are htmx partials. `_panel.html` (the form panel) is shared by the register and reconcile pages, and `_tabbar.html` (the mobile bottom bar) by those and Spending. `templates/sw.js` is the service worker, rendered by `routes/pwa.py`.
+- `templates/_*.html` are htmx partials. `_panel.html` (the form panel) is shared by the register and reconcile pages, and `_tabbar.html` (the mobile bottom bar) and `_masthead.html` (the header, fed by `deps.masthead_context()`) by those and Spending. `templates/sw.js` is the service worker, rendered by `routes/pwa.py`.
 
 ## Gotchas
 

@@ -578,7 +578,6 @@ button.mark:hover .icon { border-color: var(--dep); }
 
 /* ---------- Reconcile ---------- */
 
-.reconcile { max-width: 52rem; margin: 0 auto; }
 .banner {
   display: flex; align-items: center; gap: 0.5rem;
   margin: var(--card-inset) var(--card-inset) 0; padding: 0.875rem 1rem;
@@ -596,7 +595,7 @@ button.mark:hover .icon { border-color: var(--dep); }
 
 .rec-summary {
   /* Sticks just below the sticky masthead (its height plus a gap). */
-  position: sticky; top: calc(var(--safe-t) + 4.25rem); z-index: 10;
+  position: sticky; top: calc(var(--safe-t) + 9.625rem); z-index: 10;
   display: grid; gap: 0.75rem;
   padding: 0.875rem 1rem 1rem;
 }
@@ -628,7 +627,6 @@ button.mark:hover .icon { border-color: var(--dep); }
 
 /* Payments per payee. Each bar is a span whose width (--w) the server sets relative
    to the biggest payee: no chart library. Two-line rows here; one line on desktop. */
-.spending { max-width: 52rem; margin: 0 auto; }
 .spend-periods { margin: var(--card-inset) var(--card-inset) 0; }
 
 .spend-total {
@@ -724,7 +722,9 @@ button.mark:hover .icon { border-color: var(--dep); }
 
   .tabbar { display: none; }
   .register, .spending, .reconcile { padding-bottom: calc(2rem + var(--safe-b)); }
-  .rec-summary { top: 5.125rem; }
+  .rec-summary { top: 10rem; }
+  /* The masthead spans the page, as on the register; the content stays a readable width. */
+  .reconcile > :not(.masthead), .spending > :not(.masthead) { max-width: 49rem; margin-inline: auto; }
 
   /* The form slides in from the right over a scrim, only while it's in use. */
   .panel {

@@ -1,0 +1,29 @@
+{# The header on the register, Spending and Reconcile pages. Expects masthead_context()
+   from routes/deps.py and optionally new_url (shows New transaction), back (a
+   desktop back arrow) and close_search (the register's close-search button). #}
+{% from "_icons.html" import icon %}
+<header class="masthead glass-strong">
+  <div class="masthead-bar">
+    {% if back %}<a class="icon-btn only-desktop" href="/" aria-label="Back to register">{{ icon('back') }}</a>{% endif %}
+    <h1 class="account">{{ account_name }}</h1>
+    <div class="masthead-actions">
+      {% if new_url %}
+      <button class="btn accent btn-new only-desktop" type="button" hx-get="{{ new_url }}" hx-target="#panel-body"
+              data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</button>
+      {% endif %}
+      {% if close_search %}
+      <button class="icon-btn only-desktop" type="button" @click="cancel()" x-show="searching" x-cloak
+              aria-label="Close search and clear filters">{{ icon('close') }}</button>
+      {% endif %}
+      <div class="menu" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
+        <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
+        <div class="menu-pop glass-strong is-popover" role="menu" x-show="open" x-transition.origin.top.right x-cloak>
+          <a role="menuitem" href="/reconcile">{{ icon('scale') }}{{ 'Continue reconciling' if reconciling else 'Reconcile a statement' }}</a>
+          <a role="menuitem" href="/spending">{{ icon('chart') }}Spending</a>
+          <a role="menuitem" href="/export.csv" download>{{ icon('download') }}Export CSV</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% include "_totals.html" %}
+</header>

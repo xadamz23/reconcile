@@ -6,7 +6,7 @@ from fastapi.responses import RedirectResponse
 
 from app import repo
 from app.money import parse_cents, plain_amount
-from app.routes.deps import get_conn, is_htmx, render
+from app.routes.deps import get_conn, is_htmx, masthead_context, render
 
 router = APIRouter()
 
@@ -28,16 +28,15 @@ def _page(request: Request, conn, form: dict | None = None, error: str | None = 
         "form": form,
         "error": error,
         "done": done,
-        "last": repo.last_statement(conn),
         "statements": repo.list_statements(conn),
-        "account_name": repo.get_setting(conn, "account_name", "Checking"),
+        **masthead_context(conn),
     })
 
 
 @router.get("/reconcile")
 def reconcile(request: Request, done: int | None = None, conn: sqlite3.Connection = Depends(get_conn)):
     if is_htmx(request) and request.headers.get("HX-Target") == "rec-body":
-        return render(request, "_reconcile_body.html", {"state": _state(conn)})
+        return render(request, "_reconcile_body.html", {"state": _state(conn), "oob_totals": True, **masthead_context(conn)})
     return _page(request, conn, done=done)
 
 

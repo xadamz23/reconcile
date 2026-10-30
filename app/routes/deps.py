@@ -4,6 +4,8 @@ from datetime import date
 
 from fastapi import Request
 
+from app import repo
+
 
 def get_conn(request: Request) -> Iterator[sqlite3.Connection]:
     # One connection is shared by every request, and sync routes run on several
@@ -16,6 +18,15 @@ def get_conn(request: Request) -> Iterator[sqlite3.Connection]:
 def render(request: Request, name: str, context: dict | None = None, **kwargs):
     ctx = {"today": date.today().isoformat(), **(context or {})}
     return request.app.state.templates.TemplateResponse(request, name, ctx, **kwargs)
+
+
+def masthead_context(conn: sqlite3.Connection) -> dict:
+    return {
+        "balance": repo.balance(conn),
+        "last": repo.last_statement(conn),
+        "reconciling": repo.get_draft(conn) is not None,
+        "account_name": repo.get_setting(conn, "account_name", "Checking"),
+    }
 
 
 def is_htmx(request: Request) -> bool:
