@@ -144,36 +144,66 @@
   });
 
   document.addEventListener("alpine:init", () => {
-    // Register filter bar. `searching` shows the bar on mobile (it's always shown on
-    // desktop); `active` is whether any filter is set.
+    // Register filter bar. `searching` shows the bar on mobile (the search line is
+    // always shown on desktop). Reconciled items are on while searching and off
+    // otherwise, so entering search ticks the switch.
     window.Alpine.data("filterBar", (filtering) => ({
       searching: filtering,
-      active: filtering,
+      tray: false,
+      kind: "all",
+      rec: false,
+      init() {
+        this.sync();
+      },
+      // Filters that differ from the search defaults.
+      get count() {
+        return this.searching ? (this.kind !== "all") + !this.rec : 0;
+      },
       sync() {
         const f = this.$refs.filters;
-        this.active = Boolean(f.q.value.trim() || f.amount.value.trim() || f.kind.value !== "all" || f.show_reconciled.checked);
+        this.kind = f.kind.value;
+        this.rec = f.show_reconciled.checked;
+      },
+      refetch() {
+        this.sync();
+        window.htmx.trigger(this.$refs.filters, "change"); // one refetch for the whole change
+      },
+      enter() {
+        if (this.searching) return;
+        this.searching = true;
+        this.$refs.filters.show_reconciled.checked = true;
+        this.refetch();
       },
       // From the mobile tab bar too, which may be tapped far down the list.
       open() {
-        this.searching = true;
+        this.enter();
         window.scrollTo({ top: 0 });
         this.$nextTick(() => this.$refs.q.focus());
       },
-      clear() {
+      toggleTray() {
+        this.enter();
+        this.tray = !this.tray;
+      },
+      dropKind() {
+        this.$refs.filters.kind.value = "all";
+        this.refetch();
+      },
+      showReconciled() {
+        this.$refs.filters.show_reconciled.checked = true;
+        this.refetch();
+      },
+      // Masthead close button and Esc: clear the filters and leave search.
+      cancel() {
+        if (!this.searching) return;
         const f = this.$refs.filters;
-        if (!this.active) return;
         f.q.value = "";
         f.amount.value = "";
         f.kind.value = "all";
         f.show_reconciled.checked = false;
-        this.active = false;
-        window.htmx.trigger(f, "change"); // one refetch for the whole reset
-      },
-      // Mobile close button and Esc: clear the filters and hide the bar.
-      cancel() {
-        this.clear();
         this.searching = false;
-        if (this.$refs.filters.contains(document.activeElement)) document.activeElement.blur();
+        this.tray = false;
+        if (f.contains(document.activeElement)) document.activeElement.blur();
+        this.refetch();
       },
     }));
 

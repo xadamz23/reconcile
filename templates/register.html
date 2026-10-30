@@ -13,7 +13,7 @@
         <div class="masthead-actions">
           <button class="btn accent btn-new only-desktop" type="button" hx-get="/txn/new" hx-target="#panel-body"
                   data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</button>
-          <button class="icon-btn only-mobile" type="button" @click="cancel()" x-show="searching" x-cloak
+          <button class="icon-btn" type="button" @click="cancel()" x-show="searching" x-cloak
                   aria-label="Close search and clear filters">{{ icon('close') }}</button>
           <div class="menu" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
             <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
@@ -32,30 +32,44 @@
           @input="sync()" @change="sync()"
           hx-get="/" hx-target="#ledger" hx-push-url="true"
           hx-trigger="input changed delay:250ms from:.filters-text, change">
-      <div class="filters-text">
-        <label class="field-inline glass-input">
-          <span class="visually-hidden">Payee</span>
-          {{ icon('search') }}
-          <input type="search" name="q" value="{{ filters.q }}" placeholder="Payee" autocomplete="off" x-ref="q" id="filter-q">
-        </label>
-        <label class="field-inline field-amount glass-input">
-          <span class="visually-hidden">Amount</span>
-          <span class="dollar" aria-hidden="true">$</span>
-          <input type="text" name="amount" value="{{ filters.amount }}" placeholder="Amount" title="5 finds $5, $50 to $59 and $500 to $599, 20.0 finds $20.00 to $20.09, or a range like 10-50" inputmode="decimal" autocomplete="off">
+      <div class="filters-top">
+        <div class="filters-text" @focusin="enter()">
+          <label class="field-inline">
+            <span class="visually-hidden">Payee</span>
+            {{ icon('search') }}
+            <input type="search" name="q" value="{{ filters.q }}" placeholder="Payee" autocomplete="off" x-ref="q" id="filter-q">
+          </label>
+          <label class="field-inline field-amount">
+            <span class="visually-hidden">Amount</span>
+            <span class="dollar" aria-hidden="true">$</span>
+            <input type="text" name="amount" value="{{ filters.amount }}" placeholder="Amount" title="5 finds $5, $50 to $59 and $500 to $599, 20.0 finds $20.00 to $20.09, or a range like 10-50" inputmode="decimal" autocomplete="off">
+          </label>
+        </div>
+        <button class="filters-btn" type="button" :class="tray && 'accent'" @click="toggleTray()"
+                :aria-expanded="tray" aria-controls="filters-tray" :aria-label="count ? `Filters, ${count} in use` : 'Filters'">
+          {{- icon('sliders') -}}
+          <span class="filters-count" aria-hidden="true" x-show="count" x-text="count" x-cloak></span>
+        </button>
+      </div>
+      <div class="filters-tray" id="filters-tray" x-show="tray" x-cloak>
+        <fieldset class="seg">
+          <legend class="visually-hidden">Show</legend>
+          {% for value, label in [('all', 'All'), ('payments', 'Payments'), ('deposits', 'Deposits')] %}
+          <label class="pill-radio"><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if filters.kind == value }}><span>{{ label }}</span></label>
+          {% endfor %}
+        </fieldset>
+        <label class="toggle-reconciled">
+          <input type="checkbox" role="switch" name="show_reconciled" value="true" {{ 'checked' if filters.show_reconciled }}>
+          <span>Show reconciled</span>
         </label>
       </div>
-      <fieldset class="pill-group glass">
-        <legend class="visually-hidden">Show</legend>
-        {% for value, label in [('all', 'All'), ('payments', 'Payments'), ('deposits', 'Deposits')] %}
-        <label class="pill-radio"><input type="radio" name="kind" value="{{ value }}" {{ 'checked' if filters.kind == value }}><span>{{ label }}</span></label>
-        {% endfor %}
-      </fieldset>
-      <label class="toggle-reconciled">
-        <input type="checkbox" role="switch" name="show_reconciled" value="true" {{ 'checked' if filters.show_reconciled }}>
-        <span>Show reconciled</span>
-      </label>
-      <button class="btn btn-glass filters-clear" type="button" @click="clear()" x-show="active" x-cloak>{{ icon('close') }}Clear</button>
     </form>
+    <div class="filter-chips" x-show="searching && !tray && count" x-cloak>
+      <button class="filter-chip" type="button" x-show="kind !== 'all'" @click="dropKind()">
+        <span x-text="kind === 'payments' ? 'Payments' : 'Deposits'"></span>{{ icon('close') }}
+      </button>
+      <button class="filter-chip" type="button" x-show="!rec" @click="showReconciled()">Reconciled hidden{{ icon('close') }}</button>
+    </div>
 
     <div class="card card-list glass">
     <div class="ledger-head" aria-hidden="true">

@@ -194,6 +194,11 @@ def test_ledger_rejects_a_bad_cursor(paged):
     assert paged.get("/?before=yesterday", headers=HX).status_code == 400
 
 
+def test_reconciled_stays_off_until_asked_for(ready):
+    assert 'name="show_reconciled" value="true" >' in ready.get("/").text
+    assert 'name="show_reconciled" value="true" checked' in ready.get("/?q=x&show_reconciled=true").text
+
+
 def test_show_reconciled_counts_as_filtering(ready):
     assert "filterBar(false)" in ready.get("/").text
     assert "filterBar(true)" in ready.get("/?show_reconciled=true").text
