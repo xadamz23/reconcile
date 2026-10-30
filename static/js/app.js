@@ -192,7 +192,8 @@
         this.$refs.filters.show_reconciled.checked = true;
         this.refetch();
       },
-      // Masthead close button and Esc: clear the filters and leave search.
+      // Desktop's masthead close button and Esc: clear the filters and leave search.
+      // On mobile the tab bar's Register link does this by reloading.
       cancel() {
         if (!this.searching) return;
         const f = this.$refs.filters;
@@ -239,6 +240,27 @@
         this.active = -1;
       },
     }));
+  });
+
+  // Dismissing the Android keyboard (back gesture, down arrow) keeps the field
+  // focused, and focus is what hides the tab bar. The keyboard resizes the page
+  // (interactive-widget=resizes-content), so blur once the page is back to full
+  // height. Any keyboard is far taller than the margin, which only has to allow for
+  // the browser's address bar, so switching keyboards between fields doesn't count.
+  let fullHeight = window.innerHeight;
+  let fullWidth = window.innerWidth;
+  let keyboardOpen = false;
+  window.addEventListener("resize", () => {
+    if (window.innerWidth !== fullWidth) { // rotated
+      fullWidth = window.innerWidth;
+      fullHeight = window.innerHeight;
+      keyboardOpen = false;
+      return;
+    }
+    fullHeight = Math.max(fullHeight, window.innerHeight);
+    const open = window.innerHeight < fullHeight - 120;
+    if (keyboardOpen && !open && document.activeElement?.matches("input, textarea")) document.activeElement.blur();
+    keyboardOpen = open;
   });
 
   // The tab bar on other pages links to /#search and /#new: act on them once the

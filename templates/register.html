@@ -13,7 +13,7 @@
         <div class="masthead-actions">
           <button class="btn accent btn-new only-desktop" type="button" hx-get="/txn/new" hx-target="#panel-body"
                   data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</button>
-          <button class="icon-btn" type="button" @click="cancel()" x-show="searching" x-cloak
+          <button class="icon-btn only-desktop" type="button" @click="cancel()" x-show="searching" x-cloak
                   aria-label="Close search and clear filters">{{ icon('close') }}</button>
           <div class="menu" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
             <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
