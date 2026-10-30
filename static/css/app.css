@@ -532,6 +532,10 @@ button.mark:hover .icon { border-color: var(--dep); }
 .field.has-error .glass-input:focus, .field.has-error .glass-input:focus-within { box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.28); }
 .field-error { color: var(--pay); font-size: 0.875rem; font-weight: 500; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+/* A label that wraps in one column mustn't stretch or shift the other's box, and native date inputs size themselves differently per browser. */
+.field-row .field { grid-template-rows: 1fr auto; }
+.field-row .field-label { align-self: end; }
+.field-row .glass-input { height: 2.875rem; align-items: center; }
 
 .amount-input { display: flex; align-items: baseline; gap: 0.25rem; }
 .amount-input input { flex: 1; min-width: 0; border: 0; background: none; outline: none; padding: 0; }
