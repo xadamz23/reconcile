@@ -692,8 +692,9 @@ button.mark:hover .icon { border-color: var(--dep); }
 @media (max-width: 899.98px) {
   .only-desktop { display: none; }
   /* The keyboard resizes the page (interactive-widget=resizes-content), so the
-     fixed tab bar would sit on top of it while typing. */
-  body:has(input:not([type="radio"], [type="checkbox"]):focus, textarea:focus) .tabbar { display: none; }
+     fixed tab bar would sit on top of it while typing. Date inputs open a picker
+     instead of the keyboard, so they keep the bar. */
+  body:has(input:not([type="radio"], [type="checkbox"], [type="date"]):focus, textarea:focus) .tabbar { display: none; }
   .rec-actions { width: 100%; }
   .rec-actions .btn { flex: 1; }
 }
