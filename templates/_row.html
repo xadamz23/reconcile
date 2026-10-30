@@ -2,7 +2,7 @@
 <article id="txn-{{ row.id }}" class="txn is-{{ row.status }}{% if row.date > today %} is-future{% endif %}">
   <button class="txn-open" type="button" hx-get="/txn/{{ row.id }}/edit" hx-target="#panel-body">
     <span class="txn-date">{{ row.date | pretty_date }}</span>
-    <span class="txn-no">{% if row.number %}#{{ row.number }}{% endif %}</span>
+    <span class="txn-no">{% if row.number %}<span class="glass-chip">#{{ row.number }}</span>{% endif %}</span>
     <span class="txn-payee">{% if row.status == 'reconciled' %}{{ icon_ref('lock', 'Reconciled') }}{% endif %}<span class="txn-name">{{ row.payee }}</span>{% if row.note %}<span class="txn-note">{{ row.note }}</span>{% endif %}</span>
     <span class="txn-amt num {{ 'pay' if row.amount_cents < 0 else 'dep' }}">{{ ('−' if row.amount_cents < 0 else '+') }}{{ row.amount_cents | money(signed=false) }}</span>
     <span class="txn-pay num">{% if row.amount_cents < 0 %}{{ row.amount_cents | money(signed=false) }}{% endif %}</span>

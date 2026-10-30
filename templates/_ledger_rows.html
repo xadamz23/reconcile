@@ -6,7 +6,7 @@
 {% for row in rows %}
   {% if row.date > today %}{% set ns.seen_future = true %}
   {% elif ns.seen_future and not ns.divided %}{% set ns.divided = true %}
-    <div class="today-rule" role="separator"><span>Today</span></div>
+    <div class="today-rule" role="separator"><span class="glass-chip">Today</span></div>
   {% endif %}
   {% include "_row.html" %}
 {% endfor %}

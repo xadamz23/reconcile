@@ -358,7 +358,8 @@ TABS = ['href="/"', "Search", 'href="/spending"', 'href="/reconcile"']
 
 
 def tabbar(text):
-    return text[text.index('class="tabbar"'):text.index("</nav>", text.index('class="tabbar"'))]
+    start = text.index('class="tabbar')
+    return text[start:text.index("</nav>", start)]
 
 
 def test_register_tab_bar(ready):

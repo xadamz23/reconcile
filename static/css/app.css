@@ -1,55 +1,44 @@
-/* Reconcile — ledger paper.
-   Pale green columnar ledger stock, blue-black ink, accounting red for payments,
-   bookkeeper green for verified. The double rule marks a final total. */
+/* Reconcile — dark glass.
+   Frosted panels over a fixed "aurora" of blurred sapphire, cyan and indigo glows.
+   Payment red and deposit/verified green carry meaning everywhere; the sapphire
+   accent marks actions and the current tab, and never stands in for either.
+   The accountant's double rule still marks a final total. */
 
 :root {
-  --paper: #eff1e3;
-  --paper-raised: #f7f8ef;
-  --paper-sunk: #e5e9d6;
-  --rule: #c5d3b8;
-  --rule-strong: #9fb38f;
-  --ink: #1e2a3b;
-  --ink-soft: #536070;
-  --ink-faint: #7f8a87;
-  --red: #b22a22;
-  --red-wash: #f3dcd4;
-  --green: #2c6a4c;
-  --green-wash: #d6e6d3;
-  --focus: #2f5fae;
-  --shadow: 0 1px 0 rgba(30, 42, 59, 0.06), 0 12px 32px -12px rgba(30, 42, 59, 0.28);
-  --scrim: rgba(30, 42, 59, 0.32);
-  /* Checkbox tick, stroked in --paper (data URIs can't use custom properties). */
+  --bg: #070814;
+  --text: #eceef8;
+  --text-soft: #b0b7cc;
+  --text-faint: #8a92ad;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --pay: #fb8a9b;
+  --pay-a: #be123c;
+  --pay-b: #e11d48;
+  --dep: #4ade9a;
+  --dep-a: #047857;
+  --dep-b: #059669;
+  --accent-a: #1d4ed8;
+  --accent-b: #0e7490;
+  --accent-glow: 37, 99, 235; /* r, g, b, for rgba() */
+  --accent-text: #8ab4ff;
+  --ring: #60a5fa;
+  --chrome: 8, 12, 30; /* glass-strong tint, r, g, b */
+  --glow-1: #2563eb;
+  --glow-2: #06b6d4;
+  --glow-3: #4338ca;
+  --scrim: rgba(3, 4, 12, 0.55);
 
   --font: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
   --row-h: 4rem;
   --gutter: 1rem;
-  --radius-s: 6px;
-  --radius-m: 12px;
+  --card-inset: 0.75rem;
+  --radius-s: 10px;
+  --radius-m: 14px;
+  --radius-l: 18px;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
 
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #121c18;
-    --paper-raised: #18241f;
-    --paper-sunk: #0d1512;
-    --rule: #26362f;
-    --rule-strong: #3b5046;
-    --ink: #e4e8da;
-    --ink-soft: #a8b3a6;
-    --ink-faint: #75837a;
-    --red: #f08672;
-    --red-wash: #3a1f1a;
-    --green: #7cc59b;
-    --green-wash: #1d3a2b;
-    --focus: #8fb3ff;
-    --shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 16px 40px -12px rgba(0, 0, 0, 0.7);
-    --scrim: rgba(0, 0, 0, 0.6);
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }
 
 /* ---------- Base ---------- */
@@ -57,13 +46,13 @@
 *, *::before, *::after { box-sizing: border-box; }
 [x-cloak] { display: none !important; }
 
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; background: var(--bg); }
 
 body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--paper);
-  color: var(--ink);
+  /* No background: it would paint over the aurora (z-index -1). html has it. */
+  color: var(--text);
   font-family: var(--font);
   font-size: 1rem;
   line-height: 1.4;
@@ -77,7 +66,7 @@ button, input, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 .num { font-variant-numeric: lining-nums; text-align: right; }
 
-:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: 4px; }
 
 .visually-hidden {
   position: absolute !important; width: 1px; height: 1px; overflow: hidden;
@@ -86,46 +75,158 @@ button { cursor: pointer; }
 
 .icon { width: 1.375rem; height: 1.375rem; flex: none; }
 
+/* ---------- Aurora ---------- */
+
+/* Fixed behind everything (base.html renders it once). The glass only reads as
+   glass because there's colour behind it to blur. */
+.aurora { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: var(--bg); pointer-events: none; }
+.aurora span { position: absolute; border-radius: 9999px; filter: blur(90px); }
+.aurora span:nth-child(1) { width: 46vmax; height: 46vmax; left: -16vmax; top: -18vmax; background: var(--glow-1); opacity: 0.5; }
+.aurora span:nth-child(2) { width: 42vmax; height: 42vmax; right: -18vmax; top: 18%; background: var(--glow-2); opacity: 0.38; }
+.aurora span:nth-child(3) { width: 40vmax; height: 40vmax; left: 18%; bottom: -24vmax; background: var(--glow-3); opacity: 0.42; }
+
+/* ---------- Glass components ----------
+   The reusable surfaces and controls. Pages compose these; don't restyle a surface
+   with one-off backgrounds, borders or blurs elsewhere. See "UI conventions" in
+   CLAUDE.md. Write only the standard backdrop-filter. */
+
+/* Cards, panels and segmented-control tracks. */
+.glass {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* Chrome: header, tab bar, the form sheet/drawer, menus, suggestions. */
+.glass-strong {
+  background: rgba(var(--chrome), 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+/* Popovers sit over text, which would show through at 60%. */
+.glass-strong.is-popover { background: rgba(var(--chrome), 0.92); }
+
+/* Small badges: check numbers, the Today marker. */
+.glass-chip {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  padding: 0.0625rem 0.5rem; border-radius: 999px;
+  background: rgba(var(--chrome), 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.75rem; font-weight: 600; line-height: 1.4; color: var(--text-soft);
+}
+
+/* Inputs, or a wrapper around one (:focus-within) such as the $ amount field. */
+.glass-input {
+  width: 100%; min-width: 0;
+  padding: 0.625rem 0.875rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-s); outline: none; color: var(--text);
+  transition: border-color 150ms, box-shadow 150ms, background-color 150ms;
+}
+.glass-input::placeholder, .glass-input input::placeholder { color: var(--text-faint); }
+.glass-input:focus, .glass-input:focus-within {
+  border-color: var(--ring);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 3px rgba(var(--accent-glow), 0.28);
+}
+
+/* Primary action, the + button, the current tab, a switch that's on. */
+.accent {
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+  color: #fff; border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 20px -4px rgba(var(--accent-glow), 0.55);
+  transition: filter 150ms, box-shadow 150ms;
+}
+.accent:hover:not(:disabled) { filter: brightness(1.12); }
+.accent:disabled {
+  background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.14);
+  color: var(--text-soft); box-shadow: none; cursor: not-allowed;
+}
+
+/* Secondary buttons. */
+.btn-glass {
+  background: rgba(255, 255, 255, 0.08); color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  transition: background-color 150ms, border-color 150ms, color 150ms;
+}
+.btn-glass:hover:not(:disabled) { background: var(--accent-a); border-color: var(--accent-a); color: #fff; }
+.btn-glass:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Radio groups as pills, in a .pill-group.glass track that scrolls sideways
+   when it's too wide. The input stays in the label, visually hidden. */
+.pill-group {
+  display: flex; gap: 0.25rem; margin: 0; padding: 0.25rem;
+  border-radius: 999px; width: max-content; max-width: 100%;
+  overflow-x: auto; scrollbar-width: none;
+}
+.pill-group::-webkit-scrollbar { display: none; }
+.pill-radio { position: relative; flex: none; }
+.pill-radio input { position: absolute; opacity: 0; pointer-events: none; }
+.pill-radio span {
+  display: block; padding: 0.45rem 0.95rem; border-radius: 999px;
+  font-size: 0.9375rem; font-weight: 600; color: var(--text-soft); white-space: nowrap; cursor: pointer;
+  transition: background-color 150ms, color 150ms;
+}
+.pill-radio:hover span { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.pill-radio:has(:checked) span {
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 14px -4px rgba(var(--accent-glow), 0.6);
+}
+.pill-radio:has(:focus-visible) span { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+/* Hover lift for clickable grid cards (none yet; not for list rows). */
+.glass-card { transition: transform 200ms ease-out, border-color 200ms, box-shadow 200ms; }
+.glass-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(var(--accent-glow), 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 36px rgba(0, 0, 0, 0.4), 0 0 24px -6px rgba(var(--accent-glow), 0.45);
+}
+@media (prefers-reduced-motion: reduce) { .glass-card:hover { transform: none; } }
+
 /* ---------- Buttons ---------- */
 
 .icon-btn {
   display: inline-grid; place-items: center;
   width: 2.75rem; height: 2.75rem;
   border: 0; border-radius: 50%;
-  background: transparent; color: var(--ink);
+  background: transparent; color: var(--text);
   text-decoration: none;
 }
-.icon-btn:hover { background: var(--paper-sunk); }
-.icon-btn[aria-pressed="true"] { background: var(--paper-sunk); }
-.icon-btn.danger { color: var(--red); }
-.icon-btn.save { color: var(--green); }
+.icon-btn:hover { background: rgba(255, 255, 255, 0.08); }
+.icon-btn[aria-pressed="true"] { background: rgba(255, 255, 255, 0.08); }
+.icon-btn.danger { color: var(--pay); }
+.icon-btn.save { color: var(--dep); }
 .icon-btn:disabled { opacity: 0.35; cursor: default; background: none; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
   min-height: 3rem; padding: 0 1.25rem;
-  border: 1.5px solid transparent; border-radius: var(--radius-s);
-  font-weight: 600; font-size: 1rem; text-decoration: none;
+  border: 1px solid transparent; border-radius: var(--radius-m);
+  font-weight: 650; font-size: 1rem; text-decoration: none;
 }
-.btn-primary { background: var(--ink); color: var(--paper); }
-.btn-primary:hover { background: color-mix(in oklab, var(--ink) 88%, var(--green)); }
-.btn-primary:disabled { background: var(--paper-sunk); color: var(--ink-faint); cursor: default; }
-.btn-quiet { background: transparent; border-color: var(--rule-strong); color: var(--ink); }
-.btn-quiet:hover { background: var(--paper-sunk); }
 .btn-wide { width: 100%; }
+.btn-danger { color: var(--pay); }
+
+/* ---------- Cards ---------- */
+
+/* A glass card holding a list: the ledger, the reconcile list, spending. */
+.card { margin: var(--card-inset) var(--card-inset) 0; border-radius: var(--radius-l); }
+.card-list { overflow: hidden; }
 
 /* ---------- Masthead & totals ---------- */
 
 .masthead {
   position: sticky; top: 0; z-index: 20;
-  padding: calc(var(--safe-t) + 0.25rem) var(--gutter) 0;
-  background: var(--paper);
+  padding: calc(var(--safe-t) + 0.25rem) var(--gutter) 0.5rem;
+  border-width: 0 0 1px; border-radius: 0 0 20px 20px;
 }
 .masthead-bar {
   display: flex; align-items: center; gap: 0.25rem;
   min-height: 3.25rem;
 }
-.masthead-plain { padding-bottom: 0.5rem; border-bottom: 1px solid var(--rule); }
 .account {
   flex: 1; min-width: 0;
   font-size: 1.375rem; font-weight: 750; letter-spacing: -0.015em;
@@ -136,17 +237,17 @@ button { cursor: pointer; }
 /* The accountant's double rule: this is a final total. */
 .totals {
   display: grid; gap: 0.125rem;
-  margin: 0.25rem 0 0; padding: 0.25rem 0 0.75rem;
-  border-bottom: 4px double var(--ink);
+  margin: 0.25rem 0 0; padding: 0.25rem 0 0.5rem;
+  border-bottom: 4px double rgba(255, 255, 255, 0.28);
 }
 .total { display: flex; align-items: baseline; justify-content: space-between; margin: 0; }
-.total dt { color: var(--ink-soft); }
+.total dt { color: var(--text-soft); }
 .total dd { margin: 0; }
-.total-balance dt { font-weight: 600; color: var(--ink); }
+.total-balance dt { font-weight: 600; color: var(--text); }
 .total-balance dd { font-size: 2rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1.1; }
 .total-last dt { font-size: 0.9375rem; }
-.total-last dd { font-size: 1.0625rem; font-weight: 600; color: var(--ink-soft); }
-.total dd.neg { color: var(--red); }
+.total-last dd { font-size: 1.0625rem; font-weight: 600; color: var(--text-soft); }
+.total dd.neg { color: var(--pay); }
 
 /* ---------- Menu ---------- */
 
@@ -154,25 +255,23 @@ button { cursor: pointer; }
 .menu-pop {
   position: absolute; right: 0.25rem; top: calc(100% + 0.25rem); z-index: 30;
   min-width: 14rem; padding: 0.375rem;
-  background: var(--paper-raised); border: 1px solid var(--rule);
-  border-radius: var(--radius-m); box-shadow: var(--shadow);
+  border-radius: var(--radius-m);
 }
 .menu-pop a {
   display: flex; align-items: center; gap: 0.75rem;
   padding: 0.75rem; border-radius: var(--radius-s);
   text-decoration: none; font-weight: 500;
 }
-.menu-pop a:hover, .menu-pop a:focus-visible { background: var(--paper-sunk); }
-.menu-pop .icon { color: var(--ink-soft); }
+.menu-pop a:hover, .menu-pop a:focus-visible { background: rgba(255, 255, 255, 0.08); }
+.menu-pop .icon { color: var(--text-soft); }
 
 /* ---------- Filters ---------- */
 
 .filters {
   display: none;
   gap: 0.625rem;
-  padding: 0.75rem var(--gutter);
-  background: var(--paper-sunk);
-  border-bottom: 1px solid var(--rule);
+  margin: var(--card-inset) var(--card-inset) 0; padding: 0.75rem;
+  border-radius: var(--radius-l);
 }
 .filters.is-open { display: grid; }
 .filters > * { min-width: 0; }
@@ -180,46 +279,33 @@ button { cursor: pointer; }
 
 .field-inline {
   display: flex; align-items: center; gap: 0.375rem;
-  height: 2.75rem; padding: 0 0.75rem;
-  background: var(--paper-raised); border: 1px solid var(--rule);
-  border-radius: var(--radius-s);
+  height: 2.75rem; padding-block: 0;
 }
-.field-inline:focus-within { border-color: var(--ink-soft); }
-.field-inline .icon { width: 1.125rem; height: 1.125rem; color: var(--ink-faint); }
+.field-inline .icon { width: 1.125rem; height: 1.125rem; color: var(--text-faint); }
 .field-inline input { flex: 1; min-width: 0; border: 0; background: none; outline: none; padding: 0; }
-.field-inline .dollar { color: var(--ink-faint); }
+.field-inline .dollar { color: var(--text-faint); }
 
-.kinds {
-  display: flex; gap: 0.25rem; margin: 0; padding: 0; border: 0;
-  overflow-x: auto; scrollbar-width: none;
-}
-.kind input, .sign-opt input, .toggle-reconciled input { position: absolute; opacity: 0; pointer-events: none; }
-.kind span {
-  display: inline-block; padding: 0.4rem 0.8rem;
-  border: 1px solid var(--rule-strong); border-radius: 999px;
-  font-size: 0.9375rem; font-weight: 500; white-space: nowrap; color: var(--ink-soft);
-}
-.kind input:checked + span { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-.kind input:focus-visible + span,
-.sign-opt input:focus-visible + span,
-.toggle-reconciled input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
-
-.toggle-reconciled { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9375rem; color: var(--ink-soft); cursor: pointer; justify-self: start; }
+.toggle-reconciled input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle-reconciled input:focus-visible + span { outline: 2px solid var(--ring); outline-offset: 2px; }
+.toggle-reconciled { display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9375rem; color: var(--text-soft); cursor: pointer; justify-self: start; }
 /* Switch: the span's ::before is the track, ::after the knob. */
-.toggle-reconciled span { position: relative; padding-left: 2.75rem; }
+.toggle-reconciled span { position: relative; padding-left: 3rem; }
 .toggle-reconciled span::before,
 .toggle-reconciled span::after { content: ""; position: absolute; top: 50%; translate: 0 -50%; transition: 150ms ease-out; }
 .toggle-reconciled span::before {
-  left: 0; width: 2.25rem; height: 1.375rem;
-  border: 1.5px solid var(--rule-strong); border-radius: 999px; background: var(--paper-raised);
+  left: 0; width: 2.375rem; height: 1.375rem;
+  border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 999px; background: rgba(255, 255, 255, 0.1);
 }
 .toggle-reconciled span::after {
   left: 0.25rem; width: 0.875rem; height: 0.875rem;
-  border-radius: 50%; background: var(--ink-faint);
+  border-radius: 50%; background: var(--text-faint);
 }
-.toggle-reconciled input:checked + span { color: var(--ink); }
-.toggle-reconciled input:checked + span::before { background: var(--ink); border-color: var(--ink); }
-.toggle-reconciled input:checked + span::after { background: var(--paper); transform: translateX(0.875rem); }
+.toggle-reconciled input:checked + span { color: var(--text); }
+.toggle-reconciled input:checked + span::before {
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); border-color: transparent;
+  box-shadow: 0 0 12px -2px rgba(var(--accent-glow), 0.7);
+}
+.toggle-reconciled input:checked + span::after { background: #fff; transform: translateX(1rem); }
 /* Desktop only: on mobile the masthead's close button clears and hides the bar. */
 .filters-clear { display: none; min-height: 2.125rem; padding: 0 0.75rem; gap: 0.25rem; font-size: 0.9375rem; }
 .filters-clear .icon { width: 1rem; height: 1rem; }
@@ -227,14 +313,16 @@ button { cursor: pointer; }
 /* ---------- Ledger rows ---------- */
 
 .ledger-head { display: none; }
-.ledger { padding-bottom: calc(6rem + var(--safe-b)); }
+/* Room below the last card for the mobile tab bar. */
+.register, .reconcile, .spending { padding-bottom: calc(6rem + var(--safe-b)); }
 
 .txn {
   position: relative;
   display: grid; grid-template-columns: 1fr;
   min-height: var(--row-h);
-  border-bottom: 1px solid var(--rule);
+  border-bottom: 1px solid var(--line);
 }
+.txn:last-child { border-bottom: 0; }
 .txn-open {
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -245,27 +333,28 @@ button { cursor: pointer; }
   border: 0; background: none; text-align: left;
   min-width: 0;
 }
-button.txn-open:hover { background: color-mix(in oklab, var(--paper-sunk) 60%, transparent); }
-.txn.is-selected { background: var(--paper-sunk); }
+button.txn-open:hover { background: rgba(255, 255, 255, 0.04); }
+.txn.is-selected { background: rgba(var(--accent-glow), 0.16); box-shadow: inset 3px 0 0 var(--ring); }
 
 .txn-payee {
   grid-area: payee; min-width: 0;
   font-size: 1.0625rem; font-weight: 550;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.txn-payee .icon { width: 0.95rem; height: 0.95rem; margin-right: 0.3rem; vertical-align: -0.1em; color: var(--ink-faint); }
+.txn-payee .icon { width: 0.95rem; height: 0.95rem; margin-right: 0.3rem; vertical-align: -0.1em; color: var(--text-faint); }
 .txn-note { display: none; }
-.txn-date { grid-area: date; font-size: 0.875rem; color: var(--ink-soft); }
-.txn-no { grid-area: no; font-size: 0.875rem; color: var(--ink-faint); }
-.txn-amt { grid-area: amt; font-size: 1.0625rem; font-weight: 600; }
-.txn-amt.pay { color: var(--red); }
-.txn-amt.dep { color: var(--green); }
+.txn-date { grid-area: date; font-size: 0.875rem; color: var(--text-soft); }
+.txn-no { grid-area: no; }
+.txn-amt { grid-area: amt; font-size: 1.0625rem; font-weight: 650; }
+.txn-amt.pay { color: var(--pay); }
+.txn-amt.dep { color: var(--dep); }
 .txn-pay, .txn-dep { display: none; }
-.txn-run { grid-area: run; font-size: 0.875rem; color: var(--ink-soft); }
-.txn-run.neg { color: var(--red); }
-.txn.is-future .txn-payee, .txn.is-future .txn-date { color: var(--ink-soft); }
+.txn-run { grid-area: run; font-size: 0.875rem; color: var(--text-soft); }
+.txn-run.neg { color: var(--pay); }
+.txn.is-future .txn-payee, .txn.is-future .txn-date { color: var(--text-soft); }
 
-/* Verify mark: an empty ring, inked with a tick when verified, filled solid when reconciled. */
+/* Verify mark: an empty ring, filled green with a tick when verified, a faint double
+   ring when reconciled. */
 .mark {
   align-self: center; justify-self: center;
   display: grid; place-items: center;
@@ -275,14 +364,17 @@ button.txn-open:hover { background: color-mix(in oklab, var(--paper-sunk) 60%, t
 }
 .mark .icon {
   width: 1.625rem; height: 1.625rem; padding: 0.2rem;
-  border: 1.75px solid var(--rule-strong); border-radius: 50%;
+  border: 1.75px solid rgba(255, 255, 255, 0.28); border-radius: 50%;
   stroke-width: 3;
   transition: background-color 120ms ease, border-color 120ms ease, transform 160ms ease;
 }
-button.mark:hover .icon { border-color: var(--green); }
-.is-verified .mark .icon { border-color: var(--green); background: var(--green); color: var(--paper); }
-.is-reconciled .mark .icon { border-color: var(--ink-faint); background: transparent; color: var(--ink-faint); border-style: double; border-width: 3px; }
-.is-reconciled .txn-payee, .is-reconciled .txn-amt { color: var(--ink-soft); }
+button.mark:hover .icon { border-color: var(--dep); }
+.is-verified .mark .icon {
+  border-color: transparent; background: linear-gradient(135deg, var(--dep-a), var(--dep-b)); color: #fff;
+  box-shadow: 0 0 14px -2px rgba(52, 211, 153, 0.7);
+}
+.is-reconciled .mark .icon { border-color: var(--text-faint); background: transparent; color: var(--text-faint); border-style: double; border-width: 3px; }
+.is-reconciled .txn-payee, .is-reconciled .txn-amt { color: var(--text-soft); }
 .mark.htmx-request .icon { transform: scale(0.85); }
 .txn.is-verified .mark .icon { animation: stamp 220ms ease-out; }
 @keyframes stamp { 0% { transform: scale(0.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
@@ -290,57 +382,56 @@ button.mark:hover .icon { border-color: var(--green); }
 .today-rule {
   display: flex; align-items: center; gap: 0.75rem;
   padding: 0.375rem var(--gutter);
-  color: var(--green); font-size: 0.8125rem; font-weight: 650;
-  border-bottom: 1px solid var(--rule);
-  background: var(--paper-sunk);
+  border-bottom: 1px solid var(--line);
 }
-.today-rule::after { content: ""; flex: 1; border-top: 1.5px dashed var(--green); opacity: 0.6; }
+.today-rule .glass-chip { color: var(--dep); }
+.today-rule::after { content: ""; flex: 1; border-top: 1.5px dashed var(--dep); opacity: 0.5; }
 
-.ledger-note { padding: 2.5rem var(--gutter); color: var(--ink-soft); text-align: center; }
-.ledger-more { padding: 1.25rem var(--gutter); color: var(--ink-faint); font-size: 0.875rem; text-align: center; }
-.ledger-note a { font-weight: 600; }
-.ledger-error { color: var(--red); }
+.ledger-note { padding: 2.5rem var(--gutter); color: var(--text-soft); text-align: center; }
+.ledger-more { padding: 1.25rem var(--gutter); color: var(--text-faint); font-size: 0.875rem; text-align: center; }
+.ledger-note a { font-weight: 600; color: var(--accent-text); }
+.ledger-error { color: var(--pay); }
 
 /* ---------- Tab bar (mobile) ---------- */
 
-/* Reconcile, Spending, +, Search, Register under the thumb. The + is an ink disc raised
-   out of the bar; a ring in the bar's colour cuts it a notch through the top rule. */
+/* Reconcile, Spending, +, Search, Register under the thumb. The + is an accent disc
+   raised out of the bar. */
 .tabbar {
   position: fixed; z-index: 25; left: 0; right: 0; bottom: 0;
   display: grid; grid-template-columns: 1fr 1fr 4.75rem 1fr 1fr; align-items: center;
-  padding: 0.25rem env(safe-area-inset-right, 0px) calc(0.25rem + var(--safe-b)) env(safe-area-inset-left, 0px);
-  background: var(--paper-raised);
-  border-top: 1px solid var(--rule-strong);
+  padding: 0.375rem env(safe-area-inset-right, 0px) calc(0.25rem + var(--safe-b)) env(safe-area-inset-left, 0px);
+  border-width: 1px 0 0; border-radius: 22px 22px 0 0;
 }
 .tab {
   display: grid; justify-items: center; gap: 0.125rem;
   min-width: 0; min-height: 3.25rem; align-content: center;
   border: 0; background: none; padding: 0;
-  color: var(--ink-soft); text-decoration: none;
+  color: var(--text-soft); text-decoration: none;
   font-size: 0.75rem; font-weight: 600; white-space: nowrap;
 }
 /* The pill is always there (transparent) so marking a tab active doesn't shift it. */
-.tab .icon { box-sizing: content-box; padding: 0.25rem 1rem; border-radius: 999px; }
-.tab[aria-current="page"], .tab[aria-pressed="true"] { color: var(--ink); }
+.tab .icon { box-sizing: content-box; padding: 0.25rem 1rem; border-radius: 999px; transition: background-color 150ms; }
+.tab[aria-current="page"], .tab[aria-pressed="true"] { color: var(--text); }
 .tab[aria-current="page"] .icon, .tab[aria-pressed="true"] .icon {
-  background: color-mix(in oklab, var(--ink) 10%, transparent);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 14px -4px rgba(var(--accent-glow), 0.7);
 }
 .tab-add {
   justify-self: center;
   display: grid; place-items: center;
   width: 3.75rem; height: 3.75rem; margin-top: -1.75rem;
-  border: 0; border-radius: 50%;
-  background: var(--ink); color: var(--paper);
-  box-shadow: 0 0 0 0.375rem var(--paper-raised), var(--shadow);
+  border-radius: 50%;
 }
 .tab-add .icon { width: 1.75rem; height: 1.75rem; stroke-width: 2.2; }
 .tab-add:active { transform: scale(0.96); }
 
 /* ---------- Panel (transaction form) ---------- */
 
+/* Full-screen on phones, so it's darker than other chrome: the ledger is right
+   behind it. */
 .panel {
   position: fixed; inset: 0; z-index: 40;
-  background: var(--paper);
+  border: 0; background: rgba(var(--chrome), 0.86);
   overflow-y: auto; overscroll-behavior: contain;
   transform: translateY(100%); visibility: hidden;
   transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 240ms;
@@ -354,62 +445,61 @@ button.mark:hover .icon { border-color: var(--green); }
   position: sticky; top: 0; z-index: 2;
   display: flex; align-items: center; gap: 0.5rem;
   padding: calc(var(--safe-t) + 0.25rem) var(--gutter) 0.25rem 0.5rem;
-  background: var(--paper); border-bottom: 1px solid var(--rule);
+  background: rgba(var(--chrome), 0.7); backdrop-filter: blur(24px) saturate(160%);
+  border-bottom: 1px solid var(--line);
 }
 .panel-bar h2 { flex: 1; font-size: 1.125rem; font-weight: 650; }
 
 .txn-form { display: flex; flex-direction: column; min-height: 100dvh; }
-.form-fields { display: grid; gap: 1.25rem; margin: 0; padding: 1.25rem var(--gutter) calc(1.5rem + var(--safe-b)); border: 0; min-width: 0; }
+.form-fields { display: grid; gap: 1.125rem; margin: 0; padding: 1.25rem var(--gutter) calc(1.5rem + var(--safe-b)); border: 0; min-width: 0; }
 .form-fields:disabled { opacity: 0.55; }
 
-.sign { display: grid; grid-template-columns: 1fr 1fr; border: 1.5px solid var(--ink); border-radius: var(--radius-s); overflow: hidden; }
-.sign-opt { position: relative; }
-.sign-opt span { display: block; padding: 0.7rem; text-align: center; font-weight: 600; cursor: pointer; }
-.sign-pay + .sign-dep { border-left: 1.5px solid var(--ink); }
-.sign-pay input:checked + span { background: var(--red); color: var(--paper); }
-.sign-dep input:checked + span { background: var(--green); color: var(--paper); }
-
-.field { position: relative; display: grid; gap: 0.25rem; min-width: 0; }
-.field-label { font-size: 0.875rem; font-weight: 600; color: var(--ink-soft); }
-.field input, .field textarea {
-  width: 100%; min-width: 0;
-  padding: 0.5rem 0; border: 0; border-bottom: 1.5px solid var(--rule-strong);
-  background: none; border-radius: 0; font-size: 1.0625rem;
-  outline: none;
+/* Payment / Deposit: pills that keep the money colours instead of the accent. */
+.sign { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+.sign .pill-radio span { text-align: center; }
+.sign-pay:has(:checked) span {
+  background: linear-gradient(135deg, var(--pay-a), var(--pay-b));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 14px -4px rgba(225, 29, 72, 0.6);
 }
-.field input:focus, .field textarea:focus { border-bottom-color: var(--ink); }
-.field textarea { resize: vertical; }
-.field input[type="date"] { min-height: 2.5rem; }
-.field.has-error input { border-bottom-color: var(--red); }
-.field-error { color: var(--red); font-size: 0.875rem; font-weight: 500; }
-.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.sign-dep:has(:checked) span {
+  background: linear-gradient(135deg, var(--dep-a), var(--dep-b));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 14px -4px rgba(5, 150, 105, 0.6);
+}
 
-.amount-input { display: flex; align-items: baseline; gap: 0.25rem; border-bottom: 1.5px solid var(--rule-strong); }
-.amount-input:focus-within { border-bottom-color: var(--ink); }
-.amount-input input { border-bottom: 0 !important; }
-.field-big .dollar { font-size: 1.75rem; color: var(--ink-faint); font-weight: 500; }
-.field-big input { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.02em; padding: 0.25rem 0; }
-.txn-form:has(.sign-pay input:checked) .field-big input { color: var(--red); }
-.txn-form:has(.sign-dep input:checked) .field-big input { color: var(--green); }
+.field { position: relative; display: grid; gap: 0.375rem; min-width: 0; }
+.field-label { font-size: 0.875rem; font-weight: 600; color: var(--text-soft); }
+.field textarea { resize: vertical; }
+.field input[type="date"] { min-height: 2.875rem; }
+.field.has-error .glass-input { border-color: var(--pay); }
+.field.has-error .glass-input:focus, .field.has-error .glass-input:focus-within { box-shadow: 0 0 0 3px rgba(251, 113, 133, 0.28); }
+.field-error { color: var(--pay); font-size: 0.875rem; font-weight: 500; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+.amount-input { display: flex; align-items: baseline; gap: 0.25rem; }
+.amount-input input { flex: 1; min-width: 0; border: 0; background: none; outline: none; padding: 0; }
+.field-big .amount-input { padding-block: 0.25rem; }
+.field-big .dollar { font-size: 1.75rem; color: var(--text-faint); font-weight: 500; }
+.field-big input { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.02em; }
+.amount-input .dollar { color: var(--text-faint); }
+.txn-form:has(.sign-pay input:checked) .field-big input { color: var(--pay); }
+.txn-form:has(.sign-dep input:checked) .field-big input { color: var(--dep); }
 
 .suggest {
   position: absolute; left: 0; right: 0; top: 100%; z-index: 5;
-  margin: 0.25rem 0 0; padding: 0.25rem; list-style: none;
-  background: var(--paper-raised); border: 1px solid var(--rule);
-  border-radius: var(--radius-m); box-shadow: var(--shadow);
+  margin: 0.375rem 0 0; padding: 0.25rem; list-style: none;
+  border-radius: var(--radius-m);
   max-height: 16rem; overflow-y: auto;
 }
 .suggest li { padding: 0.7rem 0.75rem; border-radius: var(--radius-s); cursor: pointer; }
-.suggest li:hover, .suggest li.is-active { background: var(--paper-sunk); }
+.suggest li:hover, .suggest li.is-active { background: rgba(var(--accent-glow), 0.22); }
 
 .lock-note {
   display: grid; grid-template-columns: auto 1fr; gap: 0.5rem 0.75rem; align-items: start;
   margin: 1rem var(--gutter) 0; padding: 0.875rem;
-  background: var(--paper-sunk); border-left: 3px solid var(--ink-faint);
-  border-radius: 0 var(--radius-s) var(--radius-s) 0;
+  border-radius: var(--radius-m);
 }
-.lock-note .icon { color: var(--ink-soft); }
-.lock-note p { font-size: 0.9375rem; color: var(--ink-soft); }
+.lock-note .icon { color: var(--text-soft); }
+.lock-note p { font-size: 0.9375rem; color: var(--text-soft); }
 .lock-note .btn { grid-column: 2; justify-self: start; min-height: 2.5rem; }
 
 /* ---------- Setup / offline ---------- */
@@ -421,74 +511,80 @@ button.mark:hover .icon { border-color: var(--green); }
 }
 .setup-mark { border-radius: 18px; }
 .setup h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; }
-.setup-lede { color: var(--ink-soft); max-width: 34ch; }
-.setup-form { display: grid; gap: 1.5rem; margin-top: 1rem; }
+.setup-lede { color: var(--text-soft); max-width: 34ch; }
+.setup-form { display: grid; gap: 1.25rem; margin-top: 1rem; padding: 1.25rem; border-radius: var(--radius-l); }
 
 /* ---------- Reconcile ---------- */
 
-/* Bottom padding clears the mobile tab bar (less on desktop, where there's none). */
-.reconcile { max-width: 52rem; margin: 0 auto; padding-bottom: calc(6rem + var(--safe-b)); }
-.banner { display: flex; align-items: center; gap: 0.5rem; margin: 1rem var(--gutter) 0; padding: 0.875rem 1rem; border-radius: var(--radius-s); font-weight: 500; }
-.banner-ok { background: var(--green-wash); color: var(--green); }
-.rec-start { display: grid; gap: 1rem; padding: 1.25rem var(--gutter); justify-items: start; }
+.reconcile { max-width: 52rem; margin: 0 auto; }
+.banner {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin: var(--card-inset) var(--card-inset) 0; padding: 0.875rem 1rem;
+  border-radius: var(--radius-m); font-weight: 550;
+  background: rgba(4, 47, 34, 0.6); border: 1px solid rgba(74, 222, 154, 0.3);
+  backdrop-filter: blur(18px); color: var(--dep);
+}
+.rec-start { display: grid; gap: 1rem; padding: 1rem; justify-items: start; }
 .rec-start .field-row { width: 100%; }
-.rec-hint { color: var(--ink-soft); font-size: 0.9375rem; }
-.rec-list .rec-hint { padding: 0.75rem var(--gutter); border-bottom: 1px solid var(--rule); }
-.rec-list { padding-bottom: 1rem; }
+.rec-hint { color: var(--text-soft); font-size: 0.9375rem; }
+.rec-list .rec-hint { padding: 0.75rem var(--gutter); border-bottom: 1px solid var(--line); }
 .txn-rec { grid-template-columns: 3.25rem 1fr; }
 .txn-rec .txn-open { grid-template-areas: "payee payee amt" "date no no"; padding-left: 0; }
 .rec-actions { display: flex; gap: 0.5rem; }
-.btn-danger { color: var(--red); }
 
 .rec-summary {
-  position: sticky; top: 0; z-index: 10;
+  /* Sticks just below the sticky masthead (its height plus a gap). */
+  position: sticky; top: calc(var(--safe-t) + 4.25rem); z-index: 10;
   display: grid; gap: 0.75rem;
-  padding: 0.875rem var(--gutter) 1rem;
-  background: var(--paper-raised);
-  border-block: 1px solid var(--rule);
+  padding: 0.875rem 1rem 1rem;
 }
 .rec-figures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin: 0; }
 .rec-figures div { margin: 0; }
-.rec-figures dt { font-size: 0.8125rem; color: var(--ink-soft); }
+.rec-figures dt { font-size: 0.8125rem; color: var(--text-soft); }
 .rec-figures dd { margin: 0; text-align: left; font-weight: 650; font-size: 1.0625rem; }
-.rec-diff dd { position: relative; display: inline-block; color: var(--red); font-size: 1.375rem; line-height: 1.2; padding-bottom: 0.3rem; }
+.rec-diff dd { position: relative; display: inline-block; color: var(--pay); font-size: 1.375rem; line-height: 1.2; padding-bottom: 0.3rem; }
 /* When the books balance, the double rule draws in under the difference. */
 .rec-diff dd::after {
   content: ""; position: absolute; left: 0; right: 0; bottom: 0;
-  height: 6px; border-block: 2px solid var(--green);
+  height: 6px; border-block: 2px solid var(--dep);
   transform: scaleX(0); transform-origin: left;
 }
-.is-balanced .rec-diff dd { color: var(--green); }
+.is-balanced .rec-diff dd { color: var(--dep); }
 /* A keyframe (not a transition) because the summary is swapped in fresh by htmx. */
 .is-balanced .rec-diff dd::after { transform: scaleX(1); animation: draw-rule 480ms cubic-bezier(0.3, 0.7, 0.2, 1) 80ms backwards; }
 @keyframes draw-rule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .rec-summary .btn { width: 100%; }
 
-.history { padding: 1.5rem var(--gutter); }
-.history h2 { font-size: 1.0625rem; font-weight: 650; margin-bottom: 0.5rem; }
+.history { padding: 1rem var(--gutter); }
+.history h2 { font-size: 1.0625rem; font-weight: 650; margin-bottom: 0.25rem; }
 .history ul { list-style: none; margin: 0; padding: 0; }
-.history li { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; padding: 0.625rem 0; border-bottom: 1px solid var(--rule); }
-.history-items { color: var(--ink-faint); }
+.history li { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; padding: 0.625rem 0; border-bottom: 1px solid var(--line); }
+.history li:last-child { border-bottom: 0; }
+.history-items { color: var(--text-faint); }
 
 /* ---------- Spending ---------- */
 
 /* Payments per payee. Each bar is a span whose width (--w) the server sets relative
    to the biggest payee: no chart library. Two-line rows here; one line on desktop. */
-/* Bottom padding clears the mobile tab bar (less on desktop, where there's none). */
-.spending { max-width: 52rem; margin: 0 auto; padding-bottom: calc(6rem + var(--safe-b)); }
-.spend-periods { padding: 0.75rem var(--gutter); background: var(--paper-sunk); border-bottom: 1px solid var(--rule); }
+.spending { max-width: 52rem; margin: 0 auto; }
+.spend-periods { margin: var(--card-inset) var(--card-inset) 0; }
 
 .spend-total {
   display: grid; grid-template-columns: 1fr auto; align-items: baseline; column-gap: 1rem;
-  padding: 1rem var(--gutter) 0.75rem;
-  border-bottom: 4px double var(--ink);
+  padding: 1rem var(--gutter);
 }
 .spend-total-label { font-weight: 600; }
-.spend-total-amt { font-size: 2rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1.1; }
-.spend-total-sub { grid-column: 1 / -1; font-size: 0.9375rem; color: var(--ink-soft); }
+.spend-total-amt {
+  font-size: 2rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1.1;
+  padding-bottom: 0.25rem; border-bottom: 4px double rgba(255, 255, 255, 0.28);
+}
+.spend-total-sub { grid-column: 1 / -1; margin-top: 0.375rem; font-size: 0.9375rem; color: var(--text-soft); }
 
 .spend-head { display: none; }
 .spend-list { list-style: none; margin: 0; padding: 0; }
+.spend-list > li:not(:last-child) .spend-row, .spend-rest > summary { border-bottom: 1px solid var(--line); }
+.spend-list > li:last-child .spend-row { border-bottom: 0; }
+.spend-rest[open] > summary { border-bottom: 1px solid var(--line); }
 .spend-row {
   display: grid;
   /* Share and count get fixed widths so the bar tracks all end at the same place. */
@@ -496,24 +592,24 @@ button.mark:hover .icon { border-color: var(--green); }
   grid-template-areas: "payee payee amt" "bar share n";
   column-gap: 0.75rem; row-gap: 0.375rem; align-items: center;
   padding: 0.75rem var(--gutter);
-  border-bottom: 1px solid var(--rule);
   text-decoration: none;
 }
-.spend-row:hover { background: color-mix(in oklab, var(--paper-sunk) 60%, transparent); }
+.spend-row:hover { background: rgba(255, 255, 255, 0.04); }
 .spend-payee {
   grid-area: payee; min-width: 0;
   font-size: 1.0625rem; font-weight: 550;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.spend-sub { font-size: 0.875rem; font-weight: 400; color: var(--ink-faint); }
-.spend-amt { grid-area: amt; font-size: 1.0625rem; font-weight: 600; }
-.spend-share { grid-area: share; font-size: 0.875rem; color: var(--ink-soft); }
-.spend-n { grid-area: n; min-width: 6.25rem; font-size: 0.875rem; color: var(--ink-faint); }
+.spend-sub { font-size: 0.875rem; font-weight: 400; color: var(--text-faint); }
+.spend-amt { grid-area: amt; font-size: 1.0625rem; font-weight: 650; }
+.spend-share { grid-area: share; font-size: 0.875rem; color: var(--text-soft); }
+.spend-n { grid-area: n; min-width: 6.25rem; font-size: 0.875rem; color: var(--text-faint); }
 .spend-n::before { content: "· "; }
-.spend-bar { grid-area: bar; height: 0.5rem; border-radius: 999px; background: var(--paper-sunk); overflow: hidden; }
+.spend-bar { grid-area: bar; height: 0.5rem; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
 .spend-bar span {
   display: block; width: var(--w); height: 100%;
-  background: var(--red); border-radius: inherit;
+  background: linear-gradient(90deg, var(--pay-a), var(--pay)); border-radius: inherit;
+  box-shadow: 0 0 10px rgba(251, 113, 133, 0.45);
   transform-origin: left; animation: grow-bar 420ms cubic-bezier(0.3, 0.7, 0.2, 1) backwards;
 }
 @keyframes grow-bar { from { transform: scaleX(0); } }
@@ -521,14 +617,14 @@ button.mark:hover .icon { border-color: var(--green); }
 /* "Everything else": a summary row that expands to the payees it folds together. */
 .spend-rest > summary { list-style: none; cursor: pointer; }
 .spend-rest > summary::-webkit-details-marker { display: none; }
-.spend-rest > summary .spend-bar span { background: var(--ink-faint); }
+.spend-rest > summary .spend-bar span { background: var(--text-faint); box-shadow: none; }
 .spend-rest > summary .spend-sub::after {
   content: ""; display: inline-block; width: 0.4rem; height: 0.4rem; margin-left: 0.4rem;
   border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor;
   transform: translateY(-0.2em) rotate(45deg); transition: transform 150ms ease-out;
 }
 .spend-rest[open] > summary .spend-sub::after { transform: translateY(0.05em) rotate(-135deg); }
-.spend-rest .spend-list { background: color-mix(in oklab, var(--paper-sunk) 40%, transparent); }
+.spend-rest .spend-list { background: rgba(0, 0, 0, 0.15); }
 
 /* Phones get the tab bar's Register tab instead (after .icon-btn, so it wins). */
 @media (max-width: 899.98px) {
@@ -541,15 +637,17 @@ button.mark:hover .icon { border-color: var(--green); }
 /* ---------- Desktop: a real columnar register, the form in a drawer ---------- */
 
 @media (min-width: 900px) {
-  :root { --gutter: 1.5rem; --row-h: 3.25rem; }
+  :root { --gutter: 1.5rem; --row-h: 3.25rem; --card-inset: 0; }
 
   .shell { max-width: 82rem; margin: 0 auto; }
   /* Pages lay themselves out by their own width, not the window's.
      Containment makes main the containing block for anything position: fixed inside it. */
-  main { container: ledger / inline-size; }
+  main { container: ledger / inline-size; padding-inline: 1.5rem; }
 
   .only-mobile { display: none; }
-  .masthead { padding-top: 1rem; }
+  /* Flush to the top: a gap above a sticky header would show rows scrolling through. */
+  .masthead { padding-top: 1rem; border-width: 0 1px 1px; }
+  .card, .filters, .spend-periods, .banner { margin-top: 0.75rem; }
   .btn-new { min-height: 2.5rem; padding: 0 1rem 0 0.75rem; margin-right: 0.5rem; font-size: 0.9375rem; }
   .btn-new .icon { width: 1.125rem; height: 1.125rem; stroke-width: 2.2; }
   .totals { grid-template-columns: auto auto 1fr; gap: 2.5rem; align-items: baseline; }
@@ -564,14 +662,15 @@ button.mark:hover .icon { border-color: var(--green); }
   .filters-clear { display: inline-flex; }
 
   .tabbar { display: none; }
-  .spending, .reconcile { padding-bottom: calc(2rem + var(--safe-b)); }
+  .register, .spending, .reconcile { padding-bottom: calc(2rem + var(--safe-b)); }
+  .rec-summary { top: 5.125rem; }
 
   /* The form slides in from the right over a scrim, only while it's in use. */
   .panel {
     left: auto; width: 28rem;
-    background: var(--paper-raised);
-    border-left: 1px solid var(--rule-strong);
-    box-shadow: -20px 0 60px -20px rgba(30, 42, 59, 0.4);
+    background: rgba(var(--chrome), 0.72);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 22px 0 0 22px;
     transform: translateX(100%);
   }
   .panel-scrim {
@@ -582,7 +681,7 @@ button.mark:hover .icon { border-color: var(--green); }
   }
   .panel-open .panel-scrim { opacity: 1; visibility: visible; transition-delay: 0s; }
   .panel-open { overflow: auto; }
-  .panel-bar { padding-top: 0.75rem; background: var(--paper-raised); }
+  .panel-bar { padding-top: 0.75rem; background: transparent; backdrop-filter: none; }
   .txn-form { min-height: 100dvh; }
 }
 
@@ -609,9 +708,10 @@ button.mark:hover .icon { border-color: var(--green); }
   .ledger-head, .txn { grid-template-columns: 7.5rem 4.5rem minmax(0, 1fr) 7.5rem 7.5rem 8.5rem; }
   .ledger-head {
     display: grid; align-items: end;
-    padding: 0.75rem var(--gutter) 0.375rem;
-    font-size: 0.8125rem; font-weight: 600; color: var(--ink-soft);
-    border-bottom: 1.5px solid var(--rule-strong);
+    padding: 0.75rem var(--gutter) 0.5rem;
+    font-size: 0.8125rem; font-weight: 600; color: var(--text-soft);
+    border-bottom: 1px solid var(--line-strong);
+    background: rgba(255, 255, 255, 0.03);
   }
   .ledger-head span:nth-child(n+4) { padding-inline: 0.75rem; }
   .ledger-head span:last-child { padding-right: 0; }
@@ -623,25 +723,24 @@ button.mark:hover .icon { border-color: var(--green); }
   }
   .txn-open > * { grid-area: auto; margin: 0; }
   .txn-date { font-size: 0.9375rem; }
-  .txn-no { font-size: 0.9375rem; }
   .txn-payee { font-size: 1rem; display: flex; gap: 0.75rem; align-items: baseline; }
   .txn-payee .icon { align-self: center; margin-right: -0.375rem; }
   /* Name and note each truncate with an ellipsis. The note only gets the space the
      name leaves (zero basis), so the name is cut only when it can't fit on its own. */
   .txn-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-  .txn-note { display: inline; min-width: 0; flex: 1 1 0; font-size: 0.875rem; font-weight: 400; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; }
+  .txn-note { display: inline; min-width: 0; flex: 1 1 0; font-size: 0.875rem; font-weight: 400; color: var(--text-faint); overflow: hidden; text-overflow: ellipsis; }
   .txn-amt { display: none; }
   .txn-pay, .txn-dep, .txn-run {
     align-self: stretch; padding-inline: 0.75rem;
     display: flex; align-items: center; justify-content: flex-end;
-    border-left: 1px solid var(--rule);
+    border-left: 1px solid var(--line);
     font-size: 1rem;
   }
-  .txn-pay { color: var(--red); font-weight: 550; }
-  .txn-dep { color: var(--green); font-weight: 550; }
-  .txn-run { color: var(--ink); font-weight: 550; padding-right: 0; }
+  .txn-pay { color: var(--pay); font-weight: 550; }
+  .txn-dep { color: var(--dep); font-weight: 550; }
+  .txn-run { color: var(--text); font-weight: 550; padding-right: 0; }
 
-  .txn-rec { grid-template-columns: 3.25rem 7.5rem 4.5rem minmax(0, 1fr) 8rem; padding-left: 0; }
+  .txn-rec { grid-template-columns: 3.25rem 7.5rem 4.5rem minmax(0, 1fr) 8rem; padding-left: 0.5rem; }
   .txn-rec .txn-open { grid-column: 2 / -1; }
   .txn-rec .txn-amt { display: block; text-align: right; }
 }
@@ -653,9 +752,10 @@ button.mark:hover .icon { border-color: var(--green); }
   .spend-row { grid-template-areas: "payee bar share n amt"; padding-block: 0.625rem; }
   .spend-head {
     display: grid; align-items: end;
-    padding: 0.75rem var(--gutter) 0.375rem;
-    font-size: 0.8125rem; font-weight: 600; color: var(--ink-soft);
-    border-bottom: 1.5px solid var(--rule-strong);
+    padding: 0.75rem var(--gutter) 0.5rem;
+    font-size: 0.8125rem; font-weight: 600; color: var(--text-soft);
+    border-bottom: 1px solid var(--line-strong);
+    background: rgba(255, 255, 255, 0.03);
   }
   .spend-payee, .spend-amt { font-size: 1rem; }
   .spend-share, .spend-n { font-size: 0.9375rem; }

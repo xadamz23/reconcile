@@ -17,12 +17,13 @@
 {%- endmacro %}
 
 {% if top %}
-<div class="spend-total">
+<div class="spend-total card glass">
   <p class="spend-total-label">Paid out</p>
   <p class="spend-total-amt num">{{ total_cents | money }}</p>
   <p class="spend-total-sub">{{ range_label }} · {{ payee_count }} payee{{ 's' if payee_count != 1 }} · {{ payment_count }} payment{{ 's' if payment_count != 1 }}</p>
 </div>
 
+<div class="card card-list glass">
 <div class="spend-head" aria-hidden="true">
   <span>Payee</span><span></span><span class="num">Share</span><span class="num">Payments</span><span class="num">Amount</span>
 </div>
@@ -34,6 +35,7 @@
   {{ rows(rest) }}
 </details>
 {% endif %}
+</div>
 {% else %}
 <p class="ledger-note">No payments for {{ range_label }}.</p>
 {% endif %}

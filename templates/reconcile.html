@@ -6,12 +6,12 @@
 {% set new_url = "/txn/new?" ~ {"date": state.end_date, "verified": 1} | urlencode if state else None %}
 <div class="{{ 'shell' if state else 'solo' }}">
   <main class="reconcile">
-    <header class="masthead masthead-plain">
+    <header class="masthead glass-strong">
       <div class="masthead-bar">
         <a class="icon-btn only-desktop" href="/" aria-label="Back to register">{{ icon('back') }}</a>
         <h1 class="account">Reconcile statement</h1>
         {% if state %}
-        <button class="btn btn-primary btn-new only-desktop" type="button" hx-get="{{ new_url }}" hx-target="#panel-body"
+        <button class="btn accent btn-new only-desktop" type="button" hx-get="{{ new_url }}" hx-target="#panel-body"
                 data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</button>
         {% endif %}
       </div>
@@ -21,7 +21,7 @@
     <p class="banner banner-ok" role="status">{{ icon('check') }}Statement reconciled. Its items are now locked and hidden from the register.</p>
     {% endif %}
 
-    <form class="rec-start" method="post" action="/reconcile/start">
+    <form class="rec-start card glass" method="post" action="/reconcile/start">
       <p class="rec-hint">
         {% if last %}Last reconciled through {{ last.end_date | pretty_date }} at {{ last.ending_balance_cents | money }}.
         {% else %}Enter the closing date and ending balance from your bank statement.{% endif %}
@@ -29,19 +29,19 @@
       <div class="field-row">
         <label class="field">
           <span class="field-label">Statement closing date</span>
-          <input type="date" name="end_date" value="{{ form.end_date }}" required>
+          <input class="glass-input" type="date" name="end_date" value="{{ form.end_date }}" required>
         </label>
         <label class="field">
           <span class="field-label">Ending balance</span>
-          <span class="amount-input"><span class="dollar" aria-hidden="true">$</span>
+          <span class="amount-input glass-input"><span class="dollar" aria-hidden="true">$</span>
             <input name="balance" value="{{ form.balance }}" inputmode="numeric" data-cents="signed" autocomplete="off" placeholder="0.00" required></span>
         </label>
       </div>
       {% if error %}<p class="field-error" role="alert">{{ error }}</p>{% endif %}
       <div class="rec-actions">
-        <button class="btn {{ 'btn-quiet' if state else 'btn-primary' }}" type="submit">{{ 'Update' if state else 'Start reconciling' }}</button>
+        <button class="btn {{ 'btn-glass' if state else 'accent' }}" type="submit">{{ 'Update' if state else 'Start reconciling' }}</button>
         {% if state %}
-        <button class="btn btn-quiet btn-danger" type="submit" form="rec-discard">Discard</button>
+        <button class="btn btn-glass btn-danger" type="submit" form="rec-discard">Discard</button>
         {% endif %}
       </div>
     </form>
@@ -55,7 +55,7 @@
     {% endif %}
 
     {% if statements %}
-    <section class="history" aria-labelledby="history-h">
+    <section class="history card glass" aria-labelledby="history-h">
       <h2 id="history-h">Reconciled statements</h2>
       <ul>
         {% for s in statements %}

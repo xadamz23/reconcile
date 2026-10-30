@@ -1,6 +1,6 @@
 {% if state %}
 {% include "_reconcile_summary.html" %}
-<section class="ledger rec-list" aria-label="Items on or before {{ state.end_date | pretty_date }}">
+<section class="rec-list card card-list glass" aria-label="Items on or before {{ state.end_date | pretty_date }}">
   {% if state.candidates %}
   <p class="rec-hint">Tick every item that appears on the statement. Tap an item to edit it.</p>
   {% for row in state.candidates %}{% include "_rec_row.html" %}{% endfor %}
