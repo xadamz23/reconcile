@@ -394,17 +394,18 @@ button.mark:hover .icon { border-color: var(--dep); }
 
 /* ---------- Tab bar (mobile) ---------- */
 
-/* Reconcile, Spending, +, Search, Register under the thumb. A glass capsule floating
+/* Reconcile, Spending, +, Search, Register under the thumb. A glass panel floating
    clear of the screen edges (and the home indicator); the + is an accent disc raised
-   out of it, ringed in the bar's tint so it reads as sitting in the bar. */
+   out of it, ringed in the bar's tint so it reads as sitting in the bar. Rounded
+   corners rather than pill ends, so the ends don't curve in beside the outer tabs. */
 .tabbar {
   position: fixed; z-index: 25;
-  left: calc(0.75rem + env(safe-area-inset-left, 0px));
-  right: calc(0.75rem + env(safe-area-inset-right, 0px));
+  left: calc(0.5rem + env(safe-area-inset-left, 0px));
+  right: calc(0.5rem + env(safe-area-inset-right, 0px));
   bottom: max(0.75rem, calc(var(--safe-b) + 0.375rem));
-  display: grid; grid-template-columns: 1fr 1fr 4.5rem 1fr 1fr; align-items: center;
-  height: 4.25rem; padding: 0 0.25rem;
-  border-radius: 999px;
+  display: grid; grid-template-columns: 1fr 1fr 4.25rem 1fr 1fr; align-items: center;
+  height: 4.25rem; padding: 0 1rem;
+  border-radius: 24px;
 }
 .tab {
   display: grid; justify-items: center; gap: 0.125rem;
@@ -414,7 +415,7 @@ button.mark:hover .icon { border-color: var(--dep); }
   font-size: 0.6875rem; font-weight: 600; white-space: nowrap;
 }
 /* The pill is always there (transparent) so marking a tab active doesn't shift it. */
-.tab .icon { box-sizing: content-box; padding: 0.25rem 0.875rem; border-radius: 999px; transition: background-color 150ms; }
+.tab .icon { box-sizing: content-box; padding: 0.25rem 0.75rem; border-radius: 999px; transition: background-color 150ms; }
 .tab[aria-current="page"], .tab[aria-pressed="true"] { color: var(--text); }
 .tab[aria-current="page"] .icon, .tab[aria-pressed="true"] .icon {
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff;
