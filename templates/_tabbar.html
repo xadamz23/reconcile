@@ -13,10 +13,10 @@
   {{ tab("reconcile", "/reconcile", "Reconcile", "scale") }}
   {{ tab("spending", "/spending", "Spending", "chart") }}
   {% if new_url %}
-  <button class="tab-add accent" type="button" hx-get="{{ new_url }}" hx-target="#panel-body" data-new-txn
+  <button class="tab-add" type="button" hx-get="{{ new_url }}" hx-target="#panel-body" data-new-txn
           aria-label="New transaction" title="New transaction (n)">{{ icon('plus') }}</button>
   {% else %}
-  <a class="tab-add accent" href="/#new" aria-label="New transaction">{{ icon('plus') }}</a>
+  <a class="tab-add" href="/#new" aria-label="New transaction">{{ icon('plus') }}</a>
   {% endif %}
   {% if active == "register" %}
   <button class="tab" type="button" @click="open()" :aria-pressed="searching">{{ icon('search') }}<span>Search</span></button>

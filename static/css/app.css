@@ -133,7 +133,7 @@ button { cursor: pointer; }
   box-shadow: 0 0 0 3px rgba(var(--accent-glow), 0.28);
 }
 
-/* Primary action, the + button, the current tab, a switch that's on. */
+/* Primary action, the current tab, a switch that's on. */
 .accent {
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b));
   color: #fff; border-color: transparent;
@@ -395,9 +395,10 @@ button.mark:hover .icon { border-color: var(--dep); }
 /* ---------- Tab bar (mobile) ---------- */
 
 /* Reconcile, Spending, +, Search, Register under the thumb. A glass panel floating
-   clear of the screen edges (and the home indicator); the + is an accent disc raised
-   out of it, ringed in the bar's tint so it reads as sitting in the bar. Rounded
-   corners rather than pill ends, so the ends don't curve in beside the outer tabs. */
+   clear of the screen edges (and the home indicator); the + is a flat accent ring in
+   the bar: an outline rather than a fill, so it doesn't read as a second current-tab
+   pill. Rounded corners rather than pill ends, so the ends don't curve in beside the
+   outer tabs. */
 .tabbar {
   position: fixed; z-index: 25;
   left: calc(0.5rem + env(safe-area-inset-left, 0px));
@@ -424,14 +425,16 @@ button.mark:hover .icon { border-color: var(--dep); }
 .tab-add {
   justify-self: center;
   display: grid; place-items: center;
-  width: 3.75rem; height: 3.75rem; margin-top: -1.5rem;
+  width: 2.75rem; height: 2.75rem; padding: 0;
   border-radius: 50%;
-  outline: 5px solid rgba(var(--chrome), 0.55);
+  border: 1.5px solid color-mix(in srgb, var(--accent-text) 55%, transparent);
+  background: transparent;
+  color: var(--accent-text);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-/* The ring above is an outline, so focus needs its own. */
-.tab-add:focus-visible { outline: 3px solid var(--ring); }
-.tab-add .icon { width: 1.75rem; height: 1.75rem; stroke-width: 2.2; }
-.tab-add:active { transform: scale(0.96); }
+.tab-add:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.tab-add:active { background: color-mix(in srgb, var(--accent-text) 12%, transparent); }
 
 /* ---------- Panel (transaction form) ---------- */
 
