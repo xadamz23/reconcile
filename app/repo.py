@@ -1,5 +1,6 @@
 """All SQL lives here. Functions take a sqlite3 connection opened by app.db."""
 
+import calendar
 import re
 import sqlite3
 from dataclasses import dataclass, field
@@ -42,6 +43,22 @@ class TxnInput:
         if not self.payee:
             raise ValueError("Payee is required")
         Date.fromisoformat(self.date)  # raises ValueError if malformed
+
+
+@dataclass
+class BillInput:
+    payee: str
+    amount_cents: int  # positive: every bill is a payment
+    day: int
+
+    def __post_init__(self) -> None:
+        self.payee = clean_text(self.payee) or ""
+        if not self.payee:
+            raise ValueError("Payee is required")
+        if not 0 < self.amount_cents <= MAX_CENTS:
+            raise ValueError("Amount is out of range")
+        if not 1 <= self.day <= 31:
+            raise ValueError("Day must be 1 to 31")
 
 
 # --- Settings / setup ---
@@ -379,6 +396,72 @@ def list_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
          ORDER BY s.end_date DESC, s.id DESC
         """
     ).fetchall()
+
+
+# --- Bills ---
+
+
+def create_bill(conn: sqlite3.Connection, b: BillInput) -> int:
+    cur = conn.execute(
+        "INSERT INTO bills (payee, amount_cents, day) VALUES (?, ?, ?)",
+        (b.payee, b.amount_cents, b.day),
+    )
+    return cur.lastrowid
+
+
+def update_bill(conn: sqlite3.Connection, bill_id: int, b: BillInput) -> None:
+    # Transactions already added from this bill keep what they were added with.
+    conn.execute(
+        "UPDATE bills SET payee = ?, amount_cents = ?, day = ?, updated_at = datetime('now') WHERE id = ?",
+        (b.payee, b.amount_cents, b.day, bill_id),
+    )
+
+
+def delete_bill(conn: sqlite3.Connection, bill_id: int) -> None:
+    conn.execute("DELETE FROM bills WHERE id = ?", (bill_id,))
+
+
+def get_bill(conn: sqlite3.Connection, bill_id: int) -> sqlite3.Row | None:
+    return conn.execute("SELECT * FROM bills WHERE id = ?", (bill_id,)).fetchone()
+
+
+def bill_date(day: int, month: str) -> str:
+    """The date a bill comes out in month (YYYY-MM). A late day moves to the month's last day."""
+    year, mon = int(month[:4]), int(month[5:7])
+    return Date(year, mon, min(day, calendar.monthrange(year, mon)[1])).isoformat()
+
+
+def bills_for_month(conn: sqlite3.Connection, month: str) -> list[sqlite3.Row]:
+    """Every bill by the day it comes out, with its transaction for month if it has one."""
+    return conn.execute(
+        """
+        SELECT b.*, t.id AS txn_id, t.date AS txn_date, t.amount_cents AS txn_cents, t.status AS txn_status
+          FROM bills b
+          LEFT JOIN transactions t ON t.bill_id = b.id AND t.bill_month = ?
+         ORDER BY b.day, b.payee COLLATE NOCASE, b.id
+        """,
+        (month,),
+    ).fetchall()
+
+
+def add_bill_txn(conn: sqlite3.Connection, bill_id: int, month: str) -> bool:
+    """Add the bill to the register for month. False if it's already there (a double tap)."""
+    cur = conn.execute(
+        """
+        INSERT OR IGNORE INTO transactions (date, payee, amount_cents, bill_id, bill_month)
+        SELECT ?, payee, -amount_cents, id, ? FROM bills WHERE id = ?
+        """,
+        (bill_date(get_bill(conn, bill_id)["day"], month), month, bill_id),
+    )
+    return cur.rowcount > 0
+
+
+def remove_bill_txn(conn: sqlite3.Connection, bill_id: int, month: str) -> None:
+    """Take the bill's transaction back out, unless a reconcile has ticked or locked it."""
+    conn.execute(
+        "DELETE FROM transactions WHERE bill_id = ? AND bill_month = ? AND status = 'unverified'",
+        (bill_id, month),
+    )
 
 
 def all_txns_for_export(conn: sqlite3.Connection) -> list[sqlite3.Row]:

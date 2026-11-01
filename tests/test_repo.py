@@ -337,3 +337,74 @@ def test_discard_draft_unticks(ledger):
 def test_amount_filter_rejects_absurd_amounts(ledger):
     with pytest.raises(ValueError):
         repo.list_txns(ledger, amount="999999999999999999999.5")
+
+
+# --- Bills ---
+
+
+def test_bill_input_validates():
+    assert repo.BillInput("  Rent ", 145000, 1).payee == "Rent"
+    for args in [("  ", 100, 1), ("Rent", 0, 1), ("Rent", 100, 0), ("Rent", 100, 32)]:
+        with pytest.raises(ValueError):
+            repo.BillInput(*args)
+
+
+@pytest.mark.parametrize("day, month, expected", [
+    (15, "2026-11", "2026-11-15"),
+    (31, "2026-11", "2026-11-30"),
+    (31, "2027-02", "2027-02-28"),
+    (29, "2028-02", "2028-02-29"),
+])
+def test_bill_date_clamps_to_month_end(day, month, expected):
+    assert repo.bill_date(day, month) == expected
+
+
+def test_add_bill_txn_is_a_dated_unverified_payment_once_per_month(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Water", 6240, 31))
+    assert repo.add_bill_txn(ledger, bill, "2026-11") is True
+    assert repo.add_bill_txn(ledger, bill, "2026-11") is False
+    row = repo.bills_for_month(ledger, "2026-11")[0]
+    assert (row["txn_date"], row["txn_cents"], row["txn_status"]) == ("2026-11-30", -6240, "unverified")
+    # It comes back next month.
+    assert repo.bills_for_month(ledger, "2026-12")[0]["txn_id"] is None
+    assert repo.add_bill_txn(ledger, bill, "2026-12") is True
+
+
+def test_moving_the_txn_to_another_month_still_counts_for_the_bills_month(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Water", 6240, 30))
+    repo.add_bill_txn(ledger, bill, "2026-11")
+    txn_id = repo.bills_for_month(ledger, "2026-11")[0]["txn_id"]
+    repo.update_txn(ledger, txn_id, TxnInput("2026-12-01", "Water", -7000))
+    row = repo.bills_for_month(ledger, "2026-11")[0]
+    assert row["txn_id"] == txn_id and row["txn_cents"] == -7000
+    assert repo.bills_for_month(ledger, "2026-12")[0]["txn_id"] is None
+
+
+def test_deleting_the_transaction_makes_the_bill_addable_again(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Water", 6240, 5))
+    repo.add_bill_txn(ledger, bill, "2026-11")
+    repo.delete_txn(ledger, repo.bills_for_month(ledger, "2026-11")[0]["txn_id"])
+    assert repo.add_bill_txn(ledger, bill, "2026-11") is True
+
+
+def test_remove_bill_txn_leaves_ticked_items_alone(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Water", 6240, 5))
+    repo.add_bill_txn(ledger, bill, "2026-11")
+    txn_id = repo.bills_for_month(ledger, "2026-11")[0]["txn_id"]
+    repo.toggle_verified(ledger, txn_id)
+    repo.remove_bill_txn(ledger, bill, "2026-11")
+    assert repo.get_txn(ledger, txn_id) is not None
+    repo.toggle_verified(ledger, txn_id)
+    repo.remove_bill_txn(ledger, bill, "2026-11")
+    assert repo.get_txn(ledger, txn_id) is None
+
+
+def test_editing_or_deleting_a_bill_keeps_its_transaction(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Water", 6240, 5))
+    repo.add_bill_txn(ledger, bill, "2026-11")
+    txn_id = repo.bills_for_month(ledger, "2026-11")[0]["txn_id"]
+    repo.update_bill(ledger, bill, repo.BillInput("City Water", 9999, 9))
+    assert repo.get_txn(ledger, txn_id)["amount_cents"] == -6240
+    repo.delete_bill(ledger, bill)
+    txn = repo.get_txn(ledger, txn_id)
+    assert txn["payee"] == "Water" and txn["bill_id"] is None

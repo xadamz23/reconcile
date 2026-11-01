@@ -1,0 +1,54 @@
+{# This month's bills in date order. The tick adds a bill to the register or, with a
+   confirmation, takes it back out; a reconcile's tick or lock makes it stay put.
+   Nothing is ever added without a tap. #}
+{% from "_icons.html" import icon %}
+{% if oob_totals %}
+  {% with oob = true %}{% include "_totals.html" %}{% endwith %}
+  <div id="toast" role="status" hx-swap-oob="true">
+    {% if toast %}
+    <div class="toast glass-strong is-popover" x-data x-init="setTimeout(() => $el.remove(), 6000)">
+      <span class="num">{{ toast.text }}</span>
+      <button type="button" hx-post="/bills/{{ toast.bill_id }}/remove" hx-target="#bills-body">Undo</button>
+    </div>
+    {% endif %}
+  </div>
+{% endif %}
+<div class="bills-head">
+  <div>
+    <h2>{{ month_name }} bills</h2>
+    {% if bills %}<p>{{ added_count }} of {{ bills | length }} added{% if left_cents %}, {{ left_cents | money }} left to add{% endif %}</p>{% endif %}
+  </div>
+  <button class="btn btn-glass" type="button" hx-get="/bills/new" hx-target="#panel-body">{{ icon('plus') }}Add bill</button>
+</div>
+{% if bills %}
+<div class="card card-list glass">
+  {% for b in bills %}
+  <article class="bill{{ ' is-added' if b.added }}{{ ' is-just-added' if toast and toast.bill_id == b.id }}">
+    {% if b.locked %}
+    <span class="mark" title="Ticked on a reconcile, so it stays in the register">{{ icon('check') }}</span>
+    {% elif b.added %}
+    <button id="bill-tick-{{ b.id }}" class="mark" type="button" hx-post="/bills/{{ b.id }}/remove" hx-target="#bills-body"
+            hx-confirm="Take {{ b.payee }} back out of the register? This deletes its transaction."
+            aria-pressed="true" aria-label="Take {{ b.payee }} back out of the register">{{ icon('check') }}</button>
+    {% else %}
+    <button id="bill-tick-{{ b.id }}" class="mark" type="button" hx-post="/bills/{{ b.id }}/add" hx-target="#bills-body"
+            aria-pressed="false" aria-label="Add {{ b.payee }} to the register">{{ icon('check') }}</button>
+    {% endif %}
+    <button class="bill-open" type="button" hx-get="/bills/{{ b.id }}/edit" hx-target="#panel-body" aria-label="Edit {{ b.payee }}">
+      <span class="bill-payee">{{ b.payee }}</span>
+      <span class="bill-amt num">−{{ b.cents | money(signed=false) }}</span>
+      <span class="bill-meta">
+        {{ 'Dated' if b.added else 'Comes out' }} {{ b.date_label }}
+        {% if b.added %}<span class="glass-chip chip-done">In register</span>
+        {% elif b.days < 0 %}<span class="glass-chip chip-warn">Date passed</span>
+        {% elif b.days == 0 %}<span class="glass-chip">Today</span>
+        {% elif b.days <= soon_days %}<span class="glass-chip">In {{ b.days }} day{{ 's' if b.days != 1 }}</span>
+        {% endif %}
+      </span>
+    </button>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<p class="ledger-note">No bills yet. Add the ones that repeat each month, then tick them off as they come due.</p>
+{% endif %}

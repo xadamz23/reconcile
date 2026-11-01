@@ -17,6 +17,7 @@
   --dep: #4ade9a;
   --dep-a: #047857;
   --dep-b: #059669;
+  --warn: #fbbf77;
   --accent-a: #1d4ed8;
   --accent-b: #0e7490;
   --accent-glow: 37, 99, 235; /* r, g, b, for rgba() */
@@ -361,7 +362,7 @@ button { cursor: pointer; }
 
 .ledger-head { display: none; }
 /* Room below the last card for the mobile tab bar. */
-.register, .reconcile, .spending { padding-bottom: calc(6rem + var(--safe-b)); }
+.register, .reconcile, .spending, .bills { padding-bottom: calc(6rem + var(--safe-b)); }
 
 .txn {
   position: relative;
@@ -686,6 +687,53 @@ button.mark:hover .icon { border-color: var(--dep); }
 .spend-rest[open] > summary .spend-sub::after { transform: translateY(0.05em) rotate(-135deg); }
 .spend-rest .spend-list { background: rgba(0, 0, 0, 0.15); }
 
+/* ---------- Bills ---------- */
+
+/* Recurring bills in date order. The tick adds this month's transaction; the rest of
+   the row edits the bill. */
+.bills-head { display: flex; align-items: center; gap: 0.75rem; margin-inline: var(--card-inset); padding: 1rem var(--gutter) 0; }
+.bills-head > div { flex: 1; min-width: 0; }
+.bills-head h2 { font-size: 1.125rem; font-weight: 700; }
+.bills-head p { font-size: 0.875rem; color: var(--text-soft); }
+.bills-head .btn { flex: none; min-height: 2.75rem; padding: 0 0.875rem 0 0.625rem; font-size: 0.9375rem; }
+
+.bill {
+  display: grid; grid-template-columns: 3.25rem minmax(0, 1fr);
+  min-height: var(--row-h);
+  border-bottom: 1px solid var(--line);
+}
+.bill:last-child { border-bottom: 0; }
+.bill-open {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.75rem; row-gap: 0.125rem; align-items: center;
+  padding: 0.625rem var(--gutter) 0.625rem 0;
+  border: 0; background: none; text-align: left;
+}
+.bill-open:hover { background: rgba(255, 255, 255, 0.04); }
+.bill-payee { font-size: 1.0625rem; font-weight: 550; overflow-wrap: anywhere; }
+.bill-amt { grid-row: 1 / span 2; grid-column: 2; font-size: 1.0625rem; font-weight: 650; color: var(--pay); white-space: nowrap; }
+.bill-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; font-size: 0.875rem; color: var(--text-soft); }
+.glass-chip.chip-warn { color: var(--warn); border-color: rgba(251, 191, 119, 0.4); }
+.glass-chip.chip-done { color: var(--dep); border-color: rgba(74, 222, 154, 0.35); }
+.bill.is-added .bill-payee, .bill.is-added .bill-amt { color: var(--text-soft); }
+.bill.is-added .mark .icon {
+  border-color: transparent; background: linear-gradient(135deg, var(--dep-a), var(--dep-b)); color: #fff;
+  box-shadow: 0 0 14px -2px rgba(52, 211, 153, 0.7);
+}
+.bill.is-just-added .mark .icon { animation: stamp 220ms ease-out; }
+.bill-form .field-big input { color: var(--pay); }
+.field-help { font-size: 0.875rem; color: var(--text-faint); }
+
+/* Outside main, because main is a containing block for fixed elements on desktop. */
+.toast {
+  position: fixed; z-index: 30; left: 50%; translate: -50% 0;
+  bottom: calc(5.75rem + var(--safe-b));
+  display: flex; align-items: center; gap: 0.75rem;
+  width: max-content; max-width: calc(100% - 2rem); min-height: 3rem;
+  padding: 0.25rem 0.375rem 0.25rem 1rem;
+  border-radius: var(--radius-m);
+}
+.toast button { flex: none; min-height: 2.75rem; padding: 0 0.625rem; border: 0; background: none; color: var(--accent-text); font-weight: 600; }
+
 /* Phones get the tab bar's Register tab instead (after .icon-btn, so it wins). */
 @media (max-width: 899.98px) {
   .only-desktop { display: none; }
@@ -721,10 +769,11 @@ button.mark:hover .icon { border-color: var(--dep); }
   .filters-text .field-amount { flex-basis: 11rem; }
 
   .tabbar { display: none; }
-  .register, .spending, .reconcile { padding-bottom: calc(2rem + var(--safe-b)); }
+  .toast { bottom: calc(1.5rem + var(--safe-b)); }
+  .register, .spending, .reconcile, .bills { padding-bottom: calc(2rem + var(--safe-b)); }
   .rec-summary { top: 10rem; }
   /* The masthead spans the page, as on the register; the content stays a readable width. */
-  .reconcile > :not(.masthead), .spending > :not(.masthead) { max-width: 49rem; margin-inline: auto; }
+  .reconcile > :not(.masthead), .spending > :not(.masthead), .bills > :not(.masthead) { max-width: 49rem; margin-inline: auto; }
 
   /* The form slides in from the right over a scrim, only while it's in use. */
   .panel {

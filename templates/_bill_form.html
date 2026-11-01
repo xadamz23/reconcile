@@ -1,0 +1,32 @@
+{% from "_icons.html" import icon %}
+<form class="txn-form bill-form" hx-post="{{ '/bills/%d' % bill.id if bill else '/bills' }}" hx-target="#panel-body" novalidate>
+  <div class="panel-bar">
+    <button class="icon-btn" type="button" data-panel-close aria-label="Close">{{ icon('close') }}</button>
+    <h2>{{ 'Edit bill' if bill else 'New bill' }}</h2>
+    {% if bill %}
+    <button class="icon-btn danger" type="button" hx-post="/bills/{{ bill.id }}/delete" hx-target="#panel-body"
+            hx-confirm="Remove {{ bill.payee }} from your bills? Transactions already in the register stay."
+            aria-label="Remove bill">{{ icon('trash') }}</button>
+    {% endif %}
+    <button class="icon-btn save" type="submit" aria-label="Save" title="Save">{{ icon('save') }}</button>
+  </div>
+
+  <fieldset class="form-fields">
+    <label class="field field-big{{ ' has-error' if errors.amount }}">
+      <span class="field-label">Amount</span>
+      <span class="amount-input glass-input"><span class="dollar" aria-hidden="true">$</span>
+        <input name="amount" value="{{ form.amount }}" inputmode="numeric" data-cents autocomplete="off" placeholder="0.00"
+               {% if not bill %}data-autofocus{% endif %} required></span>
+      {% if errors.amount %}<span class="field-error">{{ errors.amount }}</span>{% endif %}
+    </label>
+
+    {% include "_payee_field.html" %}
+
+    <label class="field{{ ' has-error' if errors.day }}">
+      <span class="field-label">Day it comes out</span>
+      <input class="glass-input" type="number" name="day" value="{{ form.day }}" inputmode="numeric" min="1" max="31" required>
+      {% if errors.day %}<span class="field-error">{{ errors.day }}</span>{% endif %}
+      <span class="field-help">Day of the month. In shorter months, a late day moves to the last day.</span>
+    </label>
+  </fieldset>
+</form>

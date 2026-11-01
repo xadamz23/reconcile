@@ -27,7 +27,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import NamedTuple, Optional
 
-SCHEMA_VERSION = 1  # app/db.py MIGRATIONS this script was written against
+SCHEMA_VERSION = 2  # app/db.py MIGRATIONS this script was written against
 STATUSES = {"unverified": "unverified", "verified": "verified"}
 
 

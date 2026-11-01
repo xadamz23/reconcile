@@ -423,3 +423,76 @@ def test_reconcile_refresh_updates_masthead_totals(ready):
     ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "1000.00"})
     r = ready.get("/reconcile", headers={"HX-Request": "true", "HX-Target": "rec-body"})
     assert 'id="totals" class="totals" hx-swap-oob="true"' in r.text
+
+
+# --- Bills ---
+
+
+def _add_bill(client, payee="Water", amount="62.40", day="5"):
+    r = client.post("/bills", data={"payee": payee, "amount": amount, "day": day}, headers=HX)
+    assert r.status_code == 200 and "ledger-changed" in r.headers["HX-Trigger"]
+    return conn_of(client).execute("SELECT id FROM bills ORDER BY id DESC").fetchone()["id"]
+
+
+def test_bills_is_in_the_menu_not_the_tab_bar(ready):
+    text = ready.get("/").text
+    menu = text[text.index('class="menu-pop'):text.index("</header>")]
+    assert 'href="/bills"' in menu
+    assert 'href="/bills"' not in text[text.index('class="tabbar'):]
+
+
+def test_bills_page_requires_setup(client):
+    r = client.get("/bills", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/setup"
+
+
+def test_bills_empty_state(ready):
+    assert "No bills yet" in ready.get("/bills").text
+
+
+def test_bill_form_reports_errors(ready):
+    r = ready.post("/bills", data={"payee": " ", "amount": "0", "day": "32"}, headers=HX)
+    assert "HX-Trigger" not in r.headers
+    for message in ("Who is the bill paid to?", "Amount can&#39;t be zero", "Enter a day from 1 to 31"):
+        assert message in r.text
+    assert conn_of(ready).execute("SELECT COUNT(*) FROM bills").fetchone()[0] == 0
+
+
+def test_saving_a_bill_never_adds_a_transaction(ready):
+    _add_bill(ready)
+    assert conn_of(ready).execute("SELECT COUNT(*) FROM transactions WHERE bill_id IS NOT NULL").fetchone()[0] == 0
+    assert "$62.40 left to add" in ready.get("/bills").text
+
+
+def test_edit_and_delete_bill(ready):
+    bill = _add_bill(ready)
+    assert 'value="62.40"' in ready.get(f"/bills/{bill}/edit", headers=HX).text
+    ready.post(f"/bills/{bill}", data={"payee": "City Water", "amount": "70.00", "day": "6"}, headers=HX)
+    assert "City Water" in ready.get("/bills").text
+    ready.post(f"/bills/{bill}/delete", headers=HX)
+    assert "City Water" not in ready.get("/bills").text
+    assert ready.get(f"/bills/{bill}/edit", headers=HX).status_code == 404
+
+
+def test_tick_adds_to_register_updates_balance_and_undo_removes(ready):
+    bill = _add_bill(ready)
+    before = repo.balance(conn_of(ready))
+    r = ready.post(f"/bills/{bill}/add", headers=HX)
+    assert repo.balance(conn_of(ready)) == before - 6240
+    assert "In register" in r.text and "Undo" in r.text and 'id="totals"' in r.text
+    # A second tap (a stale page) doesn't add it twice, or offer an Undo.
+    r = ready.post(f"/bills/{bill}/add", headers=HX)
+    assert repo.balance(conn_of(ready)) == before - 6240 and "Undo" not in r.text
+    r = ready.post(f"/bills/{bill}/remove", headers=HX)
+    assert repo.balance(conn_of(ready)) == before and "In register" not in r.text
+
+
+def test_ticked_on_a_reconcile_cant_be_taken_back_out(ready):
+    bill = _add_bill(ready)
+    ready.post(f"/bills/{bill}/add", headers=HX)
+    txn_id = conn_of(ready).execute("SELECT id FROM transactions WHERE bill_id = ?", (bill,)).fetchone()["id"]
+    repo.toggle_verified(conn_of(ready), txn_id)
+    text = ready.get("/bills").text
+    assert f"/bills/{bill}/remove" not in text
+    ready.post(f"/bills/{bill}/remove", headers=HX)
+    assert repo.get_txn(conn_of(ready), txn_id) is not None

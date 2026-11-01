@@ -35,22 +35,7 @@
       {% if errors.amount %}<span class="field-error">{{ errors.amount }}</span>{% endif %}
     </label>
 
-    <div class="field{{ ' has-error' if errors.payee }}" x-data='payeeBox({{ form.payee | tojson }})' @click.outside="close()">
-      <label class="field-label" for="payee">Payee</label>
-      <input id="payee" class="glass-input" name="payee" x-model="value" autocomplete="off" required
-             role="combobox" aria-autocomplete="list" aria-controls="payee-list" :aria-expanded="open"
-             @input.debounce.150ms="fetch()" @focus="fetch()"
-             @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)"
-             @keydown.enter="if (open && active >= 0) { $event.preventDefault(); pick(items[active]) }"
-             @keydown.escape="if (open) { $event.stopPropagation(); close() }">
-      <ul id="payee-list" class="suggest glass-strong is-popover" role="listbox" x-show="open" x-cloak>
-        <template x-for="(item, i) in items" :key="item">
-          <li role="option" :aria-selected="i === active" :class="i === active && 'is-active'"
-              @mousedown.prevent="pick(item)" x-text="item"></li>
-        </template>
-      </ul>
-      {% if errors.payee %}<span class="field-error">{{ errors.payee }}</span>{% endif %}
-    </div>
+    {% include "_payee_field.html" %}
 
     <div class="field-row">
       <label class="field{{ ' has-error' if errors.date }}">

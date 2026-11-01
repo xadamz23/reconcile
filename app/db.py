@@ -31,6 +31,19 @@ MIGRATIONS = [
     CREATE INDEX ix_transactions_date ON transactions(date, id);
     CREATE INDEX ix_transactions_payee ON transactions(payee COLLATE NOCASE);
     """,
+    """
+    CREATE TABLE bills (
+        id           INTEGER PRIMARY KEY,
+        payee        TEXT NOT NULL,
+        amount_cents INTEGER NOT NULL CHECK (amount_cents > 0),
+        day          INTEGER NOT NULL CHECK (day BETWEEN 1 AND 31),
+        created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    ALTER TABLE transactions ADD COLUMN bill_id INTEGER REFERENCES bills(id) ON DELETE SET NULL;
+    ALTER TABLE transactions ADD COLUMN bill_month TEXT;
+    CREATE UNIQUE INDEX ix_transactions_bill ON transactions(bill_id, bill_month) WHERE bill_id IS NOT NULL;
+    """,
 ]
 
 

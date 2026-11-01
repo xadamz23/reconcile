@@ -1,4 +1,4 @@
-{# The header on the register, Spending and Reconcile pages. Expects masthead_context()
+{# The header on the register, Spending, Bills and Reconcile pages. Expects masthead_context()
    from routes/deps.py and optionally new_url (shows New transaction), back (a
    desktop back arrow) and close_search (the register's close-search button). #}
 {% from "_icons.html" import icon %}
@@ -20,6 +20,7 @@
         <div class="menu-pop glass-strong is-popover" role="menu" x-show="open" x-transition.origin.top.right x-cloak>
           <a role="menuitem" href="/reconcile">{{ icon('scale') }}{{ 'Continue reconciling' if reconciling else 'Reconcile a statement' }}</a>
           <a role="menuitem" href="/spending">{{ icon('chart') }}Spending</a>
+          <a role="menuitem" href="/bills">{{ icon('repeat') }}Bills</a>
           <a role="menuitem" href="/export.csv" download>{{ icon('download') }}Export CSV</a>
         </div>
       </div>
