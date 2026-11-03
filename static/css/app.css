@@ -722,6 +722,21 @@ button.mark:hover .icon { border-color: var(--dep); }
 .bill.is-just-added .mark .icon { animation: stamp 220ms ease-out; }
 .bill-form .field-big input { color: var(--pay); }
 .field-help { font-size: 0.875rem; color: var(--text-faint); }
+.bill-seq { font-weight: 500; color: var(--text-faint); }
+.bill.is-added .bill-seq { color: inherit; }
+/* Two-option segmented controls in the bill form; the tall one has two-line labels. */
+.seg.seg-2 { grid-template-columns: 1fr 1fr; }
+.seg-2 .pill-radio span { padding: 0 0.25rem; font-size: 0.875rem; line-height: 1.15; text-align: center; }
+.seg-tall .pill-radio span { height: 3rem; }
+.field-row.is-single { grid-template-columns: 1fr; }
+/* Who the sheet is adding, above its fields. */
+.bill-add-who {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem;
+  padding: 0.75rem 1rem; border-radius: var(--radius-m);
+}
+.bill-add-who strong { font-size: 1.0625rem; font-weight: 600; overflow-wrap: anywhere; }
+.bill-add-who span { flex: none; font-size: 0.875rem; color: var(--text-soft); }
+.form-submit { margin-top: 0.5rem; min-height: 3rem; }
 
 /* Outside main, because main is a containing block for fixed elements on desktop. */
 .toast {

@@ -1,0 +1,40 @@
+{# The sheet a bill that asks opens when ticked. Saving swaps #bills-body (with the
+   Undo toast) and closes the panel; errors come back here via HX-Retarget. #}
+{% from "_icons.html" import icon %}
+<form class="txn-form bill-form" hx-post="/bills/{{ bill.id }}/add" hx-target="#bills-body" novalidate>
+  <input type="hidden" name="seq" value="{{ seq }}">
+  <div class="panel-bar">
+    <button class="icon-btn" type="button" data-panel-close aria-label="Close">{{ icon('close') }}</button>
+    <h2>Add to register</h2>
+    <button class="icon-btn save" type="submit" aria-label="Add to register" title="Add to register">{{ icon('save') }}</button>
+  </div>
+
+  <fieldset class="form-fields">
+    <div class="bill-add-who glass">
+      <strong>{{ bill.payee }}</strong>
+      <span>{{ seq_label ~ ' for ' if seq_label }}{{ month_name }}</span>
+    </div>
+
+    <label class="field field-big{{ ' has-error' if errors.amount }}">
+      <span class="field-label">Amount</span>
+      <span class="amount-input glass-input"><span class="dollar" aria-hidden="true">$</span>
+        <input name="amount" value="{{ form.amount }}" inputmode="numeric" data-cents autocomplete="off" placeholder="0.00" required></span>
+      {% if errors.amount %}<span class="field-error">{{ errors.amount }}</span>{% endif %}
+      <span class="field-help">From the bill. Change it if this one was different.</span>
+    </label>
+
+    <div class="field-row">
+      <label class="field{{ ' has-error' if errors.date }}">
+        <span class="field-label">Date</span>
+        <input class="glass-input" type="date" name="date" value="{{ form.date }}" required>
+        {% if errors.date %}<span class="field-error">{{ errors.date }}</span>{% endif %}
+      </label>
+      <label class="field field-narrow">
+        <span class="field-label">Check no.</span>
+        <input class="glass-input" name="number" value="{{ form.number }}" inputmode="numeric" autocomplete="off" placeholder="Optional">
+      </label>
+    </div>
+
+    <button class="btn accent btn-wide form-submit" type="submit">Add to register</button>
+  </fieldset>
+</form>

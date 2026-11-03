@@ -408,3 +408,58 @@ def test_editing_or_deleting_a_bill_keeps_its_transaction(ledger):
     repo.delete_bill(ledger, bill)
     txn = repo.get_txn(ledger, txn_id)
     assert txn["payee"] == "Water" and txn["bill_id"] is None
+
+
+def test_bill_input_twice_and_ask():
+    assert repo.BillInput("Daycare", 60000, None, times=2, ask=True).day is None
+    assert repo.BillInput("Daycare", 60000, 1, times=1, day2=15).day2 is None
+    for kw in [dict(day=1, times=2), dict(day=None), dict(day=1, times=3), dict(day=1, times=2, day2=32)]:
+        with pytest.raises(ValueError):
+            repo.BillInput("Daycare", 60000, **kw)
+
+
+def test_twice_a_month_bill_has_a_row_and_a_txn_per_payment(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Daycare", 60000, 1, times=2, day2=15))
+    assert [r["seq"] for r in repo.bills_for_month(ledger, "2026-11")] == [1, 2]
+    assert repo.add_bill_txn(ledger, bill, "2026-11", 2) is True
+    assert repo.add_bill_txn(ledger, bill, "2026-11", 2) is False
+    assert repo.add_bill_txn(ledger, bill, "2026-11", 1) is True
+    rows = repo.bills_for_month(ledger, "2026-11")
+    assert [r["txn_date"] for r in rows] == ["2026-11-01", "2026-11-15"]
+    repo.remove_bill_txn(ledger, bill, "2026-11", 2)
+    assert [r["txn_id"] is None for r in repo.bills_for_month(ledger, "2026-11")] == [False, True]
+
+
+def test_bill_that_asks_takes_date_number_and_amount(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Daycare", 60000, None, times=2, ask=True))
+    assert repo.bill_due_date(repo.get_bill(ledger, bill), "2026-11") is None
+    repo.add_bill_txn(ledger, bill, "2026-11", 1, "2026-11-03", 61000, " 1043 ")
+    row = repo.bills_for_month(ledger, "2026-11")[0]
+    assert (row["txn_date"], row["txn_cents"], row["txn_number"]) == ("2026-11-03", -61000, "1043")
+
+
+def test_switching_a_bill_to_ask_keeps_its_day(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Water", 6240, 5))
+    repo.update_bill(ledger, bill, repo.BillInput("Water", 6240, None, ask=True))
+    assert repo.get_bill(ledger, bill)["day"] == 5
+
+
+def test_next_check_number_skips_non_numeric(ledger):
+    assert repo.next_check_number(ledger) == ""
+    add(ledger, "2026-10-06", "Daycare", -60000, number="1042")
+    add(ledger, "2026-10-07", "Store", -100, number="DEBIT")
+    add(ledger, "2026-10-08", "Store", -100, number="99")
+    assert repo.next_check_number(ledger) == "1043"
+
+
+def test_migration_numbers_existing_bill_transactions():
+    from app import db
+
+    c = db.connect(":memory:")
+    for i, sql in enumerate(db.MIGRATIONS[:2], start=1):
+        c.executescript(f"BEGIN; {sql} PRAGMA user_version = {i}; COMMIT;")
+    c.execute("INSERT INTO bills (payee, amount_cents, day) VALUES ('Rent', 100, 1)")
+    c.execute("INSERT INTO transactions (date, payee, amount_cents, bill_id, bill_month) VALUES ('2026-11-01', 'Rent', -100, 1, '2026-11')")
+    db.migrate(c)
+    assert repo.add_bill_txn(c, 1, "2026-11") is False
+    assert repo.bills_for_month(c, "2026-11")[0]["txn_id"] is not None

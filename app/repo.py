@@ -49,7 +49,10 @@ class TxnInput:
 class BillInput:
     payee: str
     amount_cents: int  # positive: every bill is a payment
-    day: int
+    day: int | None  # unused (and may be None) when ask is set
+    times: int = 1  # payments a month: 1 or 2
+    day2: int | None = None  # the second payment's day, when times is 2 and not ask
+    ask: bool = False  # ticking it asks for the date, check number and amount
 
     def __post_init__(self) -> None:
         self.payee = clean_text(self.payee) or ""
@@ -57,8 +60,13 @@ class BillInput:
             raise ValueError("Payee is required")
         if not 0 < self.amount_cents <= MAX_CENTS:
             raise ValueError("Amount is out of range")
-        if not 1 <= self.day <= 31:
+        if self.times not in (1, 2):
+            raise ValueError("A bill comes out once or twice a month")
+        days = [] if self.ask else [self.day] + ([self.day2] if self.times == 2 else [])
+        if not all(d is not None and 1 <= d <= 31 for d in days):
             raise ValueError("Day must be 1 to 31")
+        if self.times == 1:
+            self.day2 = None
 
 
 # --- Settings / setup ---
@@ -402,9 +410,10 @@ def list_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 
 def create_bill(conn: sqlite3.Connection, b: BillInput) -> int:
+    # day is NOT NULL, so a bill that asks for its date stores 1 there (and ignores it).
     cur = conn.execute(
-        "INSERT INTO bills (payee, amount_cents, day) VALUES (?, ?, ?)",
-        (b.payee, b.amount_cents, b.day),
+        "INSERT INTO bills (payee, amount_cents, day, times, day2, ask) VALUES (?, ?, COALESCE(?, 1), ?, ?, ?)",
+        (b.payee, b.amount_cents, b.day, b.times, b.day2, int(b.ask)),
     )
     return cur.lastrowid
 
@@ -412,8 +421,12 @@ def create_bill(conn: sqlite3.Connection, b: BillInput) -> int:
 def update_bill(conn: sqlite3.Connection, bill_id: int, b: BillInput) -> None:
     # Transactions already added from this bill keep what they were added with.
     conn.execute(
-        "UPDATE bills SET payee = ?, amount_cents = ?, day = ?, updated_at = datetime('now') WHERE id = ?",
-        (b.payee, b.amount_cents, b.day, bill_id),
+        """
+        UPDATE bills SET payee = ?, amount_cents = ?, day = COALESCE(?, day), times = ?, day2 = COALESCE(?, day2),
+                         ask = ?, updated_at = datetime('now')
+         WHERE id = ?
+        """,
+        (b.payee, b.amount_cents, b.day, b.times, b.day2, int(b.ask), bill_id),
     )
 
 
@@ -432,36 +445,65 @@ def bill_date(day: int, month: str) -> str:
 
 
 def bills_for_month(conn: sqlite3.Connection, month: str) -> list[sqlite3.Row]:
-    """Every bill by the day it comes out, with its transaction for month if it has one."""
+    """One row per payment due in month (a twice-a-month bill gives two, seq 1 and 2), with
+    the transaction it was added as, if any. Ordered by bill; the page sorts by date."""
     return conn.execute(
         """
-        SELECT b.*, t.id AS txn_id, t.date AS txn_date, t.amount_cents AS txn_cents, t.status AS txn_status
+        SELECT b.*, s.seq, t.id AS txn_id, t.date AS txn_date, t.amount_cents AS txn_cents,
+               t.status AS txn_status, t.number AS txn_number
           FROM bills b
-          LEFT JOIN transactions t ON t.bill_id = b.id AND t.bill_month = ?
-         ORDER BY b.day, b.payee COLLATE NOCASE, b.id
+          JOIN (SELECT 1 AS seq UNION ALL SELECT 2) s ON s.seq <= b.times
+          LEFT JOIN transactions t ON t.bill_id = b.id AND t.bill_month = ? AND t.bill_seq = s.seq
+         ORDER BY b.day, b.payee COLLATE NOCASE, b.id, s.seq
         """,
         (month,),
     ).fetchall()
 
 
-def add_bill_txn(conn: sqlite3.Connection, bill_id: int, month: str) -> bool:
-    """Add the bill to the register for month. False if it's already there (a double tap)."""
+def bill_due_date(bill: sqlite3.Row, month: str, seq: int = 1) -> str | None:
+    """When payment seq of the bill comes out in month, or None if the bill asks each time."""
+    if bill["ask"]:
+        return None
+    return bill_date(bill["day2"] if seq == 2 else bill["day"], month)
+
+
+def add_bill_txn(
+    conn: sqlite3.Connection,
+    bill_id: int,
+    month: str,
+    seq: int = 1,
+    on_date: str | None = None,
+    cents: int | None = None,
+    number: str | None = None,
+) -> bool:
+    """Add payment seq of the bill to the register for month, by default on its day for the
+    bill's amount. False if it's already there (a double tap)."""
+    bill = get_bill(conn, bill_id)
+    on_date = on_date or bill_due_date(bill, month, seq) or Date.today().isoformat()
     cur = conn.execute(
         """
-        INSERT OR IGNORE INTO transactions (date, payee, amount_cents, bill_id, bill_month)
-        SELECT ?, payee, -amount_cents, id, ? FROM bills WHERE id = ?
+        INSERT OR IGNORE INTO transactions (date, payee, amount_cents, number, bill_id, bill_month, bill_seq)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (bill_date(get_bill(conn, bill_id)["day"], month), month, bill_id),
+        (on_date, bill["payee"], -(cents or bill["amount_cents"]), clean_text(number), bill_id, month, seq),
     )
     return cur.rowcount > 0
 
 
-def remove_bill_txn(conn: sqlite3.Connection, bill_id: int, month: str) -> None:
+def remove_bill_txn(conn: sqlite3.Connection, bill_id: int, month: str, seq: int = 1) -> None:
     """Take the bill's transaction back out, unless a reconcile has ticked or locked it."""
     conn.execute(
-        "DELETE FROM transactions WHERE bill_id = ? AND bill_month = ? AND status = 'unverified'",
-        (bill_id, month),
+        "DELETE FROM transactions WHERE bill_id = ? AND bill_month = ? AND bill_seq = ? AND status = 'unverified'",
+        (bill_id, month, seq),
     )
+
+
+def next_check_number(conn: sqlite3.Connection) -> str:
+    """One past the highest all-digit check number in the register, or blank if there's none."""
+    row = conn.execute(
+        "SELECT MAX(CAST(number AS INTEGER)) FROM transactions WHERE number != '' AND number NOT GLOB '*[^0-9]*'"
+    ).fetchone()
+    return str(row[0] + 1) if row[0] is not None else ""
 
 
 def all_txns_for_export(conn: sqlite3.Connection) -> list[sqlite3.Row]:

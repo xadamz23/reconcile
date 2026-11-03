@@ -496,3 +496,50 @@ def test_ticked_on_a_reconcile_cant_be_taken_back_out(ready):
     assert f"/bills/{bill}/remove" not in text
     ready.post(f"/bills/{bill}/remove", headers=HX)
     assert repo.get_txn(conn_of(ready), txn_id) is not None
+
+
+def _add_daycare(client):
+    data = {"payee": "Daycare", "amount": "600.00", "day": "", "times": "2", "day2": "", "mode": "ask"}
+    r = client.post("/bills", data=data, headers=HX)
+    assert r.status_code == 200 and "ledger-changed" in r.headers["HX-Trigger"]
+    return conn_of(client).execute("SELECT id FROM bills ORDER BY id DESC").fetchone()["id"]
+
+
+def test_bill_form_needs_both_days_for_twice_a_month(ready):
+    r = ready.post("/bills", data={"payee": "Daycare", "amount": "600", "day": "1", "times": "2", "day2": "", "mode": "now"},
+                   headers=HX)
+    assert "HX-Trigger" not in r.headers and "Enter a day from 1 to 31" in r.text
+
+
+def test_bill_that_asks_shows_two_rows_and_opens_a_sheet(ready):
+    bill = _add_daycare(ready)
+    text = ready.get("/bills").text
+    assert "1st of 2" in text and "2nd of 2" in text and "You pick the date" in text
+    assert f'hx-get="/bills/{bill}/add?seq=2"' in text
+    repo.create_txn(conn_of(ready), repo.TxnInput("2026-10-20", "Daycare", -60000, number="1042"))
+    sheet = ready.get(f"/bills/{bill}/add?seq=2", headers=HX).text
+    assert 'value="1043"' in sheet and 'value="600.00"' in sheet and "2nd of 2 for" in sheet
+    form = ready.get(f"/bills/{bill}/edit", headers=HX).text
+    assert re.search(r'value="2" x-model="times" checked', form) and re.search(r'value="ask" x-model="mode" checked', form)
+    assert ready.get(f"/bills/{bill}/add?seq=3", headers=HX).status_code == 404
+
+
+def test_sheet_adds_with_date_check_and_amount(ready):
+    bill = _add_daycare(ready)
+    on = date.today().replace(day=2).isoformat()
+    data = {"seq": "2", "amount": "610.00", "date": on, "number": "1043"}
+    r = ready.post(f"/bills/{bill}/add", data=data, headers=HX)
+    assert "panel-close" in r.headers["HX-Trigger"]
+    assert "Added Daycare, −$610.00" in r.text and "Check 1043" in r.text and '"seq": 2' in r.text
+    txn = conn_of(ready).execute("SELECT * FROM transactions WHERE bill_id = ?", (bill,)).fetchone()
+    assert (txn["date"], txn["amount_cents"], txn["number"], txn["bill_seq"]) == (on, -61000, "1043", 2)
+    r = ready.post(f"/bills/{bill}/remove", data={"seq": "2"}, headers=HX)
+    assert conn_of(ready).execute("SELECT COUNT(*) FROM transactions WHERE bill_id = ?", (bill,)).fetchone()[0] == 0
+
+
+def test_sheet_errors_go_back_to_the_panel(ready):
+    bill = _add_daycare(ready)
+    r = ready.post(f"/bills/{bill}/add", data={"seq": "1", "amount": "0", "date": "nope", "number": ""}, headers=HX)
+    assert r.headers["HX-Retarget"] == "#panel-body"
+    assert "Pick a date" in r.text and "Amount can&#39;t be zero" in r.text
+    assert conn_of(ready).execute("SELECT COUNT(*) FROM transactions WHERE bill_id = ?", (bill,)).fetchone()[0] == 0

@@ -1,6 +1,8 @@
 {# This month's bills in date order. The tick adds a bill to the register or, with a
-   confirmation, takes it back out; a reconcile's tick or lock makes it stay put.
-   Nothing is ever added without a tap. #}
+   confirmation, takes it back out; a reconcile's tick or lock makes it stay put. A bill
+   that asks opens a sheet for the date, check number and amount instead. A
+   twice-a-month bill has a row (and a tick) per payment. Nothing is ever added without
+   a tap. #}
 {% from "_icons.html" import icon %}
 {% if oob_totals %}
   {% with oob = true %}{% include "_totals.html" %}{% endwith %}
@@ -8,7 +10,7 @@
     {% if toast %}
     <div class="toast glass-strong is-popover" x-data x-init="setTimeout(() => $el.remove(), 6000)">
       <span class="num">{{ toast.text }}</span>
-      <button type="button" hx-post="/bills/{{ toast.bill_id }}/remove" hx-target="#bills-body">Undo</button>
+      <button type="button" hx-post="/bills/{{ toast.bill_id }}/remove" hx-vals='{"seq": {{ toast.seq }}}' hx-target="#bills-body">Undo</button>
     </div>
     {% endif %}
   </div>
@@ -23,23 +25,30 @@
 {% if bills %}
 <div class="card card-list glass">
   {% for b in bills %}
-  <article class="bill{{ ' is-added' if b.added }}{{ ' is-just-added' if toast and toast.bill_id == b.id }}">
+  {% set name = b.payee ~ (' (' ~ b.seq_label ~ ')' if b.seq_label else '') %}
+  <article class="bill{{ ' is-added' if b.added }}{{ ' is-just-added' if toast and toast.bill_id == b.id and toast.seq == b.seq }}">
     {% if b.locked %}
     <span class="mark" title="Ticked on a reconcile, so it stays in the register">{{ icon('check') }}</span>
     {% elif b.added %}
-    <button id="bill-tick-{{ b.id }}" class="mark" type="button" hx-post="/bills/{{ b.id }}/remove" hx-target="#bills-body"
-            hx-confirm="Take {{ b.payee }} back out of the register? This deletes its transaction."
-            aria-pressed="true" aria-label="Take {{ b.payee }} back out of the register">{{ icon('check') }}</button>
+    <button id="bill-tick-{{ b.id }}-{{ b.seq }}" class="mark" type="button" hx-post="/bills/{{ b.id }}/remove" hx-vals='{"seq": {{ b.seq }}}' hx-target="#bills-body"
+            hx-confirm="Take {{ name }} back out of the register? This deletes its transaction."
+            aria-pressed="true" aria-label="Take {{ name }} back out of the register">{{ icon('check') }}</button>
+    {% elif b.ask %}
+    <button id="bill-tick-{{ b.id }}-{{ b.seq }}" class="mark" type="button" hx-get="/bills/{{ b.id }}/add?seq={{ b.seq }}" hx-target="#panel-body"
+            aria-pressed="false" aria-label="Add {{ name }} to the register">{{ icon('check') }}</button>
     {% else %}
-    <button id="bill-tick-{{ b.id }}" class="mark" type="button" hx-post="/bills/{{ b.id }}/add" hx-target="#bills-body"
-            aria-pressed="false" aria-label="Add {{ b.payee }} to the register">{{ icon('check') }}</button>
+    <button id="bill-tick-{{ b.id }}-{{ b.seq }}" class="mark" type="button" hx-post="/bills/{{ b.id }}/add" hx-vals='{"seq": {{ b.seq }}}' hx-target="#bills-body"
+            aria-pressed="false" aria-label="Add {{ name }} to the register">{{ icon('check') }}</button>
     {% endif %}
     <button class="bill-open" type="button" hx-get="/bills/{{ b.id }}/edit" hx-target="#panel-body" aria-label="Edit {{ b.payee }}">
-      <span class="bill-payee">{{ b.payee }}</span>
+      <span class="bill-payee">{{ b.payee }}{% if b.seq_label %}<span class="bill-seq"> · {{ b.seq_label }}</span>{% endif %}</span>
       <span class="bill-amt num">−{{ b.cents | money(signed=false) }}</span>
       <span class="bill-meta">
-        {{ 'Dated' if b.added else 'Comes out' }} {{ b.date_label }}
+        {% if b.added %}Dated {{ b.date_label }}{% if b.number %} · Check {{ b.number }}{% endif %}
+        {% elif b.ask %}You pick the date
+        {% else %}Comes out {{ b.date_label }}{% endif %}
         {% if b.added %}<span class="glass-chip chip-done">In register</span>
+        {% elif b.ask %}<span class="glass-chip">By check</span>
         {% elif b.days < 0 %}<span class="glass-chip chip-warn">Date passed</span>
         {% elif b.days == 0 %}<span class="glass-chip">Today</span>
         {% elif b.days <= soon_days %}<span class="glass-chip">In {{ b.days }} day{{ 's' if b.days != 1 }}</span>
