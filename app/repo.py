@@ -48,25 +48,32 @@ class TxnInput:
 @dataclass
 class BillInput:
     payee: str
-    amount_cents: int  # positive: every bill is a payment
-    day: int | None  # unused (and may be None) when ask is set
+    amount_cents: int | None  # positive (every bill is a payment); None when it varies
+    day: int | None  # None when the bill asks for its date
     times: int = 1  # payments a month: 1 or 2
-    day2: int | None = None  # the second payment's day, when times is 2 and not ask
-    ask: bool = False  # ticking it asks for the date, check number and amount
+    day2: int | None = None  # the second payment's day, when times is 2
+    ask: bool = False  # ticking it asks for the date, amount and check number
+    elsewhere: bool = False  # paid from another account: ticking it only marks it paid
+    sometimes: bool = False  # not due every month: ticking it can mark the month "nothing due"
 
     def __post_init__(self) -> None:
         self.payee = clean_text(self.payee) or ""
         if not self.payee:
             raise ValueError("Payee is required")
-        if not 0 < self.amount_cents <= MAX_CENTS:
+        if self.elsewhere:
+            self.ask = False  # nothing goes in the register, so there's nothing to ask
+        if self.amount_cents is None:
+            if not (self.ask or self.elsewhere):
+                raise ValueError("A bill added right away needs an amount")
+        elif not 0 < self.amount_cents <= MAX_CENTS:
             raise ValueError("Amount is out of range")
         if self.times not in (1, 2):
             raise ValueError("A bill comes out once or twice a month")
+        if self.times == 1:
+            self.day2 = None
         days = [] if self.ask else [self.day] + ([self.day2] if self.times == 2 else [])
         if not all(d is not None and 1 <= d <= 31 for d in days):
             raise ValueError("Day must be 1 to 31")
-        if self.times == 1:
-            self.day2 = None
 
 
 # --- Settings / setup ---
@@ -410,23 +417,26 @@ def list_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
 
 
 def create_bill(conn: sqlite3.Connection, b: BillInput) -> int:
-    # day is NOT NULL, so a bill that asks for its date stores 1 there (and ignores it).
     cur = conn.execute(
-        "INSERT INTO bills (payee, amount_cents, day, times, day2, ask) VALUES (?, ?, COALESCE(?, 1), ?, ?, ?)",
-        (b.payee, b.amount_cents, b.day, b.times, b.day2, int(b.ask)),
+        """
+        INSERT INTO bills (payee, amount_cents, day, times, day2, ask, elsewhere, sometimes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (b.payee, b.amount_cents, b.day, b.times, b.day2, int(b.ask), int(b.elsewhere), int(b.sometimes)),
     )
     return cur.lastrowid
 
 
 def update_bill(conn: sqlite3.Connection, bill_id: int, b: BillInput) -> None:
-    # Transactions already added from this bill keep what they were added with.
+    # Transactions already added from this bill keep what they were added with. A day the
+    # form left blank (a bill that asks) keeps the old one, in case it's switched back.
     conn.execute(
         """
         UPDATE bills SET payee = ?, amount_cents = ?, day = COALESCE(?, day), times = ?, day2 = COALESCE(?, day2),
-                         ask = ?, updated_at = datetime('now')
+                         ask = ?, elsewhere = ?, sometimes = ?, updated_at = datetime('now')
          WHERE id = ?
         """,
-        (b.payee, b.amount_cents, b.day, b.times, b.day2, int(b.ask), bill_id),
+        (b.payee, b.amount_cents, b.day, b.times, b.day2, int(b.ask), int(b.elsewhere), int(b.sometimes), bill_id),
     )
 
 
@@ -446,25 +456,31 @@ def bill_date(day: int, month: str) -> str:
 
 def bills_for_month(conn: sqlite3.Connection, month: str) -> list[sqlite3.Row]:
     """One row per payment due in month (a twice-a-month bill gives two, seq 1 and 2), with
-    the transaction it was added as, if any. Ordered by bill; the page sorts by date."""
+    the transaction it was added as, or its paid / nothing-due mark, if any. Ordered by
+    bill; the page sorts by date."""
     return conn.execute(
         """
         SELECT b.*, s.seq, t.id AS txn_id, t.date AS txn_date, t.amount_cents AS txn_cents,
-               t.status AS txn_status, t.number AS txn_number
+               t.status AS txn_status, t.number AS txn_number, m.kind AS mark, m.marked_on
           FROM bills b
           JOIN (SELECT 1 AS seq UNION ALL SELECT 2) s ON s.seq <= b.times
           LEFT JOIN transactions t ON t.bill_id = b.id AND t.bill_month = ? AND t.bill_seq = s.seq
+          LEFT JOIN bill_marks m ON m.bill_id = b.id AND m.month = ? AND m.seq = s.seq
          ORDER BY b.day, b.payee COLLATE NOCASE, b.id, s.seq
         """,
-        (month,),
+        (month, month),
     ).fetchall()
 
 
 def bill_due_date(bill: sqlite3.Row, month: str, seq: int = 1) -> str | None:
     """When payment seq of the bill comes out in month, or None if the bill asks each time."""
-    if bill["ask"]:
+    day = bill["day2"] if seq == 2 else bill["day"]
+    if bill["ask"] or day is None:
         return None
-    return bill_date(bill["day2"] if seq == 2 else bill["day"], month)
+    return bill_date(day, month)
+
+
+_NOT_MARKED = "NOT EXISTS (SELECT 1 FROM bill_marks WHERE bill_id = ? AND month = ? AND seq = ?)"
 
 
 def add_bill_txn(
@@ -477,15 +493,18 @@ def add_bill_txn(
     number: str | None = None,
 ) -> bool:
     """Add payment seq of the bill to the register for month, by default on its day for the
-    bill's amount. False if it's already there (a double tap)."""
+    bill's amount. False if it's already there (a double tap) or marked paid / nothing due."""
     bill = get_bill(conn, bill_id)
+    cents = cents or bill["amount_cents"]
+    if not cents:
+        raise ValueError("This bill's amount varies, so it needs one")
     on_date = on_date or bill_due_date(bill, month, seq) or Date.today().isoformat()
     cur = conn.execute(
-        """
+        f"""
         INSERT OR IGNORE INTO transactions (date, payee, amount_cents, number, bill_id, bill_month, bill_seq)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        SELECT ?, ?, ?, ?, ?, ?, ? WHERE {_NOT_MARKED}
         """,
-        (on_date, bill["payee"], -(cents or bill["amount_cents"]), clean_text(number), bill_id, month, seq),
+        (on_date, bill["payee"], -cents, clean_text(number), bill_id, month, seq, bill_id, month, seq),
     )
     return cur.rowcount > 0
 
@@ -496,6 +515,24 @@ def remove_bill_txn(conn: sqlite3.Connection, bill_id: int, month: str, seq: int
         "DELETE FROM transactions WHERE bill_id = ? AND bill_month = ? AND bill_seq = ? AND status = 'unverified'",
         (bill_id, month, seq),
     )
+
+
+def mark_bill(conn: sqlite3.Connection, bill_id: int, month: str, seq: int, kind: str) -> bool:
+    """Mark payment seq of the bill done for month without adding anything: 'paid' (from
+    another account) or 'skipped' (nothing due). False if it's already marked or added."""
+    cur = conn.execute(
+        """
+        INSERT OR IGNORE INTO bill_marks (bill_id, month, seq, kind, marked_on)
+        SELECT ?, ?, ?, ?, ? WHERE NOT EXISTS (
+            SELECT 1 FROM transactions WHERE bill_id = ? AND bill_month = ? AND bill_seq = ?)
+        """,
+        (bill_id, month, seq, kind, Date.today().isoformat(), bill_id, month, seq),
+    )
+    return cur.rowcount > 0
+
+
+def unmark_bill(conn: sqlite3.Connection, bill_id: int, month: str, seq: int) -> None:
+    conn.execute("DELETE FROM bill_marks WHERE bill_id = ? AND month = ? AND seq = ?", (bill_id, month, seq))
 
 
 def next_check_number(conn: sqlite3.Connection) -> str:

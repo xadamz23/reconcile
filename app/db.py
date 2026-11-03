@@ -56,6 +56,39 @@ MIGRATIONS = [
     DROP INDEX ix_transactions_bill;
     CREATE UNIQUE INDEX ix_transactions_bill ON transactions(bill_id, bill_month, bill_seq) WHERE bill_id IS NOT NULL;
     """,
+    # Rebuilds bills so amount (a bill whose amount varies) and day (a bill that asks for
+    # its date) can be empty, and adds elsewhere (paid from another account: the tick marks
+    # it paid and adds nothing) and sometimes (not due every month: the tick opens a sheet
+    # that can mark the month "nothing due"). bill_marks holds those paid / nothing-due
+    # marks, one per bill payment per month.
+    """
+    CREATE TABLE bills_new (
+        id           INTEGER PRIMARY KEY,
+        payee        TEXT NOT NULL,
+        amount_cents INTEGER CHECK (amount_cents IS NULL OR amount_cents > 0),
+        day          INTEGER CHECK (day BETWEEN 1 AND 31),
+        times        INTEGER NOT NULL DEFAULT 1 CHECK (times IN (1, 2)),
+        day2         INTEGER CHECK (day2 BETWEEN 1 AND 31),
+        ask          INTEGER NOT NULL DEFAULT 0,
+        elsewhere    INTEGER NOT NULL DEFAULT 0,
+        sometimes    INTEGER NOT NULL DEFAULT 0,
+        created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT INTO bills_new (id, payee, amount_cents, day, times, day2, ask, created_at, updated_at)
+    SELECT id, payee, amount_cents, CASE WHEN ask THEN NULL ELSE day END, times, day2, ask, created_at, updated_at
+      FROM bills;
+    DROP TABLE bills;
+    ALTER TABLE bills_new RENAME TO bills;
+    CREATE TABLE bill_marks (
+        bill_id   INTEGER NOT NULL REFERENCES bills(id) ON DELETE CASCADE,
+        month     TEXT NOT NULL,
+        seq       INTEGER NOT NULL,
+        kind      TEXT NOT NULL CHECK (kind IN ('paid', 'skipped')),
+        marked_on TEXT NOT NULL,
+        PRIMARY KEY (bill_id, month, seq)
+    );
+    """,
 ]
 
 
@@ -72,5 +105,16 @@ def connect(path: Path | str) -> sqlite3.Connection:
 
 def migrate(conn: sqlite3.Connection) -> None:
     version = conn.execute("PRAGMA user_version").fetchone()[0]
-    for i, sql in enumerate(MIGRATIONS[version:], start=version + 1):
-        conn.executescript(f"BEGIN; {sql} PRAGMA user_version = {i}; COMMIT;")
+    # Foreign keys are off while migrating so a table can be rebuilt (create, copy, drop,
+    # rename) without the drop firing ON DELETE actions. SQLite ignores this pragma inside a
+    # transaction, so it's set around each script, and the keys are checked before commit.
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        for i, sql in enumerate(MIGRATIONS[version:], start=version + 1):
+            conn.executescript(f"BEGIN; {sql} PRAGMA user_version = {i};")
+            if conn.execute("PRAGMA foreign_key_check").fetchone():
+                conn.execute("ROLLBACK")
+                raise RuntimeError(f"Migration {i} broke a foreign key")
+            conn.execute("COMMIT")
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")

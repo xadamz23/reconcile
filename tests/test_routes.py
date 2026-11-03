@@ -453,7 +453,7 @@ def test_bills_empty_state(ready):
 def test_bill_form_reports_errors(ready):
     r = ready.post("/bills", data={"payee": " ", "amount": "0", "day": "32"}, headers=HX)
     assert "HX-Trigger" not in r.headers
-    for message in ("Who is the bill paid to?", "Amount can&#39;t be zero", "Enter a day from 1 to 31"):
+    for message in ("Who is the bill paid to?", "Enter the amount, or pick Ask if it varies", "Enter a day from 1 to 31"):
         assert message in r.text
     assert conn_of(ready).execute("SELECT COUNT(*) FROM bills").fetchone()[0] == 0
 
@@ -518,7 +518,7 @@ def test_bill_that_asks_shows_two_rows_and_opens_a_sheet(ready):
     assert f'hx-get="/bills/{bill}/add?seq=2"' in text
     repo.create_txn(conn_of(ready), repo.TxnInput("2026-10-20", "Daycare", -60000, number="1042"))
     sheet = ready.get(f"/bills/{bill}/add?seq=2", headers=HX).text
-    assert 'value="1043"' in sheet and 'value="600.00"' in sheet and "2nd of 2 for" in sheet
+    assert "Use next check, 1043" in sheet and 'value="600.00"' in sheet and "2nd of 2 for" in sheet
     form = ready.get(f"/bills/{bill}/edit", headers=HX).text
     assert re.search(r'value="2" x-model="times" checked', form) and re.search(r'value="ask" x-model="mode" checked', form)
     assert ready.get(f"/bills/{bill}/add?seq=3", headers=HX).status_code == 404
@@ -527,7 +527,7 @@ def test_bill_that_asks_shows_two_rows_and_opens_a_sheet(ready):
 def test_sheet_adds_with_date_check_and_amount(ready):
     bill = _add_daycare(ready)
     on = date.today().replace(day=2).isoformat()
-    data = {"seq": "2", "amount": "610.00", "date": on, "number": "1043"}
+    data = {"seq": "2", "sheet": "1", "amount": "610.00", "date": on, "number": "1043"}
     r = ready.post(f"/bills/{bill}/add", data=data, headers=HX)
     assert "panel-close" in r.headers["HX-Trigger"]
     assert "Added Daycare, −$610.00" in r.text and "Check 1043" in r.text and '"seq": 2' in r.text
@@ -539,7 +539,81 @@ def test_sheet_adds_with_date_check_and_amount(ready):
 
 def test_sheet_errors_go_back_to_the_panel(ready):
     bill = _add_daycare(ready)
-    r = ready.post(f"/bills/{bill}/add", data={"seq": "1", "amount": "0", "date": "nope", "number": ""}, headers=HX)
+    r = ready.post(f"/bills/{bill}/add", data={"seq": "1", "sheet": "1", "amount": "0", "date": "nope", "number": ""}, headers=HX)
     assert r.headers["HX-Retarget"] == "#panel-body"
     assert "Pick a date" in r.text and "Amount can&#39;t be zero" in r.text
     assert conn_of(ready).execute("SELECT COUNT(*) FROM transactions WHERE bill_id = ?", (bill,)).fetchone()[0] == 0
+
+
+def _bill(client, **fields):
+    data = {"payee": "Card", "amount": "", "day": "10", "times": "1", "day2": "", "mode": "now", "source": "here",
+            "sometimes": "", **fields}
+    r = client.post("/bills", data=data, headers=HX)
+    assert r.status_code == 200 and "ledger-changed" in r.headers["HX-Trigger"], r.text
+    return conn_of(client).execute("SELECT id FROM bills ORDER BY id DESC").fetchone()["id"]
+
+
+def _txn_count(client, bill):
+    return conn_of(client).execute("SELECT COUNT(*) FROM transactions WHERE bill_id = ?", (bill,)).fetchone()[0]
+
+
+def test_another_account_bill_marks_paid_and_adds_nothing(ready):
+    bill = _bill(ready, payee="Car insurance", amount="142.00", day="15", source="other")
+    _add_bill(ready)  # Water, from this account
+    text = ready.get("/bills").text
+    assert "Other account" in text and "$62.40 left to add" in text  # its $142 isn't leaving this account
+    assert f'hx-post="/bills/{bill}/mark"' in text
+    before = repo.balance(conn_of(ready))
+    r = ready.post(f"/bills/{bill}/mark", data={"seq": "1", "kind": "paid"}, headers=HX)
+    assert "Marked Car insurance paid" in r.text and "Paid " in r.text and f"/bills/{bill}/unmark" in r.text
+    assert repo.balance(conn_of(ready)) == before and _txn_count(ready, bill) == 0
+    # Paid rows drop to the bottom.
+    rows = r.text[r.text.index("card-list"):]
+    assert rows.index("Water") < rows.index("Car insurance")
+    ready.post(f"/bills/{bill}/unmark", data={"seq": "1"}, headers=HX)
+    assert "Paid " not in ready.get("/bills").text
+    # It can't be added to the register, or skipped (it's due every month).
+    assert ready.post(f"/bills/{bill}/add", data={"seq": "1"}, headers=HX).status_code == 400
+    assert ready.post(f"/bills/{bill}/mark", data={"seq": "1", "kind": "skipped"}, headers=HX).status_code == 400
+
+
+def test_bill_that_varies_and_isnt_due_every_month(ready):
+    bill = _bill(ready, payee="Credit card", mode="ask", day="", sometimes="1")
+    text = ready.get("/bills").text
+    assert "Varies" in text and f'hx-get="/bills/{bill}/add?seq=1"' in text
+    sheet = ready.get(f"/bills/{bill}/add?seq=1", headers=HX).text
+    assert "amount varies" in sheet and "Nothing due this month" in sheet
+    r = ready.post(f"/bills/{bill}/mark", data={"seq": "1", "kind": "skipped", "sheet": "1"}, headers=HX)
+    assert "panel-close" in r.headers["HX-Trigger"] and "Nothing due in" in r.text and "1 of 1 done" in r.text
+    # Marked nothing due, so it can't be added too.
+    data = {"seq": "1", "sheet": "1", "amount": "50.00", "date": date.today().isoformat(), "number": ""}
+    ready.post(f"/bills/{bill}/add", data=data, headers=HX)
+    assert _txn_count(ready, bill) == 0
+    ready.post(f"/bills/{bill}/unmark", data={"seq": "1"}, headers=HX)
+    ready.post(f"/bills/{bill}/add", data=data, headers=HX)
+    assert _txn_count(ready, bill) == 1
+    # Added, so it can't be marked nothing due.
+    ready.post(f"/bills/{bill}/mark", data={"seq": "1", "kind": "skipped"}, headers=HX)
+    assert "Nothing due in" not in ready.get("/bills").text
+
+
+def test_sometimes_bill_with_a_fixed_amount_opens_the_sheet_on_its_day(ready):
+    bill = _bill(ready, payee="Dental plan", amount="45.00", day="3", sometimes="1")
+    sheet = ready.get(f"/bills/{bill}/add?seq=1", headers=HX).text
+    assert 'value="45.00"' in sheet and f'value="{date.today():%Y-%m}-03"' in sheet
+    assert ready.post(f"/bills/{bill}/add", data={"seq": "1"}, headers=HX).status_code == 400
+
+
+def test_amount_is_required_only_when_added_right_away(ready):
+    r = ready.post("/bills", data={"payee": "Card", "amount": "", "day": "1", "times": "1", "mode": "now",
+                                   "source": "here"}, headers=HX)
+    assert "Enter the amount, or pick Ask if it varies" in r.text
+    _bill(ready, payee="Other", source="other")
+    assert repo.get_bill(conn_of(ready), 1)["amount_cents"] is None
+
+
+def test_deleting_a_bill_drops_its_marks(ready):
+    bill = _bill(ready, payee="Gym", amount="39.00", source="other")
+    ready.post(f"/bills/{bill}/mark", data={"seq": "1", "kind": "paid"}, headers=HX)
+    ready.post(f"/bills/{bill}/delete", headers=HX)
+    assert conn_of(ready).execute("SELECT COUNT(*) FROM bill_marks").fetchone()[0] == 0

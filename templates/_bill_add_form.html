@@ -1,12 +1,19 @@
-{# The sheet a bill that asks opens when ticked. Saving swaps #bills-body (with the
-   Undo toast) and closes the panel; errors come back here via HX-Retarget. #}
+{# What the tick opens for a bill that asks for its date and amount, or isn't due every
+   month. For this account: the amount, date and check number, then Add to register. For
+   another account: Mark paid. A bill that isn't due every month also gets Nothing due.
+   Saving swaps #bills-body (with the Undo toast) and closes the panel; errors come back
+   here via HX-Retarget. Buttons inside the form send its fields, including sheet=1. #}
 {% from "_icons.html" import icon %}
-<form class="txn-form bill-form" hx-post="/bills/{{ bill.id }}/add" hx-target="#bills-body" novalidate>
+<form class="txn-form bill-form" hx-post="/bills/{{ bill.id }}/{{ 'mark' if bill.elsewhere else 'add' }}" hx-target="#bills-body" novalidate
+      x-data='{ number: {{ form.number | tojson }} }'>
   <input type="hidden" name="seq" value="{{ seq }}">
+  <input type="hidden" name="sheet" value="1">
+  {% if bill.elsewhere %}<input type="hidden" name="kind" value="paid">{% endif %}
   <div class="panel-bar">
     <button class="icon-btn" type="button" data-panel-close aria-label="Close">{{ icon('close') }}</button>
-    <h2>Add to register</h2>
-    <button class="icon-btn save" type="submit" aria-label="Add to register" title="Add to register">{{ icon('save') }}</button>
+    <h2>{{ 'This month' if bill.elsewhere else 'Add to register' }}</h2>
+    <button class="icon-btn save" type="submit" aria-label="{{ 'Mark paid' if bill.elsewhere else 'Add to register' }}"
+            title="{{ 'Mark paid' if bill.elsewhere else 'Add to register' }}">{{ icon('save') }}</button>
   </div>
 
   <fieldset class="form-fields">
@@ -15,12 +22,17 @@
       <span>{{ seq_label ~ ' for ' if seq_label }}{{ month_name }}</span>
     </div>
 
+    {% if bill.elsewhere %}
+    <p class="field-help">Paid from another account, so nothing goes in the register.</p>
+    <button class="btn accent btn-wide form-submit" type="submit">Mark paid</button>
+    {% else %}
     <label class="field field-big{{ ' has-error' if errors.amount }}">
       <span class="field-label">Amount</span>
       <span class="amount-input glass-input"><span class="dollar" aria-hidden="true">$</span>
-        <input name="amount" value="{{ form.amount }}" inputmode="numeric" data-cents autocomplete="off" placeholder="0.00" required></span>
+        <input name="amount" value="{{ form.amount }}" inputmode="numeric" data-cents autocomplete="off" placeholder="0.00"
+               {% if not form.amount %}data-autofocus{% endif %} required></span>
       {% if errors.amount %}<span class="field-error">{{ errors.amount }}</span>{% endif %}
-      <span class="field-help">From the bill. Change it if this one was different.</span>
+      <span class="field-help">{{ 'From the bill. Change it if this one was different.' if bill.amount_cents else 'This bill’s amount varies, so enter what’s due.' }}</span>
     </label>
 
     <div class="field-row">
@@ -31,10 +43,20 @@
       </label>
       <label class="field field-narrow">
         <span class="field-label">Check no.</span>
-        <input class="glass-input" name="number" value="{{ form.number }}" inputmode="numeric" autocomplete="off" placeholder="Optional">
+        <input class="glass-input" name="number" x-model="number" inputmode="numeric" autocomplete="off" placeholder="Optional">
       </label>
     </div>
+    {% if next_number %}
+    <button class="btn btn-glass btn-pill" type="button" x-show="!number" {{ 'x-cloak' if form.number }}
+            @click='number = {{ next_number | tojson }}'>Use next check, {{ next_number }}</button>
+    {% endif %}
 
     <button class="btn accent btn-wide form-submit" type="submit">Add to register</button>
+    {% endif %}
+
+    {% if bill.sometimes %}
+    <button class="btn btn-glass btn-wide form-submit" type="button" hx-post="/bills/{{ bill.id }}/mark"
+            hx-vals='{"kind": "skipped"}' hx-target="#bills-body">Nothing due this month</button>
+    {% endif %}
   </fieldset>
 </form>

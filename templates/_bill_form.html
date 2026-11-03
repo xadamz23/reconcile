@@ -1,6 +1,8 @@
 {% from "_icons.html" import icon %}
+{% set times = form.times | string %}
 <form class="txn-form bill-form" hx-post="{{ '/bills/%d' % bill.id if bill else '/bills' }}" hx-target="#panel-body" novalidate
-      x-data='{ times: {{ form.times | string | tojson }}, mode: {{ form.mode | tojson }} }'>
+      x-data='{ times: {{ times | tojson }}, mode: {{ form.mode | tojson }}, source: {{ form.source | tojson }},
+               get optional() { return this.mode === "ask" || this.source === "other" } }'>
   <div class="panel-bar">
     <button class="icon-btn" type="button" data-panel-close aria-label="Close">{{ icon('close') }}</button>
     <h2>{{ 'Edit bill' if bill else 'New bill' }}</h2>
@@ -12,47 +14,65 @@
     <button class="icon-btn save" type="submit" aria-label="Save" title="Save">{{ icon('save') }}</button>
   </div>
 
+  {# optional: the amount is optional when the tick asks for it, or nothing goes in the register. #}
   <fieldset class="form-fields">
     <label class="field field-big{{ ' has-error' if errors.amount }}">
-      <span class="field-label">Amount</span>
+      <span class="field-label" x-text="optional ? 'Usual amount' : 'Amount'">Amount</span>
       <span class="amount-input glass-input"><span class="dollar" aria-hidden="true">$</span>
         <input name="amount" value="{{ form.amount }}" inputmode="numeric" data-cents autocomplete="off" placeholder="0.00"
-               {% if not bill %}data-autofocus{% endif %} required></span>
+               :placeholder="optional ? 'Optional' : '0.00'" {% if not bill %}data-autofocus{% endif %}></span>
       {% if errors.amount %}<span class="field-error">{{ errors.amount }}</span>{% endif %}
-      <span class="field-help" x-show="times === '2'" x-cloak>Each payment.</span>
+      <span class="field-help" x-show="optional" x-cloak>Leave it blank if it varies.</span>
+      <span class="field-help" x-show="!optional && times === '2'" x-cloak>Each payment.</span>
     </label>
 
     {% include "_payee_field.html" %}
 
     <div class="field">
-      <span class="field-label" id="bill-times-label">Times a month</span>
-      <div class="seg seg-2" role="radiogroup" aria-labelledby="bill-times-label">
-        <label class="pill-radio"><input type="radio" name="times" value="1" x-model="times" {{ 'checked' if form.times | string == '1' }}><span>Once</span></label>
-        <label class="pill-radio"><input type="radio" name="times" value="2" x-model="times" {{ 'checked' if form.times | string == '2' }}><span>Twice</span></label>
+      <span class="field-label" id="bill-source-label">Paid from</span>
+      <div class="seg seg-2" role="radiogroup" aria-labelledby="bill-source-label">
+        <label class="pill-radio"><input type="radio" name="source" value="here" x-model="source" {{ 'checked' if form.source == 'here' }}><span>This account</span></label>
+        <label class="pill-radio"><input type="radio" name="source" value="other" x-model="source" {{ 'checked' if form.source == 'other' }}><span>Another account</span></label>
       </div>
+      <span class="field-help" x-show="source === 'other'" {{ 'x-cloak' if form.source != 'other' }}>It stays on your list as a reminder. Ticking it marks it paid, and nothing goes in the register.</span>
     </div>
 
     <div class="field">
-      <span class="field-label" id="bill-mode-label">When I tick it</span>
-      <div class="seg seg-2 seg-tall" role="radiogroup" aria-labelledby="bill-mode-label">
-        <label class="pill-radio"><input type="radio" name="mode" value="now" x-model="mode" {{ 'checked' if form.mode == 'now' }}><span>Add it right away</span></label>
-        <label class="pill-radio"><input type="radio" name="mode" value="ask" x-model="mode" {{ 'checked' if form.mode == 'ask' }}><span>Ask for date &amp; check no.</span></label>
+      <span class="field-label" id="bill-times-label">Times a month</span>
+      <div class="seg seg-2" role="radiogroup" aria-labelledby="bill-times-label">
+        <label class="pill-radio"><input type="radio" name="times" value="1" x-model="times" {{ 'checked' if times == '1' }}><span>Once</span></label>
+        <label class="pill-radio"><input type="radio" name="times" value="2" x-model="times" {{ 'checked' if times == '2' }}><span>Twice</span></label>
       </div>
     </div>
 
-    <div class="field-row" x-show="mode === 'now'" :class="times === '1' && 'is-single'" {{ 'x-cloak' if form.mode == 'ask' }}>
+    <div class="field" x-show="source === 'here'" {{ 'x-cloak' if form.source != 'here' }}>
+      <span class="field-label" id="bill-mode-label">When I tick it</span>
+      <div class="seg seg-2 seg-tall" role="radiogroup" aria-labelledby="bill-mode-label">
+        <label class="pill-radio"><input type="radio" name="mode" value="now" x-model="mode" {{ 'checked' if form.mode == 'now' }}><span>Add it right away</span></label>
+        <label class="pill-radio"><input type="radio" name="mode" value="ask" x-model="mode" {{ 'checked' if form.mode == 'ask' }}><span>Ask for date &amp; amount</span></label>
+      </div>
+    </div>
+
+    {% set asks = form.mode == 'ask' and form.source == 'here' %}
+    <div class="field-row" x-show="mode === 'now' || source === 'other'" :class="times === '1' && 'is-single'" {{ 'x-cloak' if asks }}>
       <label class="field{{ ' has-error' if errors.day }}">
-        <span class="field-label" x-text="times === '2' ? '1st payment day' : 'Day it comes out'">{{ '1st payment day' if form.times | string == '2' else 'Day it comes out' }}</span>
+        <span class="field-label" x-text="times === '2' ? '1st payment day' : 'Day it comes out'">{{ '1st payment day' if times == '2' else 'Day it comes out' }}</span>
         <input class="glass-input" type="number" name="day" value="{{ form.day }}" inputmode="numeric" min="1" max="31">
         {% if errors.day %}<span class="field-error">{{ errors.day }}</span>{% endif %}
       </label>
-      <label class="field{{ ' has-error' if errors.day2 }}" x-show="times === '2'" {{ 'x-cloak' if form.times | string != '2' }}>
+      <label class="field{{ ' has-error' if errors.day2 }}" x-show="times === '2'" {{ 'x-cloak' if times != '2' }}>
         <span class="field-label">2nd payment day</span>
         <input class="glass-input" type="number" name="day2" value="{{ form.day2 }}" inputmode="numeric" min="1" max="31">
         {% if errors.day2 %}<span class="field-error">{{ errors.day2 }}</span>{% endif %}
       </label>
     </div>
-    <p class="field-help" x-show="mode === 'now'" {{ 'x-cloak' if form.mode == 'ask' }}>Day of the month. In shorter months, a late day moves to the last day.</p>
-    <p class="field-help" x-show="mode === 'ask'" {{ 'x-cloak' if form.mode != 'ask' }}>No fixed day. Ticking it opens a sheet where you set the date, check number and amount.</p>
+    <p class="field-help" x-show="mode === 'now' || source === 'other'" {{ 'x-cloak' if asks }}>Day of the month. In shorter months, a late day moves to the last day.</p>
+    <p class="field-help" x-show="mode === 'ask' && source === 'here'" {{ 'x-cloak' if not asks }}>No fixed day. Ticking it opens a sheet where you set the date, amount and check number.</p>
+
+    <label class="toggle-switch">
+      <input type="checkbox" role="switch" name="sometimes" value="1" {{ 'checked' if form.sometimes }}>
+      <span>Not due every month</span>
+    </label>
+    <p class="field-help switch-help">Ticking it opens a sheet with a <strong>Nothing due this month</strong> button, so you can mark a month done without adding anything.</p>
   </fieldset>
 </form>

@@ -463,3 +463,49 @@ def test_migration_numbers_existing_bill_transactions():
     db.migrate(c)
     assert repo.add_bill_txn(c, 1, "2026-11") is False
     assert repo.bills_for_month(c, "2026-11")[0]["txn_id"] is not None
+
+
+def test_bill_input_amount_and_elsewhere():
+    assert repo.BillInput("Card", None, None, ask=True).amount_cents is None
+    assert repo.BillInput("Gym", None, 1, elsewhere=True, ask=True).ask is False
+    with pytest.raises(ValueError):
+        repo.BillInput("Water", None, 5)
+
+
+def test_marks_and_transactions_exclude_each_other(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Card", 5000, 10, sometimes=True))
+    assert repo.mark_bill(ledger, bill, "2026-11", 1, "skipped") is True
+    assert repo.mark_bill(ledger, bill, "2026-11", 1, "skipped") is False
+    assert repo.add_bill_txn(ledger, bill, "2026-11") is False
+    row = repo.bills_for_month(ledger, "2026-11")[0]
+    assert (row["mark"], row["txn_id"]) == ("skipped", None)
+    assert repo.bills_for_month(ledger, "2026-12")[0]["mark"] is None
+    repo.unmark_bill(ledger, bill, "2026-11", 1)
+    assert repo.add_bill_txn(ledger, bill, "2026-11") is True
+    assert repo.mark_bill(ledger, bill, "2026-11", 1, "skipped") is False
+
+
+def test_add_bill_txn_needs_an_amount_when_the_bill_varies(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Card", None, None, ask=True))
+    with pytest.raises(ValueError):
+        repo.add_bill_txn(ledger, bill, "2026-11")
+    assert repo.add_bill_txn(ledger, bill, "2026-11", 1, "2026-11-04", 12345) is True
+
+
+def test_migration_4_rebuilds_bills_and_keeps_links():
+    from app import db
+
+    c = db.connect(":memory:")
+    c.execute("PRAGMA foreign_keys = OFF")
+    for i, sql in enumerate(db.MIGRATIONS[:3], start=1):
+        c.executescript(f"BEGIN; {sql} PRAGMA user_version = {i}; COMMIT;")
+    c.execute("PRAGMA foreign_keys = ON")
+    c.execute("INSERT INTO bills (payee, amount_cents, day, ask) VALUES ('Daycare', 60000, 1, 1)")
+    c.execute("INSERT INTO transactions (date, payee, amount_cents, bill_id, bill_month, bill_seq) "
+              "VALUES ('2026-11-02', 'Daycare', -60000, 1, '2026-11', 1)")
+    db.migrate(c)
+    assert c.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+    assert repo.get_bill(c, 1)["day"] is None  # the ask placeholder is gone
+    assert c.execute("SELECT bill_id FROM transactions").fetchone()[0] == 1
+    repo.delete_bill(c, 1)  # ON DELETE SET NULL still points at the rebuilt table
+    assert c.execute("SELECT bill_id FROM transactions").fetchone()[0] is None

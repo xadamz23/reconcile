@@ -326,27 +326,27 @@ button { cursor: pointer; }
   padding: 0.625rem 0.625rem 0.25rem; border-top: 1px solid var(--line);
 }
 
-.toggle-reconciled input { position: absolute; opacity: 0; pointer-events: none; }
-.toggle-reconciled input:focus-visible + span::before { outline: 2px solid var(--ring); outline-offset: 2px; }
-.toggle-reconciled { display: flex; align-items: center; min-height: 2.75rem; padding-inline: 0.25rem; font-size: 0.9375rem; color: var(--text-soft); cursor: pointer; }
-/* Switch: the span's ::before is the track, ::after the knob. */
-.toggle-reconciled span { position: relative; flex: 1; padding-right: 3rem; }
-.toggle-reconciled span::before,
-.toggle-reconciled span::after { content: ""; position: absolute; top: 50%; translate: 0 -50%; transition: 150ms ease-out; }
-.toggle-reconciled span::before {
+.toggle-switch input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle-switch input:focus-visible + span::before { outline: 2px solid var(--ring); outline-offset: 2px; }
+.toggle-switch { display: flex; align-items: center; min-height: 2.75rem; padding-inline: 0.25rem; font-size: 0.9375rem; color: var(--text-soft); cursor: pointer; }
+/* Switch (a checkbox with role=switch, then a span label): the span's ::before is the track, ::after the knob. */
+.toggle-switch span { position: relative; flex: 1; padding-right: 3rem; }
+.toggle-switch span::before,
+.toggle-switch span::after { content: ""; position: absolute; top: 50%; translate: 0 -50%; transition: 150ms ease-out; }
+.toggle-switch span::before {
   right: 0; width: 2.375rem; height: 1.375rem;
   border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 999px; background: rgba(255, 255, 255, 0.1);
 }
-.toggle-reconciled span::after {
+.toggle-switch span::after {
   right: 1.25rem; width: 0.875rem; height: 0.875rem;
   border-radius: 50%; background: var(--text-faint);
 }
-.toggle-reconciled input:checked + span { color: var(--text); }
-.toggle-reconciled input:checked + span::before {
+.toggle-switch input:checked + span { color: var(--text); }
+.toggle-switch input:checked + span::before {
   background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); border-color: transparent;
   box-shadow: 0 0 12px -2px rgba(var(--accent-glow), 0.7);
 }
-.toggle-reconciled input:checked + span::after { background: #fff; transform: translateX(1rem); }
+.toggle-switch input:checked + span::after { background: #fff; transform: translateX(1rem); }
 
 /* Filters in use while the tray is closed. */
 .filter-chips { display: flex; flex-wrap: wrap; gap: 0.375rem; margin: 0.5rem var(--card-inset) 0; }
@@ -737,6 +737,17 @@ button.mark:hover .icon { border-color: var(--dep); }
 .bill-add-who strong { font-size: 1.0625rem; font-weight: 600; overflow-wrap: anywhere; }
 .bill-add-who span { flex: none; font-size: 0.875rem; color: var(--text-soft); }
 .form-submit { margin-top: 0.5rem; min-height: 3rem; }
+.form-submit + .form-submit { margin-top: 0; }
+.btn-pill { justify-self: start; margin-top: -0.25rem; min-height: 2rem; padding: 0 0.75rem; border-radius: 999px; font-size: 0.8125rem; font-weight: 600; }
+.switch-help { margin-top: -0.5rem; }
+/* Done for the month without a transaction: nothing due (struck through), or paid from
+   another account (an outlined check, since the money didn't leave this account). */
+.bill.is-skipped .bill-payee, .bill.is-skipped .bill-amt, .bill.is-skipped .bill-meta { color: var(--text-faint); }
+.bill.is-skipped .bill-amt { text-decoration: line-through; }
+.bill.is-skipped .mark .icon { border-style: dashed; border-color: var(--text-faint); color: var(--text-faint); }
+.bill.is-elsewhere .bill-amt { color: var(--text-soft); }
+.bill.is-elsewhere.is-added .mark .icon { background: transparent; border-color: var(--dep); color: var(--dep); box-shadow: none; }
+.glass-chip.chip-other { color: var(--accent-text); border-color: rgba(138, 180, 255, 0.35); }
 
 /* Outside main, because main is a containing block for fixed elements on desktop. */
 .toast {
@@ -821,8 +832,8 @@ button.mark:hover .icon { border-color: var(--dep); }
 /* Wide enough for the kinds and the switch on one line. */
 @container ledger (min-width: 40rem) {
   .filters-tray { grid-template-columns: 19rem 1fr; gap: 1.5rem; align-items: center; padding-bottom: 0.625rem; }
-  .toggle-reconciled { justify-self: end; }
-  .toggle-reconciled span { flex: none; }
+  .filters-tray .toggle-switch { justify-self: end; }
+  .filters-tray .toggle-switch span { flex: none; }
 }
 
 /* Columnar register once the columns fit with room left for Payee; below this the
