@@ -236,15 +236,23 @@ button { cursor: pointer; }
   display: flex; align-items: center; gap: 0.25rem;
   min-height: 3.25rem;
 }
-/* The name with today's date under it. Both fit in the bar's min-height, so the
-   date doesn't make the header taller. */
-.account-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+/* The name with today's date under it. The name sits where it would if it were
+   centred in the bar alone (the top padding is that centring), and the date hangs
+   below it in the bar's spare height, so neither the name nor the header moves. */
+.account-wrap {
+  flex: 1; min-width: 0; align-self: flex-start;
+  display: flex; flex-direction: column;
+  padding-top: calc((3.25rem - 1.375rem * 1.4) / 2);
+}
 .account {
-  font-size: 1.375rem; font-weight: 750; letter-spacing: -0.015em; line-height: 1.15;
+  font-size: 1.375rem; font-weight: 750; letter-spacing: -0.015em; line-height: 1.4;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .masthead-actions { display: flex; align-items: center; margin-right: -0.5rem; }
-.masthead .today { font-size: 0.875rem; font-weight: 500; color: var(--text-faint); white-space: nowrap; }
+.masthead .today {
+  margin-top: -0.4rem; /* into the name's line spacing */
+  font-size: 0.875rem; font-weight: 500; line-height: 1.2; color: var(--text-faint); white-space: nowrap;
+}
 
 /* The accountant's double rule: this is a final total. */
 .totals {
