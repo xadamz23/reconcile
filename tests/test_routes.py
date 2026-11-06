@@ -428,10 +428,9 @@ def test_masthead_shows_today(ready, path, monkeypatch):
 
     monkeypatch.setattr("app.routes.deps.date", FakeDate)
     text = ready.get(path).text
-    assert '<time class="today" datetime="2026-11-06">Fri, Nov 6</time>' in text
-    # Before New transaction, so on desktop it sits left of the button.
-    if path == "/":
-        assert text.index('class="today"') < text.index("data-new-txn")
+    # Under the account name.
+    assert re.search(r'<h1 class="account">[^<]*</h1>\s*<time class="today" datetime="2026-11-06">Fri, Nov 6</time>',
+                     text)
 
 
 def test_reconcile_refresh_updates_masthead_totals(ready):
