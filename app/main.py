@@ -50,6 +50,12 @@ def _pretty_date(iso: str) -> str:
     return f"{d:%b} {d.day}, {d.year}"
 
 
+def _day_date(iso: str) -> str:
+    """'Fri, Nov 6': the masthead's date."""
+    d = date.fromisoformat(iso)
+    return f"{d:%a}, {d:%b} {d.day}"
+
+
 def create_app(db_path: Path | str | None = None) -> FastAPI:
     path = db_path or config.db_path()
 
@@ -67,7 +73,8 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
     assets = Assets(config.STATIC_DIR)
     templates = Jinja2Templates(directory=config.TEMPLATES_DIR)
     templates.env.globals.update(static_url=assets.url, asset_version=assets.version)
-    templates.env.filters.update(money=format_cents, plain_amount=plain_amount, pretty_date=_pretty_date)
+    templates.env.filters.update(money=format_cents, plain_amount=plain_amount, pretty_date=_pretty_date,
+                                 day_date=_day_date)
     app.state.assets = assets
     app.state.templates = templates
 

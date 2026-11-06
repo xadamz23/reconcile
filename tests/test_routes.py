@@ -419,6 +419,21 @@ def test_every_page_has_the_same_masthead(ready, path):
     assert 'aria-label="Menu"' in text
 
 
+@pytest.mark.parametrize("path", ["/", "/reconcile", "/spending", "/bills"])
+def test_masthead_shows_today(ready, path, monkeypatch):
+    class FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 11, 6)
+
+    monkeypatch.setattr("app.routes.deps.date", FakeDate)
+    text = ready.get(path).text
+    assert '<time class="today" datetime="2026-11-06">Fri, Nov 6</time>' in text
+    # Before New transaction, so on desktop it sits left of the button.
+    if path == "/":
+        assert text.index('class="today"') < text.index("data-new-txn")
+
+
 def test_reconcile_refresh_updates_masthead_totals(ready):
     ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "1000.00"})
     r = ready.get("/reconcile", headers={"HX-Request": "true", "HX-Target": "rec-body"})

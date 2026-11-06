@@ -7,6 +7,8 @@
     {% if back %}<a class="icon-btn only-desktop" href="/" aria-label="Back to register">{{ icon('back') }}</a>{% endif %}
     <h1 class="account">{{ account_name }}</h1>
     <div class="masthead-actions">
+      {# Before New transaction (desktop only), so on phones it sits against the menu. #}
+      <time class="today" datetime="{{ today }}">{{ today | day_date }}</time>
       {% if new_url %}
       <button class="btn accent btn-new only-desktop" type="button" hx-get="{{ new_url }}" hx-target="#panel-body"
               data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</button>
