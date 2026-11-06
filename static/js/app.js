@@ -208,6 +208,35 @@
       },
     }));
 
+    // Overflow menu. A tap or click outside only closes it: it never reaches what's
+    // underneath. Capture-phase listeners on window run before anything else (htmx,
+    // Alpine, links). Cancelling touchstart stops the click and the focus (no keyboard)
+    // on touch; with a mouse, mousedown is cancelled (no focus) and the click swallowed.
+    window.Alpine.data("menu", () => ({
+      open: false,
+      init() {
+        let swallow = false;
+        const outside = (e) => this.open && !this.$el.contains(e.target);
+        window.addEventListener("touchstart", (e) => {
+          if (!outside(e)) return;
+          e.preventDefault();
+          this.open = false;
+        }, { capture: true, passive: false });
+        window.addEventListener("mousedown", (e) => {
+          swallow = outside(e); // reset each press, in case the last one never clicked
+          if (!swallow) return;
+          e.preventDefault();
+          this.open = false;
+        }, true);
+        window.addEventListener("click", (e) => {
+          if (!swallow) return;
+          swallow = false;
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }, true);
+      },
+    }));
+
     // Payee combobox: suggests past payees only. Never fills in the amount.
     window.Alpine.data("payeeBox", (initial) => ({
       value: initial,

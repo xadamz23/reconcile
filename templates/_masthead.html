@@ -17,7 +17,7 @@
       <button class="icon-btn only-desktop" type="button" @click="cancel()" x-show="searching" x-cloak
               aria-label="Close search and clear filters">{{ icon('close') }}</button>
       {% endif %}
-      <div class="menu" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
+      <div class="menu" x-data="menu" @keydown.escape.window="open = false">
         <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
         <div class="menu-pop glass-strong is-popover" role="menu" x-show="open" x-transition.origin.top.right x-cloak>
           <a role="menuitem" href="/reconcile">{{ icon('scale') }}{{ 'Continue reconciling' if reconciling else 'Reconcile a statement' }}</a>
