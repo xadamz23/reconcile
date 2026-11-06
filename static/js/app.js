@@ -1,18 +1,5 @@
 // Panel (transaction form), keyboard shortcuts, payee autocomplete, service worker.
 (() => {
-  // TEMPORARY: the button in the register's header cycles the Today line's candidate
-  // looks (html[data-today], styled in app.css), remembered on this device.
-  const todayLooks = ["dashed", "solid", "glow", "glow-ruled", "glow-center"];
-  let todayLook = "dashed";
-  try { todayLook = localStorage.getItem("today-look") || "dashed"; } catch {}
-  document.documentElement.dataset.today = todayLook;
-  document.addEventListener("click", (e) => {
-    if (!e.target.closest("[data-today-try]")) return;
-    todayLook = todayLooks[(todayLooks.indexOf(todayLook) + 1) % todayLooks.length];
-    document.documentElement.dataset.today = todayLook;
-    try { localStorage.setItem("today-look", todayLook); } catch {}
-  });
-
   const panel = () => document.getElementById("panel");
   const panelBody = () => document.getElementById("panel-body");
   let lastFocus = null;

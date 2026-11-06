@@ -52,7 +52,7 @@ The glass component classes live in one block ("Glass components") near the top 
 
 - `.glass`: cards, panels, filter bar, segmented-control tracks. Combine with `.card` (margins and radius) and `.card-list` (clips rows) for a list card.
 - `.glass-strong`: chrome (masthead, tab bar, form sheet/drawer, menus, suggestions). Add `.is-popover` for dropdowns over text (92% instead of 60%, so text underneath doesn't show through).
-- `.glass-chip`: small badges (check numbers, the Today marker).
+- `.glass-chip`: small badges (check numbers, the Bills page's Today).
 - `.glass-input`: inputs, or a wrapper around one (`.amount-input`), which then gets the focus ring via `:focus-within`.
 - `.accent`: primary buttons. Has its own `:disabled` look. The current tab and the on-switch reuse its gradient. The tab bar's + (`.tab-add`) is deliberately not `.accent`: it's an outline ring so it isn't mistaken for the current-tab pill.
 - `.btn-glass`: secondary buttons. Fills with the accent on hover.
