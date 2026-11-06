@@ -237,8 +237,8 @@ button { cursor: pointer; }
   min-height: 3.25rem;
 }
 /* The name with today's date under it. The name sits where it would if it were
-   centred in the bar alone (the top padding is that centring), and the date hangs
-   below it in the bar's spare height, so neither the name nor the header moves. */
+   centred in the bar alone (the top padding is that centring), so the date doesn't
+   move it. The date hangs below in the bar's spare height, plus 2px. */
 .account-wrap {
   flex: 1; min-width: 0; align-self: flex-start;
   display: flex; flex-direction: column;
@@ -250,7 +250,7 @@ button { cursor: pointer; }
 }
 .masthead-actions { display: flex; align-items: center; margin-right: -0.5rem; }
 .masthead .today {
-  margin-top: -0.4rem; /* into the name's line spacing */
+  margin-top: -0.275rem; /* into the name's line spacing; 2px more and the bar grows to fit */
   font-size: 0.875rem; font-weight: 500; line-height: 1.2; color: var(--text-faint); white-space: nowrap;
 }
 
