@@ -449,16 +449,23 @@ button.mark:hover .icon { border-color: var(--dep); }
 /* TEMPORARY: candidate looks for the Today line, cycled by a button in the register's
    header (app.js sets html[data-today]). Remove the losers and the button once one is
    chosen. "glow" is a plain label and a glowing rule; "glow-ruled" is the same between
-   row lines, with the current line's padding. */
+   row lines, with the current line's padding; "glow-center" puts the label in the middle. */
 html[data-today="solid"] .today-rule::after { border-top-style: solid; }
 html[data-today^="glow"] .today-rule { gap: 0.625rem; }
-html[data-today="glow"] .today-rule { padding-block: 0.5rem; border-bottom: 0; }
+html[data-today="glow"] .today-rule,
+html[data-today="glow-center"] .today-rule { padding-block: 0.5rem; border-bottom: 0; }
 html[data-today^="glow"] .today-rule .glass-chip {
   padding: 0; background: none; border: 0; font-size: 0.8125rem; font-weight: 650;
 }
 html[data-today^="glow"] .today-rule::after {
   border-top: 0; height: 2px; border-radius: 2px; opacity: 1;
   background: linear-gradient(90deg, var(--dep), rgba(74, 222, 154, 0.15));
+  box-shadow: 0 0 8px rgba(74, 222, 154, 0.55);
+}
+/* glow-center: the word in the middle, a glowing rule either side fading outward */
+html[data-today="glow-center"] .today-rule::before {
+  content: ""; flex: 1; height: 2px; border-radius: 2px;
+  background: linear-gradient(90deg, rgba(74, 222, 154, 0.15), var(--dep));
   box-shadow: 0 0 8px rgba(74, 222, 154, 0.55);
 }
 
