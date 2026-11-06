@@ -1,8 +1,8 @@
 // Panel (transaction form), keyboard shortcuts, payee autocomplete, service worker.
 (() => {
-  // TEMPORARY: the button at the end of the Today line cycles its candidate looks
-  // (html[data-today], styled in app.css), remembered on this device.
-  const todayLooks = ["dashed", "solid", "glow"];
+  // TEMPORARY: the button in the register's header cycles the Today line's candidate
+  // looks (html[data-today], styled in app.css), remembered on this device.
+  const todayLooks = ["dashed", "solid", "glow", "glow-ruled"];
   let todayLook = "dashed";
   try { todayLook = localStorage.getItem("today-look") || "dashed"; } catch {}
   document.documentElement.dataset.today = todayLook;

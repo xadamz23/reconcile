@@ -6,9 +6,7 @@
 {% for row in rows %}
   {% if row.date > today %}{% set ns.seen_future = true %}
   {% elif ns.seen_future and not ns.divided %}{% set ns.divided = true %}
-    <div class="today-rule" role="separator"><span class="glass-chip">Today</span>
-      {#- TEMPORARY: switches between candidate looks (app.js, app.css). Remove once one is chosen. #}
-      <button class="today-try" type="button" data-today-try aria-label="Switch the Today line's look"></button></div>
+    <div class="today-rule" role="separator"><span class="glass-chip">Today</span></div>
   {% endif %}
   {% include "_row.html" %}
 {% endfor %}

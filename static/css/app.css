@@ -446,21 +446,17 @@ button.mark:hover .icon { border-color: var(--dep); }
 .today-rule .glass-chip { color: var(--dep); }
 .today-rule::after { content: ""; flex: 1; border-top: 1.5px dashed var(--dep); opacity: 0.5; }
 
-/* TEMPORARY: candidate looks for the Today line, picked with the button at its end
-   (app.js sets html[data-today]). Remove the losers and the button once one is chosen. */
-.today-try {
-  order: 1; margin-block: -0.75rem; padding: 0 0 0 0.5rem; min-width: 2.75rem; height: 2.75rem;
-  border: 0; background: none; color: var(--text-faint); font-size: 0.75rem; text-align: right;
-}
-.today-try::before { content: "Dashed"; }
-html[data-today="solid"] .today-try::before { content: "Solid"; }
-html[data-today="glow"] .today-try::before { content: "1c"; }
+/* TEMPORARY: candidate looks for the Today line, cycled by a button in the register's
+   header (app.js sets html[data-today]). Remove the losers and the button once one is
+   chosen. "glow" is a plain label and a glowing rule; "glow-ruled" is the same between
+   row lines, with the current line's padding. */
 html[data-today="solid"] .today-rule::after { border-top-style: solid; }
-html[data-today="glow"] .today-rule { padding-block: 0.5rem; border-bottom: 0; gap: 0.625rem; }
-html[data-today="glow"] .today-rule .glass-chip {
+html[data-today^="glow"] .today-rule { gap: 0.625rem; }
+html[data-today="glow"] .today-rule { padding-block: 0.5rem; border-bottom: 0; }
+html[data-today^="glow"] .today-rule .glass-chip {
   padding: 0; background: none; border: 0; font-size: 0.8125rem; font-weight: 650;
 }
-html[data-today="glow"] .today-rule::after {
+html[data-today^="glow"] .today-rule::after {
   border-top: 0; height: 2px; border-radius: 2px; opacity: 1;
   background: linear-gradient(90deg, var(--dep), rgba(74, 222, 154, 0.15));
   box-shadow: 0 0 8px rgba(74, 222, 154, 0.55);
