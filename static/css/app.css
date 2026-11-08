@@ -508,8 +508,8 @@ button.mark:hover .icon { border-color: var(--dep); }
   position: fixed; inset: 0; z-index: 40;
   border: 0; background: rgba(var(--chrome), 0.86);
   overflow-y: auto; overscroll-behavior: contain;
-  transform: translateY(100%); visibility: hidden;
-  transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 240ms;
+  /* No slide on phones: animating a full-screen sheet stuttered. */
+  visibility: hidden;
 }
 .panel-open .panel { transform: none; visibility: visible; transition-delay: 0s; }
 .panel-open { overflow: hidden; }
@@ -824,6 +824,7 @@ button.mark:hover .icon { border-color: var(--dep); }
     border-left: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 22px 0 0 22px;
     transform: translateX(100%);
+    transition: transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0s linear 240ms;
   }
   .panel-scrim {
     display: block; position: fixed; inset: 0; z-index: 39;

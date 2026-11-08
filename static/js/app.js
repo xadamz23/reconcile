@@ -15,27 +15,9 @@
     // would focus too early); on a pointer device an edit form's first field does too.
     const first = p.querySelector("[data-autofocus]") ||
       (window.matchMedia("(hover: hover)").matches && p.querySelector("input:not([type=radio]):not([type=hidden])"));
-    if (!first) return;
-    // On phones the sheet slides up. Focusing mid-slide opens the keyboard while the
-    // field is still below the screen, and Chrome pans the view down to it, leaving the
-    // top of the sheet cut off once it lands. So focus once it's in place.
-    if (wasOpen || window.matchMedia("(min-width: 900px)").matches) first.focus({ preventScroll: true });
-    else afterSlide(p, () => {
-      if (document.body.classList.contains("panel-open")) first.focus({ preventScroll: true });
-    });
-  }
-
-  function afterSlide(el, fn) {
-    let done = false;
-    const run = () => {
-      if (done) return;
-      done = true;
-      el.removeEventListener("transitionend", onEnd);
-      fn();
-    };
-    const onEnd = (e) => { if (e.target === el) run(); };
-    el.addEventListener("transitionend", onEnd);
-    setTimeout(run, 320); // reduced motion has no transition, so no transitionend
+    // The phone sheet appears in place (no slide), so the field can take focus at once
+    // without Chrome panning to a field that's still moving.
+    if (first) first.focus({ preventScroll: true });
   }
 
   function closePanel() {
@@ -43,7 +25,7 @@
     if (!p) return;
     document.body.classList.remove("panel-open");
     p.setAttribute("aria-hidden", "true");
-    // Wait for the sheet or drawer to slide away before clearing it.
+    // Wait for the desktop drawer to slide away before clearing it.
     setTimeout(() => {
       if (!document.body.classList.contains("panel-open")) panelBody().innerHTML = "";
     }, 260);
