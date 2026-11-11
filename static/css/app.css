@@ -184,7 +184,7 @@ button { cursor: pointer; }
   margin: 0; padding: 0.25rem; border: 0; border-radius: var(--radius-s);
   background: rgba(0, 0, 0, 0.2);
 }
-.seg .pill-radio span { display: grid; place-items: center; height: 2.25rem; padding: 0; border-radius: 7px; }
+.seg .pill-radio span { display: grid; place-items: center; min-height: 2.25rem; padding: 0; border-radius: 7px; }
 
 /* Hover lift for clickable grid cards (none yet; not for list rows). */
 .glass-card { transition: transform 200ms ease-out, border-color 200ms, box-shadow 200ms; }
@@ -740,10 +740,9 @@ button.mark:hover .icon { border-color: var(--dep); }
 .field-help { font-size: 0.875rem; color: var(--text-faint); }
 .bill-seq { font-weight: 500; color: var(--text-faint); }
 .bill.is-added .bill-seq { color: inherit; }
-/* Two-option segmented controls in the bill form; the tall one has two-line labels. */
+/* Two-option segmented controls in the bill form. Long labels wrap and both options grow together. */
 .seg.seg-2 { grid-template-columns: 1fr 1fr; }
-.seg-2 .pill-radio span { padding: 0 0.25rem; font-size: 0.875rem; line-height: 1.15; text-align: center; }
-.seg-tall .pill-radio span { height: 3rem; }
+.seg-2 .pill-radio span { padding: 0.25rem; font-size: 0.875rem; line-height: 1.15; text-align: center; }
 .field-row.is-single { grid-template-columns: 1fr; }
 /* Who the sheet is adding, above its fields. */
 .bill-add-who {

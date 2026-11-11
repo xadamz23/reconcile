@@ -47,7 +47,7 @@
 
     <div class="field" x-show="source === 'here'" {{ 'x-cloak' if form.source != 'here' }}>
       <span class="field-label" id="bill-mode-label">When I tick it</span>
-      <div class="seg seg-2 seg-tall" role="radiogroup" aria-labelledby="bill-mode-label">
+      <div class="seg seg-2" role="radiogroup" aria-labelledby="bill-mode-label">
         <label class="pill-radio"><input type="radio" name="mode" value="now" x-model="mode" {{ 'checked' if form.mode == 'now' }}><span>Add it right away</span></label>
         <label class="pill-radio"><input type="radio" name="mode" value="ask" x-model="mode" {{ 'checked' if form.mode == 'ask' }}><span>Ask for date &amp; amount</span></label>
       </div>
