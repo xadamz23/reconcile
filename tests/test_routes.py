@@ -765,3 +765,91 @@ def test_refreshes_update_both_totals(ready):
     r = ready.get("/register", headers={**HX, "HX-Target": "ledger"})
     assert 'id="totals" class="totals" hx-swap-oob="true"' in r.text
     assert 'id="side-totals" class="totals side-totals" hx-swap-oob="true"' in r.text
+
+
+# --- Desktop bill cards ---
+
+
+def cards(text):
+    return text[text.index('class="bill-cards"'):]
+
+
+def card_of(text, bill, seq=1):
+    start = text.index(f'id="bill-card-{bill}-{seq}"')
+    return text[start:text.index("</article>", start)]
+
+
+@pytest.fixture
+def nov13(monkeypatch):
+    class FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 11, 13)
+
+    monkeypatch.setattr("app.routes.bills.date", FakeDate)
+    return FakeDate
+
+
+def test_bill_cards_render_beside_the_phone_rows(ready, nov13):
+    _add_bill(ready, "Internet", "79.99", "22")
+    text = ready.get("/bills").text
+    assert 'class="card card-list glass bill-rows"' in text  # phones keep the rows
+    assert "Still to add <span>1</span>" in cards(text)
+    assert "Done this month" not in cards(text)
+
+
+def test_bill_card_actions_match_each_kind(ready, nov13):
+    now = _add_bill(ready, "Internet", "79.99", "22")
+    ask = _bill(ready, payee="Water", mode="ask", day="")
+    other = _bill(ready, payee="Phone", amount="65.00", day="12", source="other")
+    sometimes = _bill(ready, payee="Dental", amount="45.00", day="20", sometimes="1")
+    text = ready.get("/bills").text
+    c = card_of(text, now)
+    assert f'hx-post="/bills/{now}/add"' in c and "Add to register" in c
+    assert "Every month on the 22nd" in c and "In 9 days" in c and "SUN" in c
+    c = card_of(text, ask)
+    assert f'hx-get="/bills/{ask}/add?seq=1"' in c and "Enter amount" in c and "Varies" in c
+    assert "Asks for the date and amount" in c and "Any day this month" in c
+    c = card_of(text, other)
+    assert f'hx-post="/bills/{other}/mark"' in c and "Mark paid" in c
+    assert "Another account, every month on the 12th" in c and "Date passed" in c and "is-late" in c
+    c = card_of(text, sometimes)
+    assert f'hx-get="/bills/{sometimes}/add?seq=1"' in c and "Some months on the 20th" in c
+
+
+def test_done_bill_cards(ready, nov13):
+    added = _add_bill(ready, "Gym", "45.00", "5")
+    other = _bill(ready, payee="Phone", amount="65.00", day="12", source="other")
+    ready.post(f"/bills/{added}/add", data={"seq": "1"}, headers=HX)
+    r = ready.post(f"/bills/{other}/mark", data={"seq": "1", "kind": "paid"}, headers=HX)
+    text = cards(r.text)  # a refresh carries the cards too
+    assert "Still to add <span>0</span>" in text and "All done for November" in text
+    c = card_of(text, added)
+    assert "In register · Nov 5" in c and f'hx-post="/bills/{added}/remove"' in c and "hx-confirm" in c
+    c = card_of(text, other)
+    assert "Paid from another account" in c and f'hx-post="/bills/{other}/unmark"' in c and "Undo" in c
+    # Once a reconcile ticks it, it stays put.
+    conn = conn_of(ready)
+    txn = conn.execute("SELECT id FROM transactions WHERE bill_id = ?", (added,)).fetchone()["id"]
+    repo.toggle_verified(conn, txn)
+    c = card_of(ready.get("/bills").text, added)
+    assert "On a reconcile" in c and "/remove" not in c
+
+
+def test_bill_rail(ready, nov13):
+    first = _add_bill(ready, "Rent", "500.00", "1")
+    second = _add_bill(ready, "Gym", "45.00", "1")
+    late = _add_bill(ready, "Electric", "118.40", "10")
+    ask = _bill(ready, payee="Water", mode="ask", day="")
+    ready.post(f"/bills/{first}/add", data={"seq": "1"}, headers=HX)
+    text = cards(ready.get("/bills").text)
+    rail = text[:text.index("</div>", text.index('class="bill-rail-track"'))]
+    assert f'href="#bill-card-{first}-1"' in rail and f'href="#bill-card-{second}-1"' in rail
+    assert f'href="#bill-card-{ask}-1"' not in rail  # no day until it's added
+    def dot(bill):
+        return re.search(rf'class="bill-rail-dot([^"]*)" href="#bill-card-{bill}-1"\s+style="left: ([\d.]+)%; --level: (\d)"', rail).groups()
+
+    # Both on the 1st: the second one there stacks above the first.
+    assert sorted([dot(first), dot(second)]) == sorted([(" is-done", "0.00", "1"), (" is-late", "0.00", "0")])
+    assert dot(late)[0] == " is-late"
+    assert 'class="bill-rail-today" style="left: 41.38%"' in rail  # day 13 of 30

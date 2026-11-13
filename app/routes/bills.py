@@ -1,3 +1,4 @@
+import calendar
 import json
 import sqlite3
 from datetime import date
@@ -29,6 +30,40 @@ def _label(on: date) -> str:
     return f"{on:%b} {on.day}"  # the page is headed with the month, so no year
 
 
+def _ordinal(day: int) -> str:
+    suffix = "th" if 11 <= day % 100 <= 13 else {1: "st", 2: "nd", 3: "rd"}.get(day % 10, "th")
+    return f"{day}{suffix}"
+
+
+def _schedule(bill: sqlite3.Row) -> str:
+    """When the bill comes out, for the desktop cards: 'Every month on the 10th'."""
+    if bill["ask"]:
+        when = "Asks for the date and amount"
+    elif bill["times"] == 2:
+        when = f"the {_ordinal(bill['day'])} and {_ordinal(bill['day2'])}"
+        when = f"Some months, {when}" if bill["sometimes"] else f"Every month, {when}"
+    else:
+        when = f"{'Some months' if bill['sometimes'] else 'Every month'} on the {_ordinal(bill['day'])}"
+    return f"Another account, {when[0].lower()}{when[1:]}" if bill["elsewhere"] else when
+
+
+def _status(state: str, days: int | None, date_label: str | None) -> tuple[str, str]:
+    """The desktop card's pill: (text, tone) for where the bill stands this month."""
+    if state == "added":
+        return f"In register · {date_label}", "done"
+    if state == "paid":
+        return "Paid from another account", "done"
+    if state == "skipped":
+        return "Nothing due this month", ""
+    if days is None:
+        return "Any day this month", ""
+    if days < 0:
+        return "Date passed", "warn"
+    if days == 0:
+        return "Today", "soon"
+    return ("Tomorrow" if days == 1 else f"In {days} days"), "soon" if days <= 3 else ""
+
+
 def _row(bill: sqlite3.Row, month: str, today: date) -> dict:
     due_iso = repo.bill_due_date(bill, month, bill["seq"])
     due = date.fromisoformat(due_iso) if due_iso else None
@@ -37,6 +72,9 @@ def _row(bill: sqlite3.Row, month: str, today: date) -> dict:
     on = date.fromisoformat(bill["txn_date"]) if added else due
     if state == "paid":
         on = date.fromisoformat(bill["marked_on"])
+    days = (due - today).days if due else None
+    date_label = _label(on) if on else None
+    status, tone = _status(state, days, date_label)
     return {
         "id": bill["id"],
         "seq": bill["seq"],
@@ -48,15 +86,43 @@ def _row(bill: sqlite3.Row, month: str, today: date) -> dict:
         "state": state,
         # A reconcile has ticked or locked it, so the tick can't take it back out.
         "locked": added and bill["txn_status"] != "unverified",
-        "date_label": _label(on) if on else None,
+        "date_label": date_label,
         "number": bill["txn_number"] if added else None,
         "cents": abs(bill["txn_cents"]) if added else bill["amount_cents"],  # None: it varies
-        "days": (due - today).days if due else None,
+        "days": days,
         "due": due_iso,  # None when the bill asks for its date
+        # For the desktop cards: the date tile, the schedule line and the status pill.
+        "day_num": on.day if on else None,
+        "weekday": f"{on:%a}".upper() if on else None,
+        "schedule": _schedule(bill),
+        "status": status,
+        "tone": tone,
         # Date order, with paid and nothing-due rows at the bottom. A bill that asks for its
         # date goes after the dated ones until it's added.
         "sort": (state in ("paid", "skipped"), on.day if on else 99, bill["payee"].casefold(), bill["id"], bill["seq"]),
     }
+
+
+def _rail(rows: list[dict], today: date) -> dict:
+    """The desktop month rail: each bill as a dot on its day, and today. Positions are
+    percentages along the month; bills on the same day stack upward."""
+    last = calendar.monthrange(today.year, today.month)[1]
+
+    def x(day: int) -> str:
+        return f"{100 * (day - 1) / (last - 1):.2f}%"
+
+    stacked: dict[int, int] = {}
+    dots = []
+    for r in sorted(rows, key=lambda r: (r["day_num"] or 0, r["sort"])):
+        day = int(r["due"][8:]) if r["due"] else r["day_num"] if r["state"] != "open" else None
+        if day is None:
+            continue  # asks for its date and isn't added yet
+        level = stacked[day] = stacked.get(day, -1) + 1
+        late = r["state"] == "open" and r["days"] is not None and r["days"] < 0
+        dots.append({"row": r, "x": x(day), "level": level, "day": day,
+                     "tone": "skipped" if r["state"] == "skipped" else "done" if r["state"] != "open" else "late" if late else ""})
+    ticks = sorted({1, 5, 10, 15, 20, 25, last})
+    return {"dots": dots, "today": x(today.day), "ticks": [{"x": x(d), "day": d} for d in ticks]}
 
 
 def month_context(conn: sqlite3.Connection, today: date) -> dict:
@@ -69,6 +135,9 @@ def month_context(conn: sqlite3.Connection, today: date) -> dict:
         # Only money leaving this account; a bill whose amount varies adds nothing.
         "left_cents": sum(r["cents"] or 0 for r in rows if r["state"] == "open" and not r["elsewhere"]),
         "soon_days": SOON_DAYS,
+        "open_rows": [r for r in rows if r["state"] == "open"],
+        "done_rows": [r for r in rows if r["state"] != "open"],
+        "rail": _rail(rows, today) if rows else None,
     }
 
 

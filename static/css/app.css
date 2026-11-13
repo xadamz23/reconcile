@@ -269,8 +269,8 @@ button { cursor: pointer; }
 .total-last dd { font-size: 1.0625rem; font-weight: 600; color: var(--text-soft); }
 .total dd.neg { color: var(--pay); }
 
-/* Desktop-only: the sidebar and the masthead's page title (see the desktop block). */
-.sidebar, .page-title { display: none; }
+/* Desktop-only: the sidebar, the masthead's page title and the Bills cards (see the desktop block). */
+.sidebar, .page-title, .bill-cards { display: none; }
 
 /* ---------- Menu ---------- */
 
@@ -932,6 +932,87 @@ button.mark:hover .icon { border-color: var(--dep); }
 .ov-attn-badge .icon { width: 1.125rem; height: 1.125rem; }
 .ov-attn-badge.is-warn { color: var(--warn); border-color: rgba(251, 191, 119, 0.4); }
 
+/* ---------- Bills on desktop: the month rail and a card per payment ---------- */
+
+/* Shown only at 900px and up (phones keep the rows). Each card's pill and action sit at
+   its foot, so they line up across a row. */
+.bill-rail { margin-top: 0.875rem; border-radius: var(--radius-l); padding: 1.75rem 1.5rem 1.125rem; }
+.bill-rail-track { position: relative; height: 3.25rem; }
+.bill-rail-track::before { content: ""; position: absolute; left: 0; right: 0; top: 1rem; border-top: 2px solid var(--line-strong); }
+.bill-rail-tick { position: absolute; top: 2.125rem; transform: translateX(-50%); font-size: 0.75rem; color: var(--text-faint); }
+.bill-rail-tick::before { content: ""; position: absolute; left: 50%; top: -1.125rem; height: 0.375rem; border-left: 1px solid var(--line-strong); }
+/* Today, as the register's green glowing line. */
+.bill-rail-today { position: absolute; top: -1.25rem; bottom: 1.25rem; border-left: 2px solid var(--dep); box-shadow: 0 0 12px rgba(74, 222, 154, 0.7); }
+.bill-rail-today span { position: absolute; top: -0.5rem; left: 0.375rem; font-size: 0.75rem; font-weight: 650; color: var(--dep); white-space: nowrap; }
+.bill-rail-dot {
+  position: absolute; top: calc(1rem - var(--level, 0) * 1.375rem);
+  width: 1.25rem; height: 1.25rem; margin: -0.625rem 0 0 -0.625rem;
+  border-radius: 50%; border: 2px solid var(--accent-text); background: var(--bg);
+  transition: transform 150ms;
+}
+.bill-rail-dot:hover, .bill-rail-dot:focus-visible { transform: scale(1.25); }
+.bill-rail-dot.is-done { background: var(--dep); border-color: var(--dep); box-shadow: 0 0 10px rgba(74, 222, 154, 0.5); }
+.bill-rail-dot.is-late { border-color: var(--warn); background: rgba(251, 191, 119, 0.25); }
+.bill-rail-dot.is-skipped { border-style: dashed; border-color: var(--text-faint); }
+
+.bill-group { display: flex; align-items: baseline; gap: 0.5rem; margin: 1.5rem 0 0.75rem; font-size: 1rem; font-weight: 650; }
+.bill-group span { font-size: 0.875rem; font-weight: 500; color: var(--text-faint); }
+.bill-group-empty { color: var(--text-soft); }
+/* As many 17.5rem cards as fit: four on a wide window (main's 88rem cap means never five). */
+.bill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr)); gap: 0.875rem; }
+
+.bill-card { display: flex; flex-direction: column; min-width: 0; border-radius: var(--radius-l); scroll-margin: 1rem; transition: border-color 150ms, box-shadow 300ms; }
+/* Picked from the rail. */
+.bill-card:target { border-color: rgba(var(--accent-glow), 0.8); box-shadow: 0 0 0 3px rgba(var(--accent-glow), 0.35); }
+.bc-top { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr); gap: 0.875rem; align-items: start; padding: 1rem 1.125rem 0.75rem; }
+.bc-day {
+  display: grid; place-items: center; padding: 0.4rem 0 0.35rem; line-height: 1.05;
+  border-radius: var(--radius-m); border: 1px solid var(--line-strong); background: rgba(255, 255, 255, 0.05);
+}
+.bc-day small { font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.04em; color: var(--text-faint); }
+.bc-day strong { font-size: 1.375rem; font-weight: 750; }
+.bc-day.is-any strong { padding: 0.3rem 0; font-size: 0.875rem; color: var(--text-soft); }
+.bc-name { min-width: 0; padding: 0; border: 0; background: none; text-align: left; }
+/* The name and amount share a line; the schedule gets the card's full width under them. */
+.bc-line { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; }
+.bc-name strong { min-width: 0; font-size: 1.0625rem; font-weight: 600; overflow-wrap: break-word; }
+.bc-name:hover strong { text-decoration: underline; text-decoration-color: var(--text-faint); text-underline-offset: 3px; }
+.bc-sched { display: block; margin-top: 0.125rem; font-size: 0.875rem; color: var(--text-soft); }
+.bc-seq { font-weight: 500; color: var(--text-faint); }
+.bc-amt { flex: none; font-size: 1.125rem; font-weight: 700; color: var(--pay); white-space: nowrap; }
+.bc-amt.is-varies { font-size: 1rem; font-weight: 550; color: var(--text-faint); }
+/* Still to add: the pill on its own line over a full-width button, both pinned to the foot. */
+.bc-status { margin-top: auto; padding: 0 1.125rem 0.875rem; }
+.bc-foot { display: flex; align-items: center; gap: 0.75rem; margin-top: auto; padding: 0.625rem 0.75rem 0.625rem 1.125rem; border-top: 1px solid var(--line); }
+.bc-status + .bc-foot { margin-top: 0; padding-left: 0.75rem; }
+.bc-foot .glass-chip { flex: none; }
+.bc-act { flex: 1; min-height: 2.5rem; padding: 0 0.875rem; border-radius: var(--radius-m); font-size: 0.9375rem; }
+.bc-act .icon { width: 1.125rem; height: 1.125rem; }
+.bc-link, .bc-locked {
+  display: inline-flex; align-items: center; gap: 0.25rem; margin-left: auto;
+  min-height: 2rem; padding: 0 0.5rem; border-radius: var(--radius-s);
+  font-size: 0.8125rem; font-weight: 600; color: var(--text-soft); white-space: nowrap;
+}
+.bc-link { border: 0; background: none; }
+.bc-link:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.bc-link .icon, .bc-locked .icon { width: 0.9375rem; height: 0.9375rem; }
+.bc-locked { color: var(--text-faint); }
+.glass-chip.chip-soon { color: var(--text); }
+
+.bill-card.is-late { border-color: rgba(251, 191, 119, 0.45); }
+.bill-card.is-late .bc-day { border-color: rgba(251, 191, 119, 0.6); }
+.bill-card.is-late .bc-day small { color: var(--warn); }
+.bill-card.is-soon .bc-day { border-color: rgba(var(--accent-glow), 0.6); }
+/* Done: quieter, the green date tile and pill carry it. */
+.bill-card.is-done { background: rgba(255, 255, 255, 0.03); box-shadow: none; }
+.bill-card.is-done .bc-name strong, .bill-card.is-done .bc-amt { color: var(--text-soft); }
+.bill-card.is-done .bc-day { background: rgba(4, 120, 87, 0.25); border-color: rgba(74, 222, 154, 0.4); }
+.bill-card.is-done .bc-day small { color: var(--dep); }
+.bill-card.is-skipped .bc-day { background: rgba(255, 255, 255, 0.03); border-style: dashed; border-color: var(--line-strong); }
+.bill-card.is-skipped .bc-day small { color: var(--text-faint); }
+.bill-card.is-skipped .bc-amt { text-decoration: line-through; color: var(--text-faint); }
+.bill-card.is-just-added .bc-day { animation: stamp 220ms ease-out; }
+
 /* Two tiles a row once they fit; the full grid once the cards do. */
 @container ledger (min-width: 36rem) {
   .ov-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1037,6 +1118,8 @@ button.mark:hover .icon { border-color: var(--dep); }
   .register, .spending, .reconcile, .bills, .overview { padding-bottom: calc(2rem + var(--safe-b)); }
   .rec-summary { top: 0.75rem; }
   .bills-head { padding-inline: 0; }
+  .bill-rows { display: none; }
+  .bill-cards { display: block; }
 
   /* The form slides in from the right over a scrim, only while it's in use. */
   .panel {

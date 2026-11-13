@@ -26,7 +26,7 @@
   <button class="btn btn-glass" type="button" hx-get="/bills/new" hx-target="#panel-body">{{ icon('plus') }}Add bill</button>
 </div>
 {% if bills %}
-<div class="card card-list glass">
+<div class="card card-list glass bill-rows">
   {% for b in bills %}
   {% set name = b.payee ~ (' (' ~ b.seq_label ~ ')' if b.seq_label else '') %}
   {% set tick_id = 'bill-tick-%d-%d' % (b.id, b.seq) %}
@@ -75,6 +75,7 @@
   </article>
   {% endfor %}
 </div>
+{% include "_bill_cards.html" %}
 {% else %}
 <p class="ledger-note">No bills yet. Add the ones that repeat each month, then tick them off as they come due.</p>
 {% endif %}
