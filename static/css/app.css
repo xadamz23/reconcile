@@ -1036,8 +1036,6 @@ button.mark:hover .icon { border-color: var(--dep); }
   .toast { bottom: calc(1.5rem + var(--safe-b)); }
   .register, .spending, .reconcile, .bills, .overview { padding-bottom: calc(2rem + var(--safe-b)); }
   .rec-summary { top: 0.75rem; }
-  /* Narrower pages keep a readable width, lined up under their title. */
-  .reconcile, .spending, .bills { max-width: 58rem; }
   .bills-head { padding-inline: 0; }
 
   /* The form slides in from the right over a scrim, only while it's in use. */
