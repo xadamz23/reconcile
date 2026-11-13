@@ -536,7 +536,7 @@ def test_bill_form_needs_both_days_for_twice_a_month(ready):
 def test_bill_that_asks_shows_two_rows_and_opens_a_sheet(ready):
     bill = _add_daycare(ready)
     text = ready.get("/bills").text
-    assert "1st of 2" in text and "2nd of 2" in text and "You pick the date" in text
+    assert "1st of 2" in text and "2nd of 2" in text and "Any day this month" in text
     assert f'hx-get="/bills/{bill}/add?seq=2"' in text
     repo.create_txn(conn_of(ready), repo.TxnInput("2026-10-20", "Daycare", -60000, number="1042"))
     sheet = ready.get(f"/bills/{bill}/add?seq=2", headers=HX).text
@@ -583,7 +583,7 @@ def test_another_account_bill_marks_paid_and_adds_nothing(ready):
     bill = _bill(ready, payee="Car insurance", amount="142.00", day="15", source="other")
     _add_bill(ready)  # Water, from this account
     text = ready.get("/bills").text
-    assert "Other account" in text and "$62.40 left to add" in text  # its $142 isn't leaving this account
+    assert "Another account, every month on the 15th" in text and "$62.40 left to add" in text  # its $142 isn't leaving this account
     assert f'hx-post="/bills/{bill}/mark"' in text
     before = repo.balance(conn_of(ready))
     r = ready.post(f"/bills/{bill}/mark", data={"seq": "1", "kind": "paid"}, headers=HX)
@@ -606,7 +606,7 @@ def test_bill_that_varies_and_isnt_due_every_month(ready):
     sheet = ready.get(f"/bills/{bill}/add?seq=1", headers=HX).text
     assert "amount varies" in sheet and "Nothing due this month" in sheet
     r = ready.post(f"/bills/{bill}/mark", data={"seq": "1", "kind": "skipped", "sheet": "1"}, headers=HX)
-    assert "panel-close" in r.headers["HX-Trigger"] and "Nothing due in" in r.text and "1 of 1 done" in r.text
+    assert "panel-close" in r.headers["HX-Trigger"] and "Nothing due this month" in r.text and "1 of 1 done" in r.text
     # Marked nothing due, so it can't be added too.
     data = {"seq": "1", "sheet": "1", "amount": "50.00", "date": date.today().isoformat(), "number": ""}
     ready.post(f"/bills/{bill}/add", data=data, headers=HX)
@@ -616,7 +616,7 @@ def test_bill_that_varies_and_isnt_due_every_month(ready):
     assert _txn_count(ready, bill) == 1
     # Added, so it can't be marked nothing due.
     ready.post(f"/bills/{bill}/mark", data={"seq": "1", "kind": "skipped"}, headers=HX)
-    assert "Nothing due in" not in ready.get("/bills").text
+    assert "Nothing due this month" not in ready.get("/bills").text
 
 
 def test_sometimes_bill_with_a_fixed_amount_opens_the_sheet_on_its_day(ready):
@@ -793,7 +793,7 @@ def nov13(monkeypatch):
 def test_bill_cards_render_beside_the_phone_rows(ready, nov13):
     _add_bill(ready, "Internet", "79.99", "22")
     text = ready.get("/bills").text
-    assert 'class="card card-list glass bill-rows"' in text  # phones keep the rows
+    assert 'class="bill-rows"' in text  # phones keep the rows
     assert "Still to add <span>1</span>" in cards(text)
     assert "Done this month" not in cards(text)
 
@@ -853,3 +853,18 @@ def test_bill_rail(ready, nov13):
     assert sorted([dot(first), dot(second)]) == sorted([(" is-done", "0.00", "1"), (" is-late", "0.00", "0")])
     assert dot(late)[0] == " is-late"
     assert 'class="bill-rail-today" style="left: 41.38%"' in rail  # day 13 of 30
+
+
+def test_phone_bill_rows_are_grouped_with_their_schedule(ready, nov13):
+    gym = _add_bill(ready, "Gym", "45.00", "5")
+    _add_bill(ready, "Internet", "79.99", "22")
+    _add_bill(ready, "Electric", "118.40", "15")
+    ready.post(f"/bills/{gym}/add", data={"seq": "1"}, headers=HX)
+    text = ready.get("/bills").text
+    rows = text[text.index('class="bill-rows"'):text.index('class="bill-cards"')]
+    assert "Still to add <span>2</span>" in rows and "Done this month <span>1</span>" in rows
+    assert rows.index("Electric") < rows.index("Done this month") < rows.index("Gym")
+    assert "Every month on the 22nd" in rows and "Comes out" not in rows
+    assert "In register · Nov 5" in rows
+    assert "In 2 days" in rows  # Electric, due soon
+    assert "In 9 days" not in rows  # Internet: more than a week out, so no pill on a phone row

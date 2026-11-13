@@ -1,4 +1,4 @@
-{# This month's bills in date order, with paid and nothing-due rows at the bottom. What
+{# This month's bills in date order, in two groups: still to add, then done. What
    the tick does depends on the bill:
    - added right away: adds it to the register (Undo, or untick with a confirmation);
    - asks, or not due every month: opens a sheet for the date, amount and check number,
@@ -7,27 +7,7 @@
    A reconcile's tick or lock makes an added bill stay put. A twice-a-month bill has a row
    (and a tick) per payment. Nothing is ever added without a tap. #}
 {% from "_icons.html" import icon %}
-{% if oob_totals %}
-  {% include "_totals_oob.html" %}
-  <div id="toast" role="status" hx-swap-oob="true">
-    {% if toast %}
-    <div class="toast glass-strong is-popover" x-data x-init="setTimeout(() => $el.remove(), 6000)">
-      <span class="num">{{ toast.text }}</span>
-      <button type="button" hx-post="/bills/{{ toast.bill_id }}/{{ toast.undo }}" hx-vals='{"seq": {{ toast.seq }}}' hx-target="#bills-body">Undo</button>
-    </div>
-    {% endif %}
-  </div>
-{% endif %}
-<div class="bills-head">
-  <div>
-    <h2>{{ month_name }} bills</h2>
-    {% if bills %}<p>{{ done_count }} of {{ bills | length }} done{% if left_cents %}, {{ left_cents | money }} left to add{% endif %}</p>{% endif %}
-  </div>
-  <button class="btn btn-glass" type="button" hx-get="/bills/new" hx-target="#panel-body">{{ icon('plus') }}Add bill</button>
-</div>
-{% if bills %}
-<div class="card card-list glass bill-rows">
-  {% for b in bills %}
+{% macro bill_row(b) %}
   {% set name = b.payee ~ (' (' ~ b.seq_label ~ ')' if b.seq_label else '') %}
   {% set tick_id = 'bill-tick-%d-%d' % (b.id, b.seq) %}
   {% set vals = '{"seq": %d}' % b.seq %}
@@ -57,23 +37,50 @@
       <span class="bill-payee">{{ b.payee }}{% if b.seq_label %}<span class="bill-seq"> · {{ b.seq_label }}</span>{% endif %}</span>
       <span class="bill-amt num">{% if b.cents %}−{{ b.cents | money(signed=false) }}{% else %}Varies{% endif %}</span>
       <span class="bill-meta">
-        {% if b.state == 'skipped' %}Nothing due in {{ month_name }}
-        {% elif b.state == 'paid' %}Paid {{ b.date_label }}
-        {% elif b.state == 'added' %}Dated {{ b.date_label }}{% if b.number %} · Check {{ b.number }}{% endif %}
-        {% elif not b.date_label %}You pick the date
-        {% else %}Comes out {{ b.date_label }}{% endif %}
-        {% if b.elsewhere %}<span class="glass-chip chip-other">Other account</span>{% endif %}
-        {% if b.state == 'added' %}<span class="glass-chip chip-done">In register</span>
-        {% elif b.state == 'open' and b.days is not none %}
-          {% if b.days < 0 %}<span class="glass-chip chip-warn">Date passed</span>
-          {% elif b.days == 0 %}<span class="glass-chip">Today</span>
-          {% elif b.days <= soon_days %}<span class="glass-chip">In {{ b.days }} day{{ 's' if b.days != 1 }}</span>
-          {% endif %}
+        {{ b.schedule }}{% if b.state == 'added' and b.number %} · Check {{ b.number }}{% endif %}
+        {% if b.state != 'open' or b.days is none or b.days <= soon_days %}
+        <span class="glass-chip{{ ' chip-' ~ b.tone if b.tone }}">{{ b.status }}</span>
         {% endif %}
       </span>
     </button>
   </article>
-  {% endfor %}
+{% endmacro %}
+
+{% if oob_totals %}
+  {% include "_totals_oob.html" %}
+  <div id="toast" role="status" hx-swap-oob="true">
+    {% if toast %}
+    <div class="toast glass-strong is-popover" x-data x-init="setTimeout(() => $el.remove(), 6000)">
+      <span class="num">{{ toast.text }}</span>
+      <button type="button" hx-post="/bills/{{ toast.bill_id }}/{{ toast.undo }}" hx-vals='{"seq": {{ toast.seq }}}' hx-target="#bills-body">Undo</button>
+    </div>
+    {% endif %}
+  </div>
+{% endif %}
+<div class="bills-head">
+  <div>
+    <h2>{{ month_name }} bills</h2>
+    {% if bills %}<p>{{ done_count }} of {{ bills | length }} done{% if left_cents %}, {{ left_cents | money }} left to add{% endif %}</p>{% endif %}
+  </div>
+  <button class="btn btn-glass" type="button" hx-get="/bills/new" hx-target="#panel-body">{{ icon('plus') }}Add bill</button>
+</div>
+{% if bills %}
+{# Phones: rows in two groups, still to add then done. Desktop shows _bill_cards.html instead. #}
+<div class="bill-rows">
+  <h3 class="bill-group">Still to add <span>{{ open_rows | length }}</span></h3>
+  {% if open_rows %}
+  <div class="card card-list glass">
+    {% for b in open_rows %}{{ bill_row(b) }}{% endfor %}
+  </div>
+  {% else %}
+  <p class="bill-group-empty">All done for {{ month_name }}.</p>
+  {% endif %}
+  {% if done_rows %}
+  <h3 class="bill-group">Done this month <span>{{ done_rows | length }}</span></h3>
+  <div class="card card-list glass">
+    {% for b in done_rows %}{{ bill_row(b) }}{% endfor %}
+  </div>
+  {% endif %}
 </div>
 {% include "_bill_cards.html" %}
 {% else %}
