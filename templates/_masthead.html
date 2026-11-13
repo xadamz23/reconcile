@@ -1,10 +1,12 @@
-{# The header on the register, Spending, Bills and Reconcile pages. Expects masthead_context()
-   from routes/deps.py and optionally new_url (shows New transaction), back (a
-   desktop back arrow) and close_search (the register's close-search button). #}
+{# The header on every page. Expects masthead_context() from routes/deps.py and optionally
+   new_url (New transaction loads the form panel from it), new_href (New transaction is a
+   link instead, on pages without a panel), back (a desktop back arrow to the Overview),
+   close_search (the register's close-search button) and no_totals (the Overview, whose
+   tiles show them). #}
 {% from "_icons.html" import icon %}
 <header class="masthead glass-strong">
   <div class="masthead-bar">
-    {% if back %}<a class="icon-btn only-desktop" href="/" aria-label="Back to register">{{ icon('back') }}</a>{% endif %}
+    {% if back %}<a class="icon-btn only-desktop" href="/" aria-label="Back to overview">{{ icon('back') }}</a>{% endif %}
     <div class="account-wrap">
       <h1 class="account">{{ account_name }}</h1>
       <time class="today" datetime="{{ today }}">{{ today | day_date }}</time>
@@ -13,6 +15,9 @@
       {% if new_url %}
       <button class="btn accent btn-new only-desktop" type="button" hx-get="{{ new_url }}" hx-target="#panel-body"
               data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</button>
+      {% elif new_href %}
+      <a class="btn accent btn-new only-desktop" href="{{ new_href }}" data-new-txn
+         title="New transaction (n)">{{ icon('plus') }}New transaction</a>
       {% endif %}
       {% if close_search %}
       <button class="icon-btn only-desktop" type="button" @click="cancel()" x-show="searching" x-cloak
@@ -21,6 +26,8 @@
       <div class="menu" x-data="menu" @keydown.escape.window="open = false">
         <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
         <div class="menu-pop glass-strong is-popover" role="menu" x-show="open" x-transition.origin.top.right x-cloak>
+          <a role="menuitem" href="/">{{ icon('overview') }}Overview</a>
+          <a role="menuitem" href="/register">{{ icon('ledger') }}Register</a>
           <a role="menuitem" href="/reconcile">{{ icon('scale') }}{{ 'Continue reconciling' if reconciling else 'Reconcile a statement' }}</a>
           <a role="menuitem" href="/spending">{{ icon('chart') }}Spending</a>
           <a role="menuitem" href="/bills">{{ icon('repeat') }}Bills</a>
@@ -29,5 +36,5 @@
       </div>
     </div>
   </div>
-  {% include "_totals.html" %}
+  {% if not no_totals %}{% include "_totals.html" %}{% endif %}
 </header>

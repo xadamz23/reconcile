@@ -373,7 +373,7 @@ button { cursor: pointer; }
 
 .ledger-head { display: none; }
 /* Room below the last card for the mobile tab bar. */
-.register, .reconcile, .spending, .bills { padding-bottom: calc(6rem + var(--safe-b)); }
+.register, .reconcile, .spending, .bills, .overview { padding-bottom: calc(6rem + var(--safe-b)); }
 
 .txn {
   position: relative;
@@ -775,6 +775,176 @@ button.mark:hover .icon { border-color: var(--dep); }
 }
 .toast button { flex: none; min-height: 2.75rem; padding: 0 0.625rem; border: 0; background: none; color: var(--accent-text); font-weight: 600; }
 
+/* ---------- Overview ---------- */
+
+/* The landing page: tiles, then cards. One column on phones; a 12-column grid once
+   main is wide enough (see the @container rule below). */
+.ov-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.75rem; margin: var(--card-inset) var(--card-inset) 0; }
+.ov-card, .ov-tile { min-width: 0; border-radius: var(--radius-l); padding: 1rem var(--gutter); }
+.ov-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1rem; margin-bottom: 0.75rem; }
+.ov-head h2 { font-size: 1rem; font-weight: 650; }
+.ov-head > a { flex: none; font-size: 0.875rem; font-weight: 600; color: var(--accent-text); text-decoration: none; }
+.ov-head > a:hover { text-decoration: underline; }
+.ov-sub { font-size: 0.875rem; color: var(--text-faint); }
+.ov-faint { color: var(--text-faint); font-weight: 400; }
+.ov-empty { color: var(--text-soft); font-size: 0.9375rem; }
+.ov-empty a { color: var(--accent-text); }
+.overview .dep { color: var(--dep); }
+.overview .pay, .overview .neg { color: var(--pay); }
+
+/* Tiles: a label, one figure, a line of context. Each links to the page behind it. */
+.ov-tile { display: flex; flex-direction: column; gap: 0.25rem; text-decoration: none; transition: border-color 150ms, background-color 150ms; }
+.ov-tile:hover { border-color: rgba(var(--accent-glow), 0.45); background: rgba(255, 255, 255, 0.08); }
+.ov-tile-label { display: flex; align-items: center; gap: 0.4rem; font-size: 0.875rem; font-weight: 600; color: var(--text-soft); }
+.ov-tile-label .icon { width: 1rem; height: 1rem; color: var(--text-faint); }
+.ov-tile-value { align-self: flex-start; font-size: 1.75rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1.15; }
+/* The balance is a final total: the accountant's double rule. */
+.ov-tile-value.is-final { padding-bottom: 0.2rem; border-bottom: 4px double rgba(255, 255, 255, 0.28); }
+.ov-tile-note { margin-top: auto; padding-top: 0.25rem; font-size: 0.875rem; color: var(--text-faint); }
+.ov-tile-note b { font-weight: 600; color: var(--text-soft); }
+/* The figure the page exists for. */
+.ov-tile.is-hero {
+  border-color: rgba(var(--accent-glow), 0.45);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 40px -12px rgba(var(--accent-glow), 0.6);
+}
+
+.ov-legend { display: flex; flex: none; gap: 1rem; font-size: 0.8125rem; color: var(--text-soft); }
+.ov-legend span { display: inline-flex; align-items: center; gap: 0.4rem; }
+.ov-legend i { width: 1.25rem; border-top: 2px solid var(--accent-text); }
+.ov-legend i.is-dashed { border-top-style: dashed; border-color: var(--text-soft); }
+
+/* Balance chart: the SVG stretches to the plot (non-scaling strokes keep lines 2px);
+   labels, dots and the hover readout are HTML placed by percentage, so text never
+   stretches. app.js drives the readout from data-points. */
+.ov-chart-card { display: flex; flex-direction: column; }
+.bal-chart { position: relative; flex: 1; min-height: 15rem; padding: 0.5rem 0.25rem 1.75rem 3rem; outline-offset: 4px; }
+.bal-grid { position: absolute; inset: 0.5rem 0.25rem 1.75rem 3rem; }
+.bal-grid span { position: absolute; left: 0; right: 0; border-top: 1px solid var(--line); }
+.bal-grid em { position: absolute; right: calc(100% + 0.5rem); top: -0.55rem; font-style: normal; font-size: 0.75rem; color: var(--text-faint); white-space: nowrap; }
+.bal-plot { position: relative; height: 100%; min-height: inherit; }
+.bal-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.bal-area { fill: url(#bal-fill); }
+.bal-line, .bal-proj { fill: none; stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.bal-line { stroke: var(--accent-text); }
+.bal-proj { stroke: var(--text-soft); stroke-dasharray: 5 5; }
+.bal-dot, .bal-hover {
+  position: absolute; width: 0.625rem; height: 0.625rem; margin: -0.3125rem 0 0 -0.3125rem; border-radius: 50%;
+  background: var(--accent-text); box-shadow: 0 0 0 2px var(--bg);
+}
+.bal-dot.is-proj { background: var(--bg); border: 2px solid var(--text-soft); box-shadow: none; }
+/* A backed label, so the line it sits beside never runs through it. */
+.bal-end {
+  position: absolute; right: 0; z-index: 1; margin-top: 0.625rem; padding: 0.125rem 0.5rem; border-radius: 999px;
+  background: rgba(var(--chrome), 0.88); font-size: 0.8125rem; font-weight: 650; white-space: nowrap;
+}
+.bal-end.is-low { margin-top: -2.125rem; }
+.bal-rec { position: absolute; top: 0; bottom: 0; border-left: 1px dashed rgba(255, 255, 255, 0.22); }
+.bal-rec em { position: absolute; bottom: 0.375rem; right: 0.375rem; font-style: normal; font-size: 0.75rem; color: var(--text-soft); white-space: nowrap; }
+.bal-months span { position: absolute; top: calc(100% + 0.5rem); transform: translateX(-50%); font-size: 0.75rem; color: var(--text-faint); }
+.bal-cross { position: absolute; top: 0; bottom: 0; border-left: 1px solid rgba(255, 255, 255, 0.35); }
+.bal-cross, .bal-hover, .bal-tip { visibility: hidden; pointer-events: none; }
+.bal-chart.is-reading .bal-cross, .bal-chart.is-reading .bal-hover, .bal-chart.is-reading .bal-tip { visibility: visible; }
+.bal-hover.is-proj { background: var(--text-soft); }
+.bal-tip {
+  position: absolute; z-index: 2; transform: translate(-50%, calc(-100% - 0.75rem));
+  padding: 0.375rem 0.625rem; border-radius: var(--radius-s);
+  font-size: 0.8125rem; line-height: 1.35; white-space: nowrap;
+}
+.bal-tip b { display: block; font-size: 0.9375rem; }
+.bal-tip span { color: var(--text-faint); }
+
+/* This month's bills: a progress bar (money added of money due), then what's still to come. */
+.ov-bullet { height: 0.625rem; margin: 0.25rem 0 0.5rem; border-radius: 999px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.ov-bullet span {
+  display: block; width: var(--w); height: 100%; border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-a), var(--accent-b)); box-shadow: 0 0 12px rgba(var(--accent-glow), 0.6);
+}
+.ov-bullet-legend { display: flex; justify-content: space-between; gap: 0.75rem; font-size: 0.875rem; color: var(--text-soft); }
+.ov-bullet-legend b { font-weight: 650; color: var(--text); }
+.ov-due { list-style: none; margin: 0.75rem calc(-1 * var(--gutter)) -1rem; padding: 0; }
+.ov-due li { display: grid; grid-template-columns: 2.75rem minmax(0, 1fr) auto; align-items: center; gap: 0.75rem; padding: 0.5rem var(--gutter); border-top: 1px solid var(--line); }
+.ov-due-day {
+  display: grid; place-items: center; padding: 0.3rem 0; line-height: 1.05;
+  border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: rgba(255, 255, 255, 0.04);
+}
+.ov-due-day small { font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.04em; color: var(--text-faint); }
+.ov-due-day strong { font-size: 1.0625rem; }
+.ov-due li.is-soon .ov-due-day { border-color: rgba(251, 191, 119, 0.5); }
+.ov-due li.is-soon .ov-due-day small { color: var(--warn); }
+.ov-due-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-due-name .ov-sub { display: block; font-weight: 400; }
+.ov-due-amt { font-weight: 650; }
+.ov-due-amt.is-varies { color: var(--text-faint); font-weight: 500; }
+
+/* Money in and out: deposits rise from the middle line, payments hang below it. */
+.flow { position: relative; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.5rem; height: 15rem; }
+.flow::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--line-strong); }
+.flow-col { display: grid; grid-template-rows: minmax(0, 1fr) 1.25rem minmax(0, 1fr); justify-items: center; border-radius: var(--radius-s); }
+.flow-col:hover { background: rgba(255, 255, 255, 0.03); }
+.flow-half { display: flex; flex-direction: column; align-items: center; width: 100%; min-height: 0; }
+.flow-half.is-in { justify-content: flex-end; }
+.flow-half em { font-style: normal; font-size: 0.75rem; color: var(--text-soft); white-space: nowrap; padding: 0.2rem 0; }
+.flow-bar { width: 44%; max-width: 2.5rem; height: var(--h); flex: none; }
+.is-in .flow-bar { border-radius: 4px 4px 0 0; background: linear-gradient(0deg, var(--dep-a), var(--dep)); margin-bottom: 1px; }
+.is-out .flow-bar { border-radius: 0 0 4px 4px; background: linear-gradient(180deg, var(--pay-a), var(--pay)); margin-top: 1px; }
+.is-partial .is-in .flow-bar { background: repeating-linear-gradient(135deg, var(--dep) 0 4px, var(--dep-a) 4px 8px); }
+.is-partial .is-out .flow-bar { background: repeating-linear-gradient(135deg, var(--pay) 0 4px, var(--pay-a) 4px 8px); }
+.is-partial .flow-bar { opacity: 0.6; }
+.flow-mo {
+  z-index: 1; align-self: center; padding: 0 0.375rem; border-radius: 999px;
+  background: rgba(var(--chrome), 0.92); font-size: 0.75rem; font-weight: 650; letter-spacing: 0.04em; color: var(--text-faint);
+}
+.flow-net {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.5rem;
+  margin-top: 0.75rem; padding-top: 0.625rem; border-top: 1px solid var(--line);
+  text-align: center; font-size: 0.8125rem; font-weight: 650;
+}
+.flow-net small { display: block; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.04em; color: var(--text-faint); }
+
+/* Where the month went: the Spending page's bars, compact. */
+.ov-spend { list-style: none; margin: 0 calc(-1 * var(--gutter)); padding: 0; }
+.ov-spend a {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.3rem 0.75rem;
+  padding: 0.4rem var(--gutter); text-decoration: none;
+}
+.ov-spend a:hover { background: rgba(255, 255, 255, 0.04); }
+.ov-spend-name { font-weight: 550; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-spend .num { font-weight: 650; }
+.ov-spend .spend-bar { grid-column: 1 / -1; height: 0.4375rem; border-radius: 999px; }
+.ov-spend .is-rest .ov-spend-name { color: var(--text-soft); }
+.ov-spend .is-rest .spend-bar span { background: var(--text-faint); box-shadow: none; }
+
+/* Worth a look. */
+.ov-attn { list-style: none; margin: 0 calc(-1 * var(--gutter)) -1rem; padding: 0; }
+.ov-attn li { display: grid; grid-template-columns: 2.25rem minmax(0, 1fr); gap: 0.75rem; padding: 0.75rem var(--gutter); border-top: 1px solid var(--line); }
+.ov-attn li:first-child { border-top: 0; padding-top: 0.25rem; }
+.ov-attn p { font-size: 0.9375rem; }
+.ov-attn .ov-sub { margin-top: 0.125rem; font-size: 0.8125rem; }
+.ov-attn a { display: inline-block; margin-top: 0.25rem; font-size: 0.8125rem; font-weight: 600; color: var(--accent-text); text-decoration: none; }
+.ov-attn a:hover { text-decoration: underline; }
+.ov-attn-badge {
+  display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line-strong); color: var(--text-soft);
+}
+.ov-attn-badge .icon { width: 1.125rem; height: 1.125rem; }
+.ov-attn-badge.is-warn { color: var(--warn); border-color: rgba(251, 191, 119, 0.4); }
+
+/* Two tiles a row once they fit; the full grid once the cards do. */
+@container ledger (min-width: 36rem) {
+  .ov-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ov-grid > .ov-card { grid-column: 1 / -1; }
+}
+@container ledger (min-width: 64rem) {
+  .ov-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 0.875rem; }
+  .ov-grid > .ov-span-3 { grid-column: span 3; }
+  .ov-grid > .ov-span-4 { grid-column: span 4; }
+  .ov-grid > .ov-span-5 { grid-column: span 5; }
+  .ov-grid > .ov-span-8 { grid-column: span 8; }
+  .ov-card, .ov-tile { padding: 1.125rem 1.25rem; }
+  .ov-due, .ov-spend, .ov-attn { margin-inline: -1.25rem; }
+  .ov-due li, .ov-spend a, .ov-attn li { padding-inline: 1.25rem; }
+}
+
 /* Phones get the tab bar's Register tab instead (after .icon-btn, so it wins). */
 @media (max-width: 899.98px) {
   .only-desktop { display: none; }
@@ -799,7 +969,7 @@ button.mark:hover .icon { border-color: var(--dep); }
   .only-mobile { display: none; }
   /* Flush to the top: a gap above a sticky header would show rows scrolling through. */
   .masthead { padding-top: 1rem; border-width: 0 1px 1px; }
-  .card, .filters, .spend-periods, .banner { margin-top: 0.75rem; }
+  .card, .filters, .spend-periods, .banner, .ov-grid { margin-top: 0.75rem; }
   .btn-new { min-height: 2.5rem; padding: 0 1rem 0 0.75rem; margin-right: 0.5rem; font-size: 0.9375rem; }
   .btn-new .icon { width: 1.125rem; height: 1.125rem; stroke-width: 2.2; }
   .totals { grid-template-columns: auto auto 1fr; gap: 2.5rem; align-items: baseline; }
@@ -811,7 +981,7 @@ button.mark:hover .icon { border-color: var(--dep); }
 
   .tabbar { display: none; }
   .toast { bottom: calc(1.5rem + var(--safe-b)); }
-  .register, .spending, .reconcile, .bills { padding-bottom: calc(2rem + var(--safe-b)); }
+  .register, .spending, .reconcile, .bills, .overview { padding-bottom: calc(2rem + var(--safe-b)); }
   .rec-summary { top: 10rem; }
   /* The masthead spans the page, as on the register; the content stays a readable width. */
   .reconcile > :not(.masthead), .spending > :not(.masthead), .bills > :not(.masthead) { max-width: 49rem; margin-inline: auto; }

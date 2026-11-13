@@ -509,3 +509,60 @@ def test_migration_4_rebuilds_bills_and_keeps_links():
     assert c.execute("SELECT bill_id FROM transactions").fetchone()[0] == 1
     repo.delete_bill(c, 1)  # ON DELETE SET NULL still points at the rebuilt table
     assert c.execute("SELECT bill_id FROM transactions").fetchone()[0] is None
+
+
+# --- Overview ---
+
+
+def test_balance_on_counts_through_that_day(ledger):
+    assert repo.balance_on(ledger, "2026-09-30") == 0
+    assert repo.balance_on(ledger, "2026-10-03") == 300000
+    assert repo.balance_on(ledger, "2026-10-05") == 300000 - 4531
+    assert repo.balance_on(ledger, "2026-12-31") == repo.balance(ledger)
+
+
+def test_daily_balances_fill_every_day(ledger):
+    days = repo.daily_balances(ledger, "2026-10-02", "2026-10-06")
+    assert days == [
+        ("2026-10-02", 100000),
+        ("2026-10-03", 300000),
+        ("2026-10-04", 300000),
+        ("2026-10-05", 300000 - 4531),
+        ("2026-10-06", 300000 - 4531),
+    ]
+
+
+def test_monthly_flow_splits_in_and_out_and_skips_the_opening(ledger):
+    add(ledger, "2026-11-02", "Refund", 1500)
+    add(ledger, "2026-11-03", "Kroger", -2500)
+    add(ledger, "2026-11-04", "Kroger", -500)
+    flow = repo.monthly_flow(ledger, "2026-10-01", "2026-11-30")
+    assert [(r["month"], r["in_cents"], r["out_cents"]) for r in flow] == [
+        ("2026-10", 200000, 4531 + 999),
+        ("2026-11", 1500, 3000),
+    ]
+
+
+def test_uncleared_summary(ledger):
+    s = repo.uncleared_summary(ledger)
+    # The ticked paycheck isn't reconciled yet either; the opening balance is.
+    assert s["n"] == 3
+    assert s["net_cents"] == 200000 - 4531 - 999
+    assert s["oldest"] == "2026-10-03"
+
+
+def test_uncleared_summary_when_everything_is_reconciled(conn):
+    repo.setup(conn, "Checking", 100000, "2026-10-01")
+    s = repo.uncleared_summary(conn)
+    assert (s["n"], s["net_cents"], s["oldest"]) == (0, 0, None)
+
+
+def test_old_uncleared_checks(ledger):
+    add(ledger, "2026-09-01", "Lawn service", -25000, number="1043")
+    add(ledger, "2026-09-20", "Plumber", -9000, number="1044")
+    add(ledger, "2026-10-20", "Dentist", -4000, number="1045")  # too recent
+    add(ledger, "2026-09-02", "Cash", -2000)  # not a check
+    add(ledger, "2026-09-03", "Deposit", 2000, number="77")  # not a payment
+    add(ledger, "2026-09-04", "Ticked", -2000, number="1040", status="verified")  # on the reconcile
+    rows = repo.old_uncleared_checks(ledger, before="2026-10-01")
+    assert [r["number"] for r in rows] == ["1043", "1044"]  # oldest first

@@ -7,11 +7,11 @@
 <div class="shell" x-data="filterBar({{ 'true' if filtering else 'false' }})" @filters-escape.window="cancel()"
      @filters-open.window="open()">
   <main class="register">
-    {% with new_url = "/txn/new", close_search = true %}{% include "_masthead.html" %}{% endwith %}
+    {% with new_url = "/txn/new", close_search = true, back = true %}{% include "_masthead.html" %}{% endwith %}
 
     <form id="filters" class="filters glass" :class="searching && 'is-open'" role="search" x-ref="filters"
           @input="sync()" @change="sync()"
-          hx-get="/" hx-target="#ledger" hx-push-url="true"
+          hx-get="/register" hx-target="#ledger" hx-push-url="true"
           hx-trigger="input changed delay:250ms from:.filters-text, change">
       <div class="filters-top">
         <div class="filters-text" @focusin="enter()">
@@ -59,7 +59,7 @@
     </div>
     {# Refetching after a save asks for as many rows as are loaded, so the list keeps its place. #}
     <section id="ledger" class="ledger" aria-label="Transactions"
-             hx-get="/" hx-include="#filters" hx-trigger="ledger-changed from:body" hx-target="this"
+             hx-get="/register" hx-include="#filters" hx-trigger="ledger-changed from:body" hx-target="this"
              hx-vals='js:{rows: document.querySelectorAll("#ledger .txn").length}'>
       {% include "_ledger.html" %}
     </section>

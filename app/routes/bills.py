@@ -52,13 +52,14 @@ def _row(bill: sqlite3.Row, month: str, today: date) -> dict:
         "number": bill["txn_number"] if added else None,
         "cents": abs(bill["txn_cents"]) if added else bill["amount_cents"],  # None: it varies
         "days": (due - today).days if due else None,
+        "due": due_iso,  # None when the bill asks for its date
         # Date order, with paid and nothing-due rows at the bottom. A bill that asks for its
         # date goes after the dated ones until it's added.
         "sort": (state in ("paid", "skipped"), on.day if on else 99, bill["payee"].casefold(), bill["id"], bill["seq"]),
     }
 
 
-def _body_context(conn: sqlite3.Connection, today: date) -> dict:
+def month_context(conn: sqlite3.Connection, today: date) -> dict:
     month = _month(today)
     rows = sorted((_row(b, month, today) for b in repo.bills_for_month(conn, month)), key=lambda r: r["sort"])
     return {
@@ -72,7 +73,7 @@ def _body_context(conn: sqlite3.Connection, today: date) -> dict:
 
 
 def _body(request: Request, conn: sqlite3.Connection, toast: dict | None = None, headers: dict | None = None):
-    ctx = _body_context(conn, date.today())
+    ctx = month_context(conn, date.today())
     response = render(request, "_bills_body.html", {**ctx, **masthead_context(conn), "oob_totals": True, "toast": toast})
     response.headers.update(headers or {})
     return response
@@ -84,7 +85,7 @@ def bills(request: Request, conn: sqlite3.Connection = Depends(get_conn)):
         return RedirectResponse("/setup", status_code=303)
     if is_htmx(request) and request.headers.get("HX-Target") == "bills-body":
         return _body(request, conn)
-    return render(request, "bills.html", {**_body_context(conn, date.today()), **masthead_context(conn)})
+    return render(request, "bills.html", {**month_context(conn, date.today()), **masthead_context(conn)})
 
 
 def _require(conn, bill_id: int) -> sqlite3.Row:

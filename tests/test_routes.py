@@ -1,3 +1,4 @@
+import json
 import re
 import threading
 from datetime import date, timedelta
@@ -5,7 +6,7 @@ from datetime import date, timedelta
 import pytest
 
 from app import repo
-from app.routes import register, spending
+from app.routes import overview, register, spending
 
 HX = {"HX-Request": "true"}
 
@@ -35,7 +36,7 @@ def test_setup_validation_error(client):
 
 
 def test_register_shows_account_and_totals(ready):
-    r = ready.get("/")
+    r = ready.get("/register")
     assert r.status_code == 200
     assert "Adam&#39;s Checking" in r.text
     assert "$1,000.00" in r.text
@@ -65,15 +66,15 @@ def test_huge_amounts_are_form_errors_not_crashes(ready):
     assert r.status_code == 200
     assert "HX-Trigger" not in r.headers
     assert "Enter an amount" in r.text
-    r = ready.get("/", params={"amount": "999999999999999999999.5"}, headers={**HX, "HX-Target": "ledger"})
+    r = ready.get("/register", params={"amount": "999999999999999999999.5"}, headers={**HX, "HX-Target": "ledger"})
     assert r.status_code == 200
     assert "isn&#39;t an amount" in r.text
 
 
 def test_out_of_range_numbers_are_bad_requests(ready):
     assert ready.get("/txn/99999999999999999999/edit").status_code == 400
-    assert ready.get("/", params={"rows": "9" * 20}).status_code == 400
-    assert ready.get("/", params={"before": "2026-10-01:" + "9" * 20}).status_code == 400
+    assert ready.get("/register", params={"rows": "9" * 20}).status_code == 400
+    assert ready.get("/register", params={"before": "2026-10-01:" + "9" * 20}).status_code == 400
 
 
 def test_requests_take_turns_on_the_shared_connection(ready):
@@ -81,7 +82,7 @@ def test_requests_take_turns_on_the_shared_connection(ready):
     result = {}
     lock.acquire()
     try:
-        t = threading.Thread(target=lambda: result.update(r=ready.get("/")))
+        t = threading.Thread(target=lambda: result.update(r=ready.get("/register")))
         t.start()
         t.join(0.3)
         assert t.is_alive(), "request ran while another held the DB lock"
@@ -132,7 +133,7 @@ def test_delete(ready):
 
 def test_register_has_no_verify_controls(ready):
     ready.post("/txn", data={"sign": "-", "amount": "8", "payee": "Goodwill", "date": "2026-10-17"}, headers=HX)
-    r = ready.get("/")
+    r = ready.get("/register")
     assert "/toggle" not in r.text and "Unverified" not in r.text
     assert "Reconciled" in r.text and "Not yet" in r.text
 
@@ -140,12 +141,12 @@ def test_register_has_no_verify_controls(ready):
 def test_ledger_partial_filters(ready):
     for payee, amt in [("SiriusXM", "9.99"), ("Fozzys", "45.31")]:
         ready.post("/txn", data={"sign": "-", "amount": amt, "payee": payee, "date": "2026-10-10"}, headers=HX)
-    r = ready.get("/?q=fozz", headers={**HX, "HX-Target": "ledger"})
+    r = ready.get("/register?q=fozz", headers={**HX, "HX-Target": "ledger"})
     assert "Fozzys" in r.text and "SiriusXM" not in r.text
     assert "<html" not in r.text
-    r = ready.get("/?amount=9.99", headers={**HX, "HX-Target": "ledger"})
+    r = ready.get("/register?amount=9.99", headers={**HX, "HX-Target": "ledger"})
     assert "SiriusXM" in r.text and "Fozzys" not in r.text
-    r = ready.get("/?amount=abc")
+    r = ready.get("/register?amount=abc")
     assert "isn&#39;t an amount" in r.text
 
 
@@ -166,42 +167,42 @@ def paged(ready, monkeypatch):
 
 
 def test_ledger_pages_load_through_the_placeholder(paged):
-    page = paged.get("/").text
+    page = paged.get("/register").text
     assert "Future A" in page and "Future B" in page and "Past C" not in page
     assert 'class="today-rule"' not in page
     cursor = _cursor(page)
-    r = paged.get(f"/?before={cursor}", headers=HX)
+    r = paged.get(f"/register?before={cursor}", headers=HX)
     assert "<html" not in r.text and 'id="totals"' not in r.text
     # The page break fell between the future rows and the past ones: the rule comes first.
     assert r.text.index('class="today-rule"') < r.text.index("Past C")
     assert "Past D" in r.text and "Future B" not in r.text
-    last = paged.get(f"/?before={_cursor(r.text)}", headers=HX).text
+    last = paged.get(f"/register?before={_cursor(r.text)}", headers=HX).text
     assert "Past E" in last and "ledger-more" not in last and "today-rule" not in last
 
 
 def test_ledger_refresh_keeps_loaded_rows(paged):
-    r = paged.get("/?rows=4", headers={**HX, "HX-Target": "ledger"})
+    r = paged.get("/register?rows=4", headers={**HX, "HX-Target": "ledger"})
     assert "Past D" in r.text and "Past E" not in r.text and "ledger-more" in r.text
-    r = paged.get("/?rows=0", headers={**HX, "HX-Target": "ledger"})
+    r = paged.get("/register?rows=0", headers={**HX, "HX-Target": "ledger"})
     assert "Future B" in r.text and "Past C" not in r.text
     # Next-page requests also carry `rows` (htmx merges hx-vals from ancestors): still one page.
     cursor = _cursor(r.text)
-    r = paged.get(f"/?before={cursor}&rows=4", headers=HX)
+    r = paged.get(f"/register?before={cursor}&rows=4", headers=HX)
     assert "Past D" in r.text and "Past E" not in r.text
 
 
 def test_ledger_rejects_a_bad_cursor(paged):
-    assert paged.get("/?before=yesterday", headers=HX).status_code == 400
+    assert paged.get("/register?before=yesterday", headers=HX).status_code == 400
 
 
 def test_reconciled_stays_off_until_asked_for(ready):
-    assert 'name="show_reconciled" value="true" >' in ready.get("/").text
-    assert 'name="show_reconciled" value="true" checked' in ready.get("/?q=x&show_reconciled=true").text
+    assert 'name="show_reconciled" value="true" >' in ready.get("/register").text
+    assert 'name="show_reconciled" value="true" checked' in ready.get("/register?q=x&show_reconciled=true").text
 
 
 def test_show_reconciled_counts_as_filtering(ready):
-    assert "filterBar(false)" in ready.get("/").text
-    assert "filterBar(true)" in ready.get("/?show_reconciled=true").text
+    assert "filterBar(false)" in ready.get("/register").text
+    assert "filterBar(true)" in ready.get("/register?show_reconciled=true").text
 
 
 def test_payees_endpoint(ready):
@@ -216,7 +217,7 @@ def test_reconcile_flow(ready):
     assert r.status_code == 303
     r = ready.get("/reconcile")
     assert "Rent" in r.text and "Difference must be $0.00" in r.text and 'value="900.00"' in r.text
-    assert "Continue reconciling" in ready.get("/").text
+    assert "Continue reconciling" in ready.get("/register").text
     r = ready.post(f"/reconcile/{tid}/toggle", headers=HX)
     assert "is-balanced" in r.text and "Finish statement" in r.text
     r = ready.post("/reconcile/finish", follow_redirects=False)
@@ -224,7 +225,7 @@ def test_reconcile_flow(ready):
     assert repo.get_txn(conn_of(ready), tid)["status"] == "reconciled"
     assert repo.get_draft(conn_of(ready)) is None
     assert "Statement reconciled" in ready.get(r.headers["location"]).text
-    assert "Reconciled through Oct 31, 2026" in ready.get("/").text
+    assert "Reconciled through Oct 31, 2026" in ready.get("/register").text
 
 
 def test_reconcile_start_validation(ready):
@@ -311,7 +312,7 @@ def test_spending_page(ready):
     assert "$1,700.00" in text  # paid out
     assert "2 payees" in text and "3 payments" in text
     assert text.index("Rent") < text.index("kroger")  # biggest first, latest spelling
-    assert "/?q=kroger&amp;kind=payments&amp;show_reconciled=true" in text
+    assert "/register?q=kroger&amp;kind=payments&amp;show_reconciled=true" in text
     assert "Opening balance" not in text
     assert "Everything else" not in text
 
@@ -354,12 +355,12 @@ def test_spending_needs_setup(client):
 
 
 def test_register_menu_links_to_spending(ready):
-    assert 'href="/spending"' in ready.get("/").text
+    assert 'href="/spending"' in ready.get("/register").text
 
 
 # --- Mobile tab bar ---
 
-TABS = ['href="/"', "Search", 'href="/spending"', 'href="/reconcile"']
+TABS = ['href="/register"', "Search", 'href="/"', 'href="/reconcile"']
 
 
 def tabbar(text):
@@ -368,7 +369,7 @@ def tabbar(text):
 
 
 def test_register_tab_bar(ready):
-    text = ready.get("/").text
+    text = ready.get("/register").text
     bar = tabbar(text)
     assert all(t in bar for t in TABS)
     assert 'hx-get="/txn/new"' in bar and "data-new-txn" in bar
@@ -381,13 +382,20 @@ def test_register_tab_bar(ready):
 def test_spending_tab_bar(ready):
     bar = tabbar(ready.get("/spending").text)
     assert all(t in bar for t in TABS)
-    assert 'href="/#search"' in bar and 'href="/#new"' in bar
-    assert 'href="/spending" aria-current="page"' in bar
+    assert 'href="/register#search"' in bar and 'href="/register#new"' in bar
+    assert 'href="/spending"' not in bar  # Spending is in the menu and on the Overview
+    assert "aria-current" not in bar
+
+
+def test_overview_tab_bar(ready):
+    bar = tabbar(ready.get("/").text)
+    assert 'href="/" aria-current="page"' in bar
+    assert 'href="/register#new"' in bar
 
 
 def test_reconcile_tab_bar(ready):
     bar = tabbar(ready.get("/reconcile").text)
-    assert 'href="/#new"' in bar  # no reconcile in progress, so no form panel here
+    assert 'href="/register#new"' in bar  # no reconcile in progress, so no form panel here
     assert 'href="/reconcile" aria-current="page"' in bar
     ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "1000"})
     text = ready.get("/reconcile").text
@@ -398,7 +406,7 @@ def test_reconcile_tab_bar(ready):
 
 def test_tab_bar_order(ready):
     bar = tabbar(ready.get("/spending").text)
-    order = ['href="/reconcile"', 'href="/spending"', 'href="/#new"', 'href="/#search"', 'href="/"']
+    order = ['href="/reconcile"', 'href="/"', 'href="/register#new"', 'href="/register#search"', 'href="/register"']
     assert [bar.index(t) for t in order] == sorted(bar.index(t) for t in order)
 
 
@@ -411,7 +419,7 @@ def test_new_form_focuses_through_app_js_not_htmx(ready):
 # --- Masthead ---
 
 
-@pytest.mark.parametrize("path", ["/", "/reconcile", "/spending"])
+@pytest.mark.parametrize("path", ["/register", "/reconcile", "/spending"])
 def test_every_page_has_the_same_masthead(ready, path):
     text = ready.get(path).text
     assert '<h1 class="account">Adam&#39;s Checking</h1>' in text
@@ -419,7 +427,7 @@ def test_every_page_has_the_same_masthead(ready, path):
     assert 'aria-label="Menu"' in text
 
 
-@pytest.mark.parametrize("path", ["/", "/reconcile", "/spending", "/bills"])
+@pytest.mark.parametrize("path", ["/", "/register", "/reconcile", "/spending", "/bills"])
 def test_masthead_shows_today(ready, path, monkeypatch):
     class FakeDate(date):
         @classmethod
@@ -449,7 +457,7 @@ def _add_bill(client, payee="Water", amount="62.40", day="5"):
 
 
 def test_bills_is_in_the_menu_not_the_tab_bar(ready):
-    text = ready.get("/").text
+    text = ready.get("/register").text
     menu = text[text.index('class="menu-pop'):text.index("</header>")]
     assert 'href="/bills"' in menu
     assert 'href="/bills"' not in text[text.index('class="tabbar'):]
@@ -631,3 +639,87 @@ def test_deleting_a_bill_drops_its_marks(ready):
     ready.post(f"/bills/{bill}/mark", data={"seq": "1", "kind": "paid"}, headers=HX)
     ready.post(f"/bills/{bill}/delete", headers=HX)
     assert conn_of(ready).execute("SELECT COUNT(*) FROM bill_marks").fetchone()[0] == 0
+
+
+# --- Overview ---
+
+
+def test_overview_needs_setup(client):
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/setup"
+
+
+def test_setup_lands_on_the_overview(client):
+    r = client.post("/setup", data={"account_name": "", "opening": "10", "date": "2026-10-01"}, follow_redirects=False)
+    assert r.headers["location"] == "/"
+
+
+def test_old_register_links_redirect(ready):
+    r = ready.get("/?q=kroger&show_reconciled=true", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/register?q=kroger&show_reconciled=true"
+
+
+def test_manifest_opens_phones_on_the_register(ready):
+    assert ready.get("/manifest.webmanifest").json()["start_url"] == "/register"
+
+
+def test_overview_masthead_and_navigation(ready):
+    text = ready.get("/").text
+    assert '<h1 class="account">Adam&#39;s Checking</h1>' in text
+    assert 'id="totals"' not in text  # the tiles show them
+    assert 'href="/register#new" data-new-txn' in text  # desktop New transaction, and the n key
+    menu = text[text.index('class="menu-pop'):text.index("</header>")]
+    assert 'href="/register"' in menu and 'href="/"' in menu
+    # Every other page's desktop back arrow comes here.
+    for path in ("/register", "/reconcile", "/spending", "/bills"):
+        assert 'href="/" aria-label="Back to overview"' in ready.get(path).text
+
+
+def test_overview_free_after_bills(ready):
+    conn = conn_of(ready)
+    _add_bill(ready, "Water", "62.40", "28")
+    rent = _add_bill(ready, "Rent", "500.00", "1")
+    repo.add_bill_txn(conn, rent, date.today().strftime("%Y-%m"))
+    # Its amount varies, so it can't be counted.
+    ready.post("/bills", data={"payee": "Electric", "amount": "", "mode": "ask"}, headers=HX)
+    text = ready.get("/").text
+    # $1,000.00 opening - $500 rent = $500.00, less $62.40 water still to add.
+    assert "$437.60" in text
+    assert "Balance less <b>$62.40</b> in 1 bill still to add" in text
+    assert "<b>$500.00</b> added · 1 of 3 done" in text
+    assert "Electric&#39;s amount varies" in text
+
+
+def test_overview_tiles(ready):
+    repo.create_txn(conn_of(ready), repo.TxnInput(date.today().isoformat(), "Kroger", -2500))
+    text = ready.get("/").text
+    assert "1 item<" in text and "-$25.00" in text  # not yet cleared
+    assert "Not yet</span>" in text  # nothing reconciled
+    assert "Time to reconcile" in text
+    assert 'href="/register?q=Kroger&amp;kind=payments&amp;show_reconciled=true"' in text  # where the month went
+
+
+def test_overview_flags_old_checks(ready):
+    old = (date.today() - timedelta(days=45)).isoformat()
+    repo.create_txn(conn_of(ready), repo.TxnInput(old, "Lawn service", -25000, number="1043"))
+    text = ready.get("/").text
+    assert "Check 1043 hasn&#39;t cleared" in text
+    assert "Lawn service · $250.00 · written 45 days ago" in text
+
+
+def test_overview_chart_projects_bills(ready):
+    _add_bill(ready, "Water", "100.00", "20")
+    ctx = overview.overview_context(conn_of(ready), date(2026, 11, 13))
+    chart = ctx["chart"]
+    points = json.loads(chart["data"])
+    assert len(points) == 90 + 17  # 90 days of history, then Nov 14-30
+    assert points[89][2:] == ["Nov 13", "$1,000.00", 0]
+    assert points[95][2:] == ["Nov 19", "$1,000.00", 1]
+    assert points[96][2:] == ["Nov 20", "$900.00", 1]  # Water comes out
+    assert chart["end_label"] == "Nov 30 · $900.00"
+    assert [m["label"] for m in ctx["flow"]] == ["Jun", "Jul", "Aug", "Sep", "Oct", "Nov"]
+
+
+def test_overview_chart_on_the_last_day_of_the_month(ready):
+    chart = overview.overview_context(conn_of(ready), date(2026, 11, 30))["chart"]
+    assert chart["proj"] is None and chart["end"] is None

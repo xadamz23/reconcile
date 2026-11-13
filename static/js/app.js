@@ -274,7 +274,48 @@
     keyboardOpen = open;
   });
 
-  // The tab bar on other pages links to /#search and /#new: act on them once the
+  // The Overview's balance chart: a crosshair and readout for the nearest day under the
+  // pointer, or stepped with the arrow keys. data-points holds [x%, y%, date, amount,
+  // projected] per day, as laid out by routes/overview.py.
+  document.querySelectorAll(".bal-chart").forEach((chart) => {
+    const points = JSON.parse(chart.dataset.points);
+    const plot = chart.querySelector(".bal-plot");
+    const cross = chart.querySelector(".bal-cross");
+    const dot = chart.querySelector(".bal-hover");
+    const tip = chart.querySelector(".bal-tip");
+    let current = points.findLastIndex((p) => !p[4]); // today
+    function show(i) {
+      current = Math.max(0, Math.min(points.length - 1, i));
+      const [x, y, day, amount, projected] = points[current];
+      chart.classList.add("is-reading");
+      cross.style.left = dot.style.left = `${x}%`;
+      dot.style.top = `${y}%`;
+      dot.classList.toggle("is-proj", Boolean(projected));
+      // Keep the readout inside the plot near either edge.
+      const width = plot.clientWidth;
+      const px = Math.min(Math.max((x / 100) * width, 64), width - 64);
+      tip.style.left = `${px}px`;
+      tip.style.top = `${y}%`;
+      tip.querySelector("b").textContent = amount;
+      tip.querySelector("span").textContent = projected ? `${day} · after bills` : day;
+    }
+    const hide = () => chart.classList.remove("is-reading");
+    plot.addEventListener("pointermove", (e) => {
+      const r = plot.getBoundingClientRect();
+      show(Math.round(((e.clientX - r.left) / r.width) * (points.length - 1)));
+    });
+    plot.addEventListener("pointerleave", () => { if (document.activeElement !== chart) hide(); });
+    chart.addEventListener("focus", () => show(current));
+    chart.addEventListener("blur", hide);
+    chart.addEventListener("keydown", (e) => {
+      const step = { ArrowLeft: -1, ArrowRight: 1, Home: -points.length, End: points.length }[e.key];
+      if (step === undefined) return;
+      e.preventDefault();
+      show(current + step);
+    });
+  });
+
+  // The tab bar on other pages links to /register#search and /register#new: act on them once the
   // register has loaded, then drop the hash so a reload doesn't do it again.
   window.addEventListener("load", () => {
     const hash = location.hash;

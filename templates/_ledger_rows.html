@@ -11,6 +11,6 @@
   {% include "_row.html" %}
 {% endfor %}
 {% if next_cursor %}
-<div class="ledger-more" hx-get="/" hx-vals='{"before": "{{ next_cursor }}"}' hx-include="#filters"
+<div class="ledger-more" hx-get="/register" hx-vals='{"before": "{{ next_cursor }}"}' hx-include="#filters"
      hx-trigger="revealed" hx-target="this" hx-swap="outerHTML">Loading more…</div>
 {% endif %}

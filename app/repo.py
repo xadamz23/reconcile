@@ -309,6 +309,76 @@ def spending_by_payee(conn: sqlite3.Connection, start: str, end: str) -> list[sq
     ).fetchall()
 
 
+
+# --- Overview ---
+
+
+def balance_on(conn: sqlite3.Connection, day: str) -> int:
+    """Balance at the end of day, in cents."""
+    Date.fromisoformat(day)
+    return conn.execute("SELECT COALESCE(SUM(amount_cents), 0) FROM transactions WHERE date <= ?", (day,)).fetchone()[0]
+
+
+def daily_balances(conn: sqlite3.Connection, start: str, end: str) -> list[tuple[str, int]]:
+    """End-of-day balance for every day start..end (inclusive), days without activity included."""
+    first, last = Date.fromisoformat(start), Date.fromisoformat(end)
+    moves = dict(conn.execute(
+        "SELECT date, SUM(amount_cents) FROM transactions WHERE date BETWEEN ? AND ? GROUP BY date",
+        (start, end),
+    ).fetchall())
+    running = conn.execute(
+        "SELECT COALESCE(SUM(amount_cents), 0) FROM transactions WHERE date < ?", (start,)
+    ).fetchone()[0]
+    days = []
+    for n in range((last - first).days + 1):
+        day = Date.fromordinal(first.toordinal() + n).isoformat()
+        running += moves.get(day, 0)
+        days.append((day, running))
+    return days
+
+
+def monthly_flow(conn: sqlite3.Connection, start: str, end: str) -> list[sqlite3.Row]:
+    """Deposits (in_cents) and payments (out_cents, positive) per month (YYYY-MM) dated
+    start..end, oldest first. Months with nothing are left out; so is the opening balance."""
+    Date.fromisoformat(start)
+    Date.fromisoformat(end)
+    return conn.execute(
+        """
+        SELECT substr(date, 1, 7) AS month,
+               COALESCE(SUM(CASE WHEN amount_cents > 0 THEN amount_cents END), 0) AS in_cents,
+               COALESCE(-SUM(CASE WHEN amount_cents < 0 THEN amount_cents END), 0) AS out_cents
+          FROM transactions
+         WHERE is_opening = 0 AND date BETWEEN ? AND ?
+         GROUP BY month
+         ORDER BY month
+        """,
+        (start, end),
+    ).fetchall()
+
+
+def uncleared_summary(conn: sqlite3.Connection) -> sqlite3.Row:
+    """Everything not yet reconciled: how many (n), their total (net_cents) and the oldest date."""
+    return conn.execute(
+        """
+        SELECT COUNT(*) AS n, COALESCE(SUM(amount_cents), 0) AS net_cents, MIN(date) AS oldest
+          FROM transactions WHERE status != 'reconciled'
+        """
+    ).fetchone()
+
+
+def old_uncleared_checks(conn: sqlite3.Connection, before: str, limit: int = 3) -> list[sqlite3.Row]:
+    """Numbered payments dated before `before` that no reconcile has ticked, oldest first."""
+    Date.fromisoformat(before)
+    return conn.execute(
+        """
+        SELECT * FROM transactions
+         WHERE status = 'unverified' AND amount_cents < 0 AND number IS NOT NULL AND date < ?
+         ORDER BY date, id LIMIT ?
+        """,
+        (before, limit),
+    ).fetchall()
+
+
 # --- Statement reconciliation ---
 
 

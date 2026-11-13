@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}{{ account_name }}{% endblock %}
+{% block body_class %}page-overview{% endblock %}
+{% block body %}
+<div class="shell">
+  <main class="overview">
+    {% with new_href = "/register#new", no_totals = true %}{% include "_masthead.html" %}{% endwith %}
+
+    <div class="ov-grid">
+      {# --- Tiles --- #}
+      <a class="ov-tile glass ov-span-3" href="/register">
+        <span class="ov-tile-label">{{ icon('ledger') }}Balance</span>
+        <span class="ov-tile-value is-final{{ ' neg' if balance < 0 }}">{{ balance | money }}</span>
+        <span class="ov-tile-note">
+          <b class="{{ 'dep' if month_change >= 0 else 'pay' }}">{{ '+' if month_change >= 0 }}{{ month_change | money }}</b> since {{ month_start }}
+        </span>
+      </a>
+      <a class="ov-tile glass ov-span-3 is-hero" href="/bills">
+        <span class="ov-tile-label">{{ icon('wallet') }}Free after bills</span>
+        <span class="ov-tile-value{{ ' neg' if free_cents < 0 }}">{{ free_cents | money }}</span>
+        <span class="ov-tile-note">
+          {% if left_cents %}Balance less <b>{{ left_cents | money }}</b> in {{ left_count }} bill{{ 's' if left_count != 1 }} still to add this month
+          {% else %}No bills left to add this month{% endif %}
+        </span>
+      </a>
+      <a class="ov-tile glass ov-span-3" href="/register">
+        <span class="ov-tile-label">{{ icon('clock') }}Not yet cleared</span>
+        {% if uncleared.n %}
+        <span class="ov-tile-value">{{ uncleared.n }} item{{ 's' if uncleared.n != 1 }}</span>
+        <span class="ov-tile-note">Net <b class="{{ 'dep' if uncleared.net_cents >= 0 else 'pay' }}">{{ '+' if uncleared.net_cents >= 0 }}{{ uncleared.net_cents | money }}</b> · oldest {{ oldest_label }}</span>
+        {% else %}
+        <span class="ov-tile-value">None</span>
+        <span class="ov-tile-note">Everything is reconciled</span>
+        {% endif %}
+      </a>
+      <a class="ov-tile glass ov-span-3" href="/reconcile">
+        <span class="ov-tile-label">{{ icon('lock') }}Reconciled through</span>
+        {% if stmt %}
+        <span class="ov-tile-value">{{ stmt_label }}</span>
+        <span class="ov-tile-note"><b>{{ stmt.ending_balance_cents | money }}</b> · {{ 'today' if stmt_days == 0 else '%d day%s ago' % (stmt_days, '' if stmt_days == 1 else 's') }}</span>
+        {% else %}
+        <span class="ov-tile-value">Not yet</span>
+        <span class="ov-tile-note">Reconcile your first statement</span>
+        {% endif %}
+      </a>
+
+      {# --- Balance over time --- #}
+      <section class="ov-card glass ov-span-8 ov-chart-card" aria-labelledby="ov-bal">
+        <div class="ov-head">
+          <div>
+            <h2 id="ov-bal">Balance, last 90 days</h2>
+            {% if chart.proj %}<p class="ov-sub">Dashed: where it lands once this month's remaining bills are added</p>{% endif %}
+          </div>
+          {% if chart.proj %}
+          <div class="ov-legend" aria-hidden="true"><span><i></i>Balance</span><span><i class="is-dashed"></i>After bills</span></div>
+          {% endif %}
+        </div>
+        <div class="bal-chart" data-points="{{ chart.data }}" tabindex="0"
+             aria-label="Balance chart. Arrow keys read each day.">
+          <div class="bal-grid" aria-hidden="true">
+            {% for g in chart.grid %}<span style="top: {{ g.y }}%"><em>{{ g.label }}</em></span>{% endfor %}
+          </div>
+          <div class="bal-plot">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="bal-fill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stop-color="var(--accent-text)" stop-opacity="0.28"/>
+                  <stop offset="1" stop-color="var(--accent-text)" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <path class="bal-area" d="{{ chart.area }}"/>
+              <path class="bal-line" d="{{ chart.line }}"/>
+              {% if chart.proj %}<path class="bal-proj" d="{{ chart.proj }}"/>{% endif %}
+            </svg>
+            {% if chart.rec %}
+            <span class="bal-rec" style="left: {{ chart.rec.x }}%" aria-hidden="true"><em>{{ chart.rec.label }}</em></span>
+            {% endif %}
+            <span class="bal-dot" style="left: {{ chart.now.x }}%; top: {{ chart.now.y }}%" aria-hidden="true"></span>
+            {% if chart.end %}
+            <span class="bal-dot is-proj" style="left: {{ chart.end.x }}%; top: {{ chart.end.y }}%" aria-hidden="true"></span>
+            <span class="bal-end{{ ' is-low' if chart.end.y > 70 }}" style="top: {{ chart.end.y }}%">{{ chart.end_label }}</span>
+            {% endif %}
+            <span class="bal-cross" aria-hidden="true"></span>
+            <span class="bal-hover" aria-hidden="true"></span>
+            <div class="bal-tip glass-strong is-popover" role="status"><b></b><span></span></div>
+            <div class="bal-months" aria-hidden="true">
+              {% for m in chart.months %}<span style="left: {{ m.x }}%">{{ m.label }}</span>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {# --- This month's bills --- #}
+      <section class="ov-card glass ov-span-4" aria-labelledby="ov-bills">
+        <div class="ov-head"><h2 id="ov-bills">{{ month_name }} bills</h2><a href="/bills">Open Bills</a></div>
+        {% if bill_count %}
+        <div class="ov-bullet" role="img" aria-label="{{ added_cents | money }} added, {{ left_cents | money }} left to add">
+          <span style="--w: {{ bill_pct }}"></span>
+        </div>
+        <p class="ov-bullet-legend"><span><b>{{ added_cents | money }}</b> added · {{ done_count }} of {{ bill_count }} done</span><span><b>{{ left_cents | money }}</b> left</span></p>
+        {% if upcoming %}
+        <ul class="ov-due">
+          {% for b in upcoming %}
+          <li class="{{ 'is-soon' if b.soon }}">
+            <span class="ov-due-day">{% if b.day_num %}<small>{{ b.weekday | upper }}</small><strong>{{ b.day_num }}</strong>{% else %}<small>ASK</small>{% endif %}</span>
+            <span class="ov-due-name">{{ b.payee }}{% if b.seq_label %} <span class="ov-faint">({{ b.seq_label }})</span>{% endif %}
+              <span class="ov-sub">{{ 'other account · ' if b.elsewhere }}{{ b.when }}</span></span>
+            <span class="ov-due-amt num{{ ' is-varies' if b.cents is none }}">{{ b.cents | money if b.cents is not none else 'Varies' }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="ov-empty">All done for {{ month_name }}.</p>
+        {% endif %}
+        {% else %}
+        <p class="ov-empty">No bills yet. <a href="/bills">Add your monthly bills</a> to see what's still to come out.</p>
+        {% endif %}
+      </section>
+
+      {# --- Money in and out by month --- #}
+      <section class="ov-card glass ov-span-5" aria-labelledby="ov-flow">
+        <div class="ov-head">
+          <div><h2 id="ov-flow">In and out, by month</h2><p class="ov-sub">Deposits above the line, payments below. This month so far is hatched.</p></div>
+        </div>
+        {# Red and green alone don't separate for red-green colour blindness: position and the +/− labels carry it. #}
+        <div class="flow">
+          {% for m in flow %}
+          <div class="flow-col{{ ' is-partial' if m.partial }}">
+            <span class="visually-hidden">{{ m.name }}: in {{ m.in_cents | money }}, out {{ m.out_cents | money }}</span>
+            <span class="flow-half is-in" aria-hidden="true"><em>{{ m.in_k }}</em><span class="flow-bar" style="--h: {{ m.in_h }}"></span></span>
+            <span class="flow-mo" aria-hidden="true">{{ m.label | upper }}</span>
+            <span class="flow-half is-out" aria-hidden="true"><span class="flow-bar" style="--h: {{ m.out_h }}"></span><em>{{ m.out_k }}</em></span>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="flow-net" aria-hidden="true">
+          {% for m in flow %}<span class="{{ 'dep' if m.net_cents >= 0 else 'pay' }}"><small>NET</small>{{ m.net_k }}</span>{% endfor %}
+        </div>
+      </section>
+
+      {# --- Where this month went --- #}
+      <section class="ov-card glass ov-span-4" aria-labelledby="ov-spend">
+        <div class="ov-head"><h2 id="ov-spend">Where {{ month_name }} went</h2><a href="/spending">Spending</a></div>
+        {% if spend_top %}
+        <ul class="ov-spend">
+          {% for s in spend_top %}
+          <li><a href="{{ s.href }}"><span class="ov-spend-name">{{ s.payee }}</span><span class="num">{{ s.total_cents | money }}</span>
+            <span class="spend-bar" aria-hidden="true"><span style="--w: {{ s.bar }}"></span></span></a></li>
+          {% endfor %}
+          {% if spend_rest %}
+          <li class="is-rest"><a href="/spending"><span class="ov-spend-name">{{ spend_rest.count }} other payee{{ 's' if spend_rest.count != 1 }}</span><span class="num">{{ spend_rest.total_cents | money }}</span>
+            <span class="spend-bar" aria-hidden="true"><span style="--w: {{ spend_rest.bar }}"></span></span></a></li>
+          {% endif %}
+        </ul>
+        {% else %}
+        <p class="ov-empty">No payments yet this month.</p>
+        {% endif %}
+      </section>
+
+      {# --- Worth a look --- #}
+      <section class="ov-card glass ov-span-3" aria-labelledby="ov-attn">
+        <div class="ov-head"><h2 id="ov-attn">Worth a look</h2></div>
+        {% if attention %}
+        <ul class="ov-attn">
+          {% for a in attention %}
+          <li>
+            <span class="ov-attn-badge{{ ' is-warn' if a.warn }}">{{ icon(a.icon) }}</span>
+            <div>
+              <p>{{ a.title }}</p>
+              <p class="ov-sub">{{ a.sub }}</p>
+              {% if a.href %}<a href="{{ a.href }}">{{ a.link }}</a>{% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="ov-empty">Nothing needs you right now.</p>
+        {% endif %}
+      </section>
+    </div>
+  </main>
+
+  {% with active = "overview" %}{% include "_tabbar.html" %}{% endwith %}
+</div>
+{% endblock %}

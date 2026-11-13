@@ -27,7 +27,7 @@ def manifest(request: Request):
         "name": "Reconcile",
         "short_name": "Reconcile",
         "description": "Check register for reconciling a checking account",
-        "start_url": "/",
+        "start_url": "/register",  # phones open on the register; desktops land on the Overview
         "scope": "/",
         "display": "standalone",
         "background_color": "#070814",

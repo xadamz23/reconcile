@@ -53,7 +53,7 @@ def register_context(
     }
 
 
-@router.get("/")
+@router.get("/register")
 def register(
     request: Request,
     kind: str = "all",

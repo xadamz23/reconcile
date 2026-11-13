@@ -54,7 +54,7 @@ def spending_context(conn: sqlite3.Connection, period: str, today: date) -> dict
 
     items = [
         item(r["payee"], r["total_cents"], r["n"],
-             "/?" + urlencode({"q": r["payee"], "kind": "payments", "show_reconciled": "true"}))
+             "/register?" + urlencode({"q": r["payee"], "kind": "payments", "show_reconciled": "true"}))
         for r in rows
     ]
     top, rest = (items[:TOP], items[TOP:]) if len(items) > TOP + 1 else (items, [])
