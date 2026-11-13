@@ -27,6 +27,10 @@ def manifest(request: Request):
         "name": "Reconcile",
         "short_name": "Reconcile",
         "description": "Check register for reconciling a checking account",
+        # The app's identity. Without one it's the start_url, and the installed app was
+        # added when that was "/": keeping "/" lets Chrome treat the new start_url as an
+        # update rather than a different app. Never change it.
+        "id": "/",
         "start_url": "/register",  # phones open on the register; desktops land on the Overview
         "scope": "/",
         "display": "standalone",

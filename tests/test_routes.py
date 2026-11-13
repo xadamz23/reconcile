@@ -660,7 +660,9 @@ def test_old_register_links_redirect(ready):
 
 
 def test_manifest_opens_phones_on_the_register(ready):
-    assert ready.get("/manifest.webmanifest").json()["start_url"] == "/register"
+    m = ready.get("/manifest.webmanifest").json()
+    assert m["start_url"] == "/register"
+    assert m["id"] == "/"  # the identity the app was installed with, when start_url was "/"
 
 
 def test_overview_masthead_and_navigation(ready):
