@@ -6,8 +6,9 @@
 {{ sprite(['lock']) }}
 <div class="shell" x-data="filterBar({{ 'true' if filtering else 'false' }})" @filters-escape.window="cancel()"
      @filters-open.window="open()">
+  {% with active = "register", new_url = "/txn/new" %}{% include "_sidebar.html" %}{% endwith %}
   <main class="register">
-    {% with new_url = "/txn/new", close_search = true, back = true %}{% include "_masthead.html" %}{% endwith %}
+    {% with page_title = "Register", close_search = true %}{% include "_masthead.html" %}{% endwith %}
 
     <form id="filters" class="filters glass" :class="searching && 'is-open'" role="search" x-ref="filters"
           @input="sync()" @change="sync()"

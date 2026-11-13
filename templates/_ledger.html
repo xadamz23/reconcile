@@ -1,5 +1,5 @@
 {% if oob_totals %}
-  {% with oob = true %}{% include "_totals.html" %}{% endwith %}
+  {% include "_totals_oob.html" %}
 {% endif %}
 {% if filter_error %}
   <p class="ledger-note ledger-error" role="alert">{{ filter_error }}</p>

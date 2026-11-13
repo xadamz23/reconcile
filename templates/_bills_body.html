@@ -8,7 +8,7 @@
    (and a tick) per payment. Nothing is ever added without a tap. #}
 {% from "_icons.html" import icon %}
 {% if oob_totals %}
-  {% with oob = true %}{% include "_totals.html" %}{% endwith %}
+  {% include "_totals_oob.html" %}
   <div id="toast" role="status" hx-swap-oob="true">
     {% if toast %}
     <div class="toast glass-strong is-popover" x-data x-init="setTimeout(() => $el.remove(), 6000)">

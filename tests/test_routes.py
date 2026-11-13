@@ -672,9 +672,6 @@ def test_overview_masthead_and_navigation(ready):
     assert 'href="/register#new" data-new-txn' in text  # desktop New transaction, and the n key
     menu = text[text.index('class="menu-pop'):text.index("</header>")]
     assert 'href="/register"' in menu and 'href="/"' in menu
-    # Every other page's desktop back arrow comes here.
-    for path in ("/register", "/reconcile", "/spending", "/bills"):
-        assert 'href="/" aria-label="Back to overview"' in ready.get(path).text
 
 
 def test_overview_free_after_bills(ready):
@@ -725,3 +722,46 @@ def test_overview_chart_projects_bills(ready):
 def test_overview_chart_on_the_last_day_of_the_month(ready):
     chart = overview.overview_context(conn_of(ready), date(2026, 11, 30))["chart"]
     assert chart["proj"] is None and chart["end"] is None
+
+
+# --- Desktop sidebar ---
+
+
+def sidebar(text):
+    start = text.index('class="sidebar')
+    return text[start:text.index("</nav>", start)]
+
+
+@pytest.mark.parametrize("path, current", [
+    ("/", "/"), ("/register", "/register"), ("/reconcile", "/reconcile"), ("/spending", "/spending"), ("/bills", "/bills"),
+])
+def test_every_page_has_the_sidebar(ready, path, current):
+    text = ready.get(path).text
+    side = sidebar(text)
+    for href in ("/", "/register", "/reconcile", "/spending", "/bills", "/export.csv"):
+        assert f'href="{href}"' in side
+    assert side.count('aria-current="page"') == 1
+    assert f'href="{current}" aria-current="page"' in side
+    assert 'id="side-totals"' in side and "$1,000.00" in side
+    assert '<h1 class="page-title">' in text
+    assert "Back to" not in text  # the sidebar replaces the old desktop back arrows
+    # New transaction (and the n key) is the sidebar's, so it comes before any other.
+    assert text.index("data-new-txn") > text.index('class="sidebar')
+    assert text.index("data-new-txn") < text.index("</nav>", text.index('class="sidebar'))
+
+
+def test_sidebar_new_transaction_opens_the_panel_where_there_is_one(ready):
+    assert 'hx-get="/txn/new" hx-target="#panel-body" data-new-txn' in sidebar(ready.get("/register").text)
+    assert 'href="/register#new" data-new-txn' in sidebar(ready.get("/spending").text)
+
+
+def test_sidebar_shows_a_reconcile_in_progress(ready):
+    assert "In progress" not in sidebar(ready.get("/").text)
+    ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "1000"})
+    assert "In progress" in sidebar(ready.get("/").text)
+
+
+def test_refreshes_update_both_totals(ready):
+    r = ready.get("/register", headers={**HX, "HX-Target": "ledger"})
+    assert 'id="totals" class="totals" hx-swap-oob="true"' in r.text
+    assert 'id="side-totals" class="totals side-totals" hx-swap-oob="true"' in r.text

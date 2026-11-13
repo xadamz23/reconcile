@@ -1,0 +1,5 @@
+{# Both copies of the totals, swapped out of band after a save. #}
+{% with oob = true %}
+{% include "_totals.html" %}
+{% with totals_id = "side-totals" %}{% include "_totals.html" %}{% endwith %}
+{% endwith %}

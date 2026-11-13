@@ -5,8 +5,9 @@
 {% block body %}
 {% set new_url = "/txn/new?" ~ {"date": state.end_date, "verified": 1} | urlencode if state else None %}
 <div class="shell">
+  {% with active = "reconcile" %}{% include "_sidebar.html" %}{% endwith %}
   <main class="reconcile">
-    {% with back = true %}{% include "_masthead.html" %}{% endwith %}
+    {% with page_title = "Reconcile" %}{% include "_masthead.html" %}{% endwith %}
 
     {% if done %}
     <p class="banner banner-ok" role="status">{{ icon('check') }}Statement reconciled. Its items are now locked and hidden from the register.</p>

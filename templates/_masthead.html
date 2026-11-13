@@ -1,24 +1,17 @@
-{# The header on every page. Expects masthead_context() from routes/deps.py and optionally
-   new_url (New transaction loads the form panel from it), new_href (New transaction is a
-   link instead, on pages without a panel), back (a desktop back arrow to the Overview),
-   close_search (the register's close-search button) and no_totals (the Overview, whose
-   tiles show them). #}
+{# The header on every page. On phones it carries the account, the menu and the totals.
+   On desktop the sidebar (_sidebar.html) has those, so this is a slim bar with the page
+   title and the page's own actions. Expects masthead_context() from routes/deps.py,
+   page_title, and optionally close_search (the register's close-search button) and
+   no_totals (the Overview, whose tiles show them). #}
 {% from "_icons.html" import icon %}
 <header class="masthead glass-strong">
   <div class="masthead-bar">
-    {% if back %}<a class="icon-btn only-desktop" href="/" aria-label="Back to overview">{{ icon('back') }}</a>{% endif %}
     <div class="account-wrap">
       <h1 class="account">{{ account_name }}</h1>
       <time class="today" datetime="{{ today }}">{{ today | day_date }}</time>
     </div>
+    <h1 class="page-title">{{ page_title }}</h1>
     <div class="masthead-actions">
-      {% if new_url %}
-      <button class="btn accent btn-new only-desktop" type="button" hx-get="{{ new_url }}" hx-target="#panel-body"
-              data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</button>
-      {% elif new_href %}
-      <a class="btn accent btn-new only-desktop" href="{{ new_href }}" data-new-txn
-         title="New transaction (n)">{{ icon('plus') }}New transaction</a>
-      {% endif %}
       {% if close_search %}
       <button class="icon-btn only-desktop" type="button" @click="cancel()" x-show="searching" x-cloak
               aria-label="Close search and clear filters">{{ icon('close') }}</button>

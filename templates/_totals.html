@@ -1,4 +1,8 @@
-<dl id="totals" class="totals"{% if oob %} hx-swap-oob="true"{% endif %}>
+{# The balance and the last reconcile, under the accountant's double rule. Rendered twice on
+   every page: in the masthead (id "totals", phones) and the desktop sidebar ("side-totals").
+   Refreshes after a save swap both out of band (see _totals_oob.html). #}
+{% set totals_id = totals_id | default('totals') %}
+<dl id="{{ totals_id }}" class="totals{{ ' side-totals' if totals_id == 'side-totals' }}"{% if oob %} hx-swap-oob="true"{% endif %}>
   <div class="total total-balance">
     <dt>Balance</dt>
     <dd class="{{ 'neg' if balance < 0 }}">{{ balance | money }}</dd>

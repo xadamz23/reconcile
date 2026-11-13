@@ -269,6 +269,9 @@ button { cursor: pointer; }
 .total-last dd { font-size: 1.0625rem; font-weight: 600; color: var(--text-soft); }
 .total dd.neg { color: var(--pay); }
 
+/* Desktop-only: the sidebar and the masthead's page title (see the desktop block). */
+.sidebar, .page-title { display: none; }
+
 /* ---------- Menu ---------- */
 
 .menu { position: relative; }
@@ -934,7 +937,7 @@ button.mark:hover .icon { border-color: var(--dep); }
   .ov-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ov-grid > .ov-card { grid-column: 1 / -1; }
 }
-@container ledger (min-width: 64rem) {
+@container ledger (min-width: 56rem) {
   .ov-grid { grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 0.875rem; }
   .ov-grid > .ov-span-3 { grid-column: span 3; }
   .ov-grid > .ov-span-4 { grid-column: span 4; }
@@ -959,19 +962,69 @@ button.mark:hover .icon { border-color: var(--dep); }
 /* ---------- Desktop: a real columnar register, the form in a drawer ---------- */
 
 @media (min-width: 900px) {
-  :root { --gutter: 1.5rem; --row-h: 3.25rem; --card-inset: 0; }
+  :root { --gutter: 1.5rem; --row-h: 2.875rem; --card-inset: 0; --side-w: 16rem; }
 
-  .shell { max-width: 82rem; margin: 0 auto; }
+  /* Sidebar and page side by side. The sidebar lives outside main, so main's size
+     containment (below) doesn't capture its sticky positioning. */
+  .shell { display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); align-items: start; }
   /* Pages lay themselves out by their own width, not the window's.
      Containment makes main the containing block for anything position: fixed inside it. */
-  main { container: ledger / inline-size; padding-inline: 1.5rem; }
+  main { container: ledger / inline-size; width: 100%; max-width: 88rem; padding-inline: 1.75rem; }
 
   .only-mobile { display: none; }
-  /* Flush to the top: a gap above a sticky header would show rows scrolling through. */
-  .masthead { padding-top: 1rem; border-width: 0 1px 1px; }
+
+  /* The sidebar floats clear of the window edges with the tab bar's 24px corners, the
+     same glass panel turned on its side. */
+  .sidebar {
+    position: sticky; top: 0.75rem; z-index: 25;
+    display: flex; flex-direction: column; gap: 1.25rem;
+    height: calc(100dvh - 1.5rem); margin: 0.75rem 0 0.75rem 0.75rem;
+    padding: 1.375rem 0.75rem 0.875rem; border-radius: 24px; overflow-y: auto; scrollbar-width: none;
+  }
+  .side-account { padding-inline: 0.625rem; }
+  .side-name { font-size: 1.25rem; font-weight: 750; letter-spacing: -0.015em; line-height: 1.25; overflow-wrap: anywhere; }
+  .side-today { display: block; margin-top: 0.125rem; font-size: 0.875rem; color: var(--text-faint); }
+  .side-new { min-height: 2.75rem; padding: 0 1rem; font-size: 0.9375rem; }
+  .side-new .icon { width: 1.125rem; height: 1.125rem; stroke-width: 2.2; }
+  .side-links { display: grid; gap: 0.125rem; }
+  .side-link {
+    display: flex; align-items: center; gap: 0.75rem;
+    min-height: 2.75rem; padding: 0 0.75rem; border-radius: var(--radius-m);
+    color: var(--text-soft); font-weight: 600; text-decoration: none;
+    transition: background-color 150ms, color 150ms;
+  }
+  .side-link .icon { width: 1.25rem; height: 1.25rem; }
+  .side-link:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+  /* The current page: the tab bar's accent pill. */
+  .side-link[aria-current="page"] {
+    background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 6px 20px -6px rgba(var(--accent-glow), 0.6);
+  }
+  .side-note { margin-left: auto; font-size: 0.75rem; font-weight: 650; color: var(--warn); white-space: nowrap; }
+  .side-link[aria-current="page"] .side-note { color: #fff; }
+  .side-foot { display: grid; gap: 0.5rem; margin-top: auto; }
+  .side-export { min-height: 2.5rem; font-size: 0.9375rem; font-weight: 500; }
+  .side-export .icon { width: 1.125rem; height: 1.125rem; }
+  /* The account's totals sit at the foot, the balance under the accountant's double rule. */
+  .sidebar .totals {
+    grid-template-columns: 1fr; gap: 0.75rem;
+    margin: 0; padding: 0.875rem 0.625rem 0.25rem; border-top: 1px solid var(--line); border-bottom: 0;
+  }
+  .sidebar .total-balance dd { align-self: flex-start; font-size: 1.625rem; padding-bottom: 0.2rem; border-bottom: 4px double rgba(255, 255, 255, 0.28); }
+  .sidebar .total dt { font-size: 0.8125rem; }
+  .sidebar .total-last dd { font-size: 1rem; }
+
+  /* The masthead becomes the page's title row: the sidebar has the account, menu and totals. */
+  .masthead {
+    position: static; padding: 1.5rem 0 0.25rem;
+    background: none; border: 0; border-radius: 0; box-shadow: none; backdrop-filter: none;
+  }
+  .masthead .account-wrap, .masthead .menu, .masthead #totals { display: none; }
+  .masthead-bar { min-height: 2.75rem; }
+  .page-title { display: block; flex: 1; min-width: 0; font-size: 1.625rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1.2; }
+  .masthead-actions { margin-right: 0; }
+
   .card, .filters, .spend-periods, .banner, .ov-grid { margin-top: 0.75rem; }
-  .btn-new { min-height: 2.5rem; padding: 0 1rem 0 0.75rem; margin-right: 0.5rem; font-size: 0.9375rem; }
-  .btn-new .icon { width: 1.125rem; height: 1.125rem; stroke-width: 2.2; }
   .totals { grid-template-columns: auto auto 1fr; gap: 2.5rem; align-items: baseline; }
   .total { flex-direction: column; align-items: flex-start; gap: 0; }
   .total dt { font-size: 0.875rem; }
@@ -982,9 +1035,10 @@ button.mark:hover .icon { border-color: var(--dep); }
   .tabbar { display: none; }
   .toast { bottom: calc(1.5rem + var(--safe-b)); }
   .register, .spending, .reconcile, .bills, .overview { padding-bottom: calc(2rem + var(--safe-b)); }
-  .rec-summary { top: 10rem; }
-  /* The masthead spans the page, as on the register; the content stays a readable width. */
-  .reconcile > :not(.masthead), .spending > :not(.masthead), .bills > :not(.masthead) { max-width: 49rem; margin-inline: auto; }
+  .rec-summary { top: 0.75rem; }
+  /* Narrower pages keep a readable width, lined up under their title. */
+  .reconcile, .spending, .bills { max-width: 58rem; }
+  .bills-head { padding-inline: 0; }
 
   /* The form slides in from the right over a scrim, only while it's in use. */
   .panel {

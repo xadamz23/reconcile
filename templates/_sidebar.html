@@ -1,0 +1,35 @@
+{# The desktop sidebar: the account, New transaction, every page, and the totals at the
+   foot. Hidden on phones, which have the masthead and tab bar instead. Expects
+   masthead_context(), active (the current page) and, on pages with a form panel, new_url. #}
+{% from "_icons.html" import icon %}
+{% macro item(name, href, label, icon_name, note=None) -%}
+<a class="side-link" href="{{ href }}"{% if active == name %} aria-current="page"{% endif %}>
+  {{- icon(icon_name) }}<span>{{ label }}</span>{% if note %}<span class="side-note">{{ note }}</span>{% endif -%}
+</a>
+{%- endmacro %}
+<nav class="sidebar glass-strong" aria-label="Main">
+  <div class="side-account">
+    <p class="side-name">{{ account_name }}</p>
+    <time class="side-today" datetime="{{ today }}">{{ today | day_date }}</time>
+  </div>
+
+  {% if new_url %}
+  <button class="btn accent side-new" type="button" hx-get="{{ new_url }}" hx-target="#panel-body" data-new-txn
+          title="New transaction (n)">{{ icon('plus') }}New transaction</button>
+  {% else %}
+  <a class="btn accent side-new" href="/register#new" data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</a>
+  {% endif %}
+
+  <div class="side-links">
+    {{ item("overview", "/", "Overview", "overview") }}
+    {{ item("register", "/register", "Register", "ledger") }}
+    {{ item("reconcile", "/reconcile", "Reconcile", "scale", "In progress" if reconciling) }}
+    {{ item("spending", "/spending", "Spending", "chart") }}
+    {{ item("bills", "/bills", "Bills", "repeat") }}
+  </div>
+
+  <div class="side-foot">
+    <a class="side-link side-export" href="/export.csv" download>{{ icon('download') }}<span>Export CSV</span></a>
+    {% with totals_id = "side-totals" %}{% include "_totals.html" %}{% endwith %}
+  </div>
+</nav>

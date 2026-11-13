@@ -4,8 +4,9 @@
 {% block body_class %}page-overview{% endblock %}
 {% block body %}
 <div class="shell">
+  {% with active = "overview" %}{% include "_sidebar.html" %}{% endwith %}
   <main class="overview">
-    {% with new_href = "/register#new", no_totals = true %}{% include "_masthead.html" %}{% endwith %}
+    {% with page_title = "Overview", no_totals = true %}{% include "_masthead.html" %}{% endwith %}
 
     <div class="ov-grid">
       {# --- Tiles --- #}

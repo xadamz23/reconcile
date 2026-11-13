@@ -4,8 +4,9 @@
 {% block body_class %}page-spending{% endblock %}
 {% block body %}
 <div class="shell">
+  {% with active = "spending" %}{% include "_sidebar.html" %}{% endwith %}
   <main class="spending">
-    {% with back = true %}{% include "_masthead.html" %}{% endwith %}
+    {% with page_title = "Spending" %}{% include "_masthead.html" %}{% endwith %}
 
     <form class="spend-periods" action="/spending"
           hx-get="/spending" hx-target="#spending-body" hx-push-url="true" hx-trigger="change">

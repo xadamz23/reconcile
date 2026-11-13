@@ -3,8 +3,9 @@
 {% block body_class %}page-bills{% endblock %}
 {% block body %}
 <div class="shell">
+  {% with active = "bills" %}{% include "_sidebar.html" %}{% endwith %}
   <main class="bills">
-    {% with back = true %}{% include "_masthead.html" %}{% endwith %}
+    {% with page_title = "Bills" %}{% include "_masthead.html" %}{% endwith %}
 
     <div id="bills-body" hx-get="/bills" hx-trigger="ledger-changed from:body" hx-target="this">
       {% include "_bills_body.html" %}
