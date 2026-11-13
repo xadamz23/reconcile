@@ -745,7 +745,8 @@ button.mark:hover .icon { border-color: var(--dep); }
 .bill.is-just-added .mark .icon { animation: stamp 220ms ease-out; }
 .bill-form .field-big input { color: var(--pay); }
 .field-help { font-size: 0.875rem; color: var(--text-faint); }
-.bill-seq { font-weight: 500; color: var(--text-faint); }
+/* A twice-a-month bill's "1st of 2" sits on its own line under the payee. */
+.bill-seq { display: block; font-size: 0.875rem; font-weight: 500; color: var(--text-faint); }
 .bill.is-added .bill-seq { color: inherit; }
 /* Two-option segmented controls in the bill form. Long labels wrap and both options grow together. */
 .seg.seg-2 { grid-template-columns: 1fr 1fr; }

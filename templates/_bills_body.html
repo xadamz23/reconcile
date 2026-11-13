@@ -34,7 +34,7 @@
             aria-pressed="false" aria-label="Add {{ name }} to the register">{{ icon('check') }}</button>
     {% endif %}
     <button class="bill-open" type="button" hx-get="/bills/{{ b.id }}/edit" hx-target="#panel-body" aria-label="Edit {{ b.payee }}">
-      <span class="bill-payee">{{ b.payee }}{% if b.seq_label %}<span class="bill-seq"> · {{ b.seq_label }}</span>{% endif %}</span>
+      <span class="bill-payee">{{ b.payee }}{% if b.seq_label %}<span class="bill-seq">{{ b.seq_label }}</span>{% endif %}</span>
       <span class="bill-amt num">{% if b.cents %}−{{ b.cents | money(signed=false) }}{% else %}Varies{% endif %}</span>
       <span class="bill-meta">
         {{ b.schedule }}{% if b.state == 'added' and b.number %} · Check {{ b.number }}{% endif %}
