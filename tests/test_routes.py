@@ -354,8 +354,10 @@ def test_spending_needs_setup(client):
     assert r.status_code == 303 and r.headers["location"] == "/setup"
 
 
-def test_register_menu_links_to_spending(ready):
-    assert 'href="/spending"' in ready.get("/register").text
+def test_spending_and_bills_are_not_in_the_menu(ready):
+    text = ready.get("/register").text
+    menu = text[text.index('class="menu-pop'):text.index("</header>")]
+    assert 'href="/spending"' not in menu and 'href="/bills"' not in menu
 
 
 # --- Mobile tab bar ---
