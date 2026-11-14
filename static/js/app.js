@@ -341,9 +341,11 @@
     const note = document.createElement("div");
     note.className = "toast offline-note glass-strong is-popover";
     note.setAttribute("role", "status");
-    note.innerHTML = '<span></span><button type="button">Retry</button>';
-    const text = note.firstChild;
-    const say = () => { text.textContent = `${down ? "Can't reach the server" : "Offline"} · saved ${when(savedAt)}`; };
+    // Two lines (what's wrong, then when the copy is from), so Retry fits on a phone.
+    note.innerHTML = '<span><b></b><small></small></span><button type="button">Retry</button>';
+    const text = note.querySelector("b");
+    note.querySelector("small").textContent = `Saved ${when(savedAt)}`;
+    const say = () => { text.textContent = down ? "Can't reach the server" : "Offline"; };
     say();
     note.lastChild.addEventListener("click", () => location.reload());
     document.body.append(note); // outside main (see .toast)

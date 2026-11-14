@@ -603,7 +603,9 @@ button.mark:hover .icon { border-color: var(--dep); }
 .offline-snap[hidden] { display: none; }
 .offline-when { font-size: 0.875rem; color: var(--text-faint); }
 .offline-snap .totals { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 4px double rgba(255, 255, 255, 0.3); }
-.offline-note span { white-space: nowrap; }
+.offline-note span { display: grid; min-width: 0; line-height: 1.3; }
+.offline-note b { font-weight: 600; }
+.offline-note small { font-size: 0.8125rem; color: var(--text-soft); }
 
 /* ---------- Reconcile ---------- */
 
