@@ -14,13 +14,14 @@
     <h1 class="page-title">{{ page_title }}</h1>
     <div class="masthead-actions">
       {% if close_search %}
-      <button class="icon-btn only-desktop" type="button" @click="cancel()" x-show="searching" x-cloak
-              aria-label="Close search and clear filters">{{ icon('close') }}</button>
+      {# While searching, an X takes the search icon's place, on phones and desktop alike. #}
+      <button class="icon-btn" type="button" @click="cancel()" x-show="searching" x-cloak
+              aria-label="Close search and clear filters" title="Close search (Esc)">{{ icon('close') }}</button>
       {% endif %}
       {# Phones only (desktop has the always-on search line). On the register it opens the
          shell's filterBar; elsewhere app.js acts on the #search hash once the register loads. #}
       {% if close_search %}
-      <button class="icon-btn only-mobile" type="button" @click="open()" :aria-pressed="searching"
+      <button class="icon-btn only-mobile" type="button" @click="open()" x-show="!searching"
               aria-label="Search" title="Search (/)">{{ icon('search') }}</button>
       {% else %}
       <a class="icon-btn only-mobile" href="/register#search" aria-label="Search">{{ icon('search') }}</a>
