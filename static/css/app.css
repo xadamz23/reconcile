@@ -1042,6 +1042,10 @@ button.mark:hover .icon { border-color: var(--dep); }
   body:has(input:not([type="radio"], [type="checkbox"], [type="date"]):focus, textarea:focus) .tabbar { display: none; }
   .rec-actions { width: 100%; }
   .rec-actions .btn { flex: 1; }
+  /* The period pills span the card width, like the cards under them. */
+  .spend-periods .pill-group { width: auto; min-width: 0; }
+  .spend-periods .pill-radio { flex: 1 0 auto; }
+  .spend-periods .pill-radio span { text-align: center; }
 }
 
 /* ---------- Desktop: a real columnar register, the form in a drawer ---------- */
