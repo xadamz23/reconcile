@@ -360,7 +360,7 @@ def test_register_menu_links_to_spending(ready):
 
 # --- Mobile tab bar ---
 
-TABS = ['href="/register"', "Search", 'href="/"', 'href="/reconcile"']
+TABS = ['href="/reconcile"', 'href="/spending"', 'href="/bills"', 'href="/register"']
 
 
 def tabbar(text):
@@ -368,29 +368,47 @@ def tabbar(text):
     return text[start:text.index("</nav>", start)]
 
 
+def masthead(text):
+    return text[text.index('class="masthead'):text.index("</header>")]
+
+
 def test_register_tab_bar(ready):
     text = ready.get("/register").text
     bar = tabbar(text)
     assert all(t in bar for t in TABS)
     assert 'hx-get="/txn/new"' in bar and "data-new-txn" in bar
-    assert ":aria-current=" in bar  # Register is current unless search is open
+    assert 'href="/register" aria-current="page"' in bar
+    assert "Search" not in bar and 'href="/"' not in bar
     assert 'class="fab"' not in text
-    assert 'aria-label="Search and filter"' not in text  # the masthead search icon is gone
-    assert 'aria-label="Close search and clear filters"' in text  # the ✕ stays
+    assert 'aria-label="Close search and clear filters"' in text  # the desktop ✕ stays
+
+
+def test_register_masthead_search_opens_filter_bar(ready):
+    head = masthead(ready.get("/register").text)
+    assert 'class="icon-btn only-mobile" type="button" @click="open()"' in head
+    assert head.index('aria-label="Search"') < head.index('aria-label="Menu"')
+
+
+@pytest.mark.parametrize("path", ["/", "/spending", "/bills", "/reconcile"])
+def test_masthead_search_links_to_register(ready, path):
+    head = masthead(ready.get(path).text)
+    assert '<a class="icon-btn only-mobile" href="/register#search" aria-label="Search">' in head
 
 
 def test_spending_tab_bar(ready):
     bar = tabbar(ready.get("/spending").text)
     assert all(t in bar for t in TABS)
-    assert 'href="/register#search"' in bar and 'href="/register#new"' in bar
-    assert 'href="/spending"' not in bar  # Spending is in the menu and on the Overview
-    assert "aria-current" not in bar
-
-
-def test_overview_tab_bar(ready):
-    bar = tabbar(ready.get("/").text)
-    assert 'href="/" aria-current="page"' in bar
     assert 'href="/register#new"' in bar
+    assert 'href="/spending" aria-current="page"' in bar
+
+
+def test_overview_is_in_the_menu_not_the_tab_bar(ready):
+    text = ready.get("/").text
+    bar = tabbar(text)
+    assert 'href="/"' not in bar and "aria-current" not in bar
+    assert 'href="/register#new"' in bar
+    menu = text[text.index('class="menu-pop'):text.index("</header>")]
+    assert 'href="/"' in menu
 
 
 def test_reconcile_tab_bar(ready):
@@ -406,7 +424,7 @@ def test_reconcile_tab_bar(ready):
 
 def test_tab_bar_order(ready):
     bar = tabbar(ready.get("/spending").text)
-    order = ['href="/reconcile"', 'href="/"', 'href="/register#new"', 'href="/register#search"', 'href="/register"']
+    order = ['href="/reconcile"', 'href="/spending"', 'href="/register#new"', 'href="/bills"', 'href="/register"']
     assert [bar.index(t) for t in order] == sorted(bar.index(t) for t in order)
 
 
@@ -456,11 +474,8 @@ def _add_bill(client, payee="Water", amount="62.40", day="5"):
     return conn_of(client).execute("SELECT id FROM bills ORDER BY id DESC").fetchone()["id"]
 
 
-def test_bills_is_in_the_menu_not_the_tab_bar(ready):
-    text = ready.get("/register").text
-    menu = text[text.index('class="menu-pop'):text.index("</header>")]
-    assert 'href="/bills"' in menu
-    assert 'href="/bills"' not in text[text.index('class="tabbar'):]
+def test_bills_tab_is_current_on_bills(ready):
+    assert 'href="/bills" aria-current="page"' in tabbar(ready.get("/bills").text)
 
 
 def test_bills_page_requires_setup(client):

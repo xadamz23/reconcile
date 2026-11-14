@@ -1,7 +1,8 @@
 {# The header on every page. On phones it carries the account, the menu and the totals.
    On desktop the sidebar (_sidebar.html) has those, so this is a slim bar with the page
    title and the page's own actions. Expects masthead_context() from routes/deps.py,
-   page_title, and optionally close_search (the register's close-search button) and
+   page_title, and optionally close_search (the register: its desktop close-search button,
+   and the phone search icon opens its filterBar instead of linking to it) and
    no_totals (the Overview, whose tiles show them). #}
 {% from "_icons.html" import icon %}
 <header class="masthead glass-strong">
@@ -15,6 +16,14 @@
       {% if close_search %}
       <button class="icon-btn only-desktop" type="button" @click="cancel()" x-show="searching" x-cloak
               aria-label="Close search and clear filters">{{ icon('close') }}</button>
+      {% endif %}
+      {# Phones only (desktop has the always-on search line). On the register it opens the
+         shell's filterBar; elsewhere app.js acts on the #search hash once the register loads. #}
+      {% if close_search %}
+      <button class="icon-btn only-mobile" type="button" @click="open()" :aria-pressed="searching"
+              aria-label="Search" title="Search (/)">{{ icon('search') }}</button>
+      {% else %}
+      <a class="icon-btn only-mobile" href="/register#search" aria-label="Search">{{ icon('search') }}</a>
       {% endif %}
       <div class="menu" x-data="menu" @keydown.escape.window="open = false">
         <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
