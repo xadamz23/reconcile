@@ -358,6 +358,7 @@ def test_spending_and_bills_are_not_in_the_menu(ready):
     text = ready.get("/register").text
     menu = text[text.index('class="menu-pop'):text.index("</header>")]
     assert 'href="/spending"' not in menu and 'href="/bills"' not in menu
+    assert 'href="/register"' not in menu  # it's in the tab bar
 
 
 # --- Mobile tab bar ---
@@ -688,7 +689,7 @@ def test_overview_masthead_and_navigation(ready):
     assert 'id="totals"' not in text  # the tiles show them
     assert 'href="/register#new" data-new-txn' in text  # desktop New transaction, and the n key
     menu = text[text.index('class="menu-pop'):text.index("</header>")]
-    assert 'href="/register"' in menu and 'href="/"' in menu
+    assert 'href="/"' in menu and 'href="/register"' not in menu
 
 
 def test_overview_free_after_bills(ready):
