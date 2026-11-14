@@ -41,16 +41,19 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Pages: always go to the network so balances are never stale, saving a copy of each
-  // main page. Offline, serve that copy (app.js marks it read-only), or /offline.
+  // main page. Offline, serve that copy (app.js marks it read-only), or /offline. So too
+  // when Cloudflare answers for a server it can't reach (502-504, its 52x, the tunnel's
+  // 530); a 500 is the app's own error and is shown as it is.
   if (req.mode === "navigate") {
     event.respondWith(fetch(req).then((res) => {
+      if (res.status >= 502) return savedPage(url.pathname, "down");
       // Not a redirect: an expired Cloudflare Access login must never be saved as a page.
       // Not a search or a filter (?q=…, ?period=…), so the copy is the plain page.
       if (res.ok && !res.redirected && res.type === "basic" && !url.search && SAVED.has(url.pathname)) {
         event.waitUntil(savePage(url.pathname, res.clone()));
       }
       return res;
-    }).catch(() => savedPage(url.pathname)));
+    }).catch(() => savedPage(url.pathname, "offline")));
   }
 });
 
@@ -61,10 +64,13 @@ async function savePage(path, res) {
   await cache.put(path, new Response(body, { headers }));
 }
 
-// The saved copy, with its time on <html data-saved-at> for app.js.
-async function savedPage(path) {
-  const hit = await (await caches.open(PAGES)).match(path);
-  if (!hit) return (await caches.match("/offline")) || Response.error();
-  const html = (await hit.text()).replace("<html", `<html data-saved-at="${hit.headers.get("X-Saved-At")}"`);
+// The saved copy, or /offline, marked for app.js: <html data-offline> says why ("offline"
+// or "down", the server can't be reached) and data-saved-at when the copy was saved.
+async function savedPage(path, why) {
+  const hit = (await (await caches.open(PAGES)).match(path)) || (await caches.match("/offline"));
+  if (!hit) return Response.error();
+  const saved = hit.headers.get("X-Saved-At");
+  const attrs = `data-offline="${why}"` + (saved ? ` data-saved-at="${saved}"` : "");
+  const html = (await hit.text()).replace("<html", `<html ${attrs}`);
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }

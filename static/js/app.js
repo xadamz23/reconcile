@@ -326,9 +326,11 @@
   });
 
   // Offline. The service worker saves each main page and serves that copy when there's no
-  // connection, with its time on <html data-saved-at>. A saved page is read-only: a note
+  // connection or the server can't be reached, with <html data-offline> saying which
+  // ("offline" or "down") and data-saved-at its time. A saved page is read-only: a note
   // says when it's from, and anything that needs the server is stopped.
   const savedAt = document.documentElement.dataset.savedAt;
+  const down = document.documentElement.dataset.offline === "down";
   function when(ms) {
     const d = new Date(Number(ms));
     const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -341,7 +343,7 @@
     note.setAttribute("role", "status");
     note.innerHTML = '<span></span><button type="button">Retry</button>';
     const text = note.firstChild;
-    const say = () => { text.textContent = `Offline · saved ${when(savedAt)}`; };
+    const say = () => { text.textContent = `${down ? "Can't reach the server" : "Offline"} · saved ${when(savedAt)}`; };
     say();
     note.lastChild.addEventListener("click", () => location.reload());
     document.body.append(note); // outside main (see .toast)
@@ -384,6 +386,14 @@
   if (!savedAt) {
     saveTotals();
     document.addEventListener("htmx:afterSettle", saveTotals); // saves swap the totals out of band
+  }
+  // /offline served because the server is down, not the phone.
+  if (down && !savedAt) {
+    const h1 = document.querySelector(".setup h1");
+    const lede = document.querySelector(".setup-lede");
+    document.title = "Can't reach the server";
+    if (h1) h1.textContent = "Can't reach the server";
+    if (lede) lede.textContent = "Your connection is fine, but Reconcile isn't answering, and this page hasn't been saved on this device yet. Try again in a moment.";
   }
   const offlineTotals = document.querySelector("[data-offline-totals]");
   if (offlineTotals) {
