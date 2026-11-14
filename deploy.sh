@@ -66,6 +66,10 @@ fi
 commit=$(git rev-parse --short HEAD)
 branch=$(git rev-parse --abbrev-ref HEAD)
 echo "[INFO] latest ${latest:-none} -> $tag (commit $commit on $branch)"
+if [[ $# -eq 0 ]]; then
+    IFS=. read -r x y _ <<<"$latest"
+    echo "[INFO] for a bigger bump: $0 --minor ($x.$((y + 1)).0) or $0 --major ($((x + 1)).0.0), or pass X.Y.Z"
+fi
 read -r -p "Deploy $tag? [y/N] " answer
 if [[ "$answer" != [yY] ]]; then
     echo "[INFO] aborted"
