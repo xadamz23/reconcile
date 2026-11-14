@@ -217,7 +217,7 @@ def test_reconcile_flow(ready):
     assert r.status_code == 303
     r = ready.get("/reconcile")
     assert "Rent" in r.text and "Difference must be $0.00" in r.text and 'value="900.00"' in r.text
-    assert "Continue reconciling" in ready.get("/register").text
+    assert '<span class="side-note">In progress</span>' in ready.get("/register").text
     r = ready.post(f"/reconcile/{tid}/toggle", headers=HX)
     assert "is-balanced" in r.text and "Finish statement" in r.text
     r = ready.post("/reconcile/finish", follow_redirects=False)
@@ -358,7 +358,7 @@ def test_spending_and_bills_are_not_in_the_menu(ready):
     text = ready.get("/register").text
     menu = text[text.index('class="menu-pop'):text.index("</header>")]
     assert 'href="/spending"' not in menu and 'href="/bills"' not in menu
-    assert 'href="/register"' not in menu  # it's in the tab bar
+    assert 'href="/register"' not in menu and 'href="/reconcile"' not in menu  # they're in the tab bar
 
 
 # --- Mobile tab bar ---
@@ -427,7 +427,7 @@ def test_reconcile_tab_bar(ready):
 
 def test_tab_bar_order(ready):
     bar = tabbar(ready.get("/spending").text)
-    order = ['href="/reconcile"', 'href="/spending"', 'href="/register#new"', 'href="/bills"', 'href="/register"']
+    order = ['href="/register"', 'href="/spending"', 'href="/register#new"', 'href="/bills"', 'href="/reconcile"']
     assert [bar.index(t) for t in order] == sorted(bar.index(t) for t in order)
 
 
