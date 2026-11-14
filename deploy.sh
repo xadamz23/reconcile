@@ -1,14 +1,16 @@
 #!/bin/bash
 #
-# Usage: ./deploy.sh [--minor | --major | X.Y.Z]
+# Usage: ./deploy.sh [--patch-bump | --minor | --major | X.Y.Z]
 #
 # With no argument, bumps the patch number of the newest X.Y.Z tag on origin
-# (read with ls-remote, so local tags don't need to be fetched).
+# (read with ls-remote, so local tags don't need to be fetched) and asks before
+# going ahead. --patch-bump does the same patch bump without asking.
 
 set -euo pipefail
 
 usage() {
-    echo "Usage: $0 [--minor | --major | X.Y.Z]   (default: patch bump of newest remote tag)"
+    echo "Usage: $0 [--patch-bump | --minor | --major | X.Y.Z]   (default: patch bump of newest remote tag)"
+    echo "  --patch-bump  patch bump without the confirmation prompt"
     exit 1
 }
 
@@ -16,10 +18,12 @@ semver='^[0-9]+\.[0-9]+\.[0-9]+$'
 
 bump=patch
 explicit=""
+confirm=1
 if [[ $# -gt 1 ]]; then
     usage
 elif [[ $# -eq 1 ]]; then
     case "$1" in
+        --patch-bump) confirm=0 ;;
         --minor) bump=minor ;;
         --major) bump=major ;;
         -h|--help) usage ;;
@@ -69,11 +73,14 @@ echo "[INFO] latest ${latest:-none} -> $tag (commit $commit on $branch)"
 if [[ $# -eq 0 ]]; then
     IFS=. read -r x y _ <<<"$latest"
     echo "[INFO] for a bigger bump: $0 --minor ($x.$((y + 1)).0) or $0 --major ($((x + 1)).0.0), or pass X.Y.Z"
+    echo "[INFO] $0 --patch-bump does this patch bump without asking"
 fi
-read -r -p "Deploy $tag? [y/N] " answer
-if [[ "$answer" != [yY] ]]; then
-    echo "[INFO] aborted"
-    exit 1
+if [[ $confirm -eq 1 ]]; then
+    read -r -p "Deploy $tag? [y/N] " answer
+    if [[ "$answer" != [yY] ]]; then
+        echo "[INFO] aborted"
+        exit 1
+    fi
 fi
 
 # tag release
