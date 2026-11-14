@@ -325,6 +325,84 @@
     else document.querySelector("[data-new-txn]")?.click();
   });
 
+  // Offline. The service worker saves each main page and serves that copy when there's no
+  // connection, with its time on <html data-saved-at>. A saved page is read-only: a note
+  // says when it's from, and anything that needs the server is stopped.
+  const savedAt = document.documentElement.dataset.savedAt;
+  function when(ms) {
+    const d = new Date(Number(ms));
+    const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (d.toDateString() === new Date().toDateString()) return time;
+    return `${d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+  }
+  if (savedAt) {
+    const note = document.createElement("div");
+    note.className = "toast offline-note glass-strong is-popover";
+    note.setAttribute("role", "status");
+    note.innerHTML = '<span></span><button type="button">Retry</button>';
+    const text = note.firstChild;
+    const say = () => { text.textContent = `Offline · saved ${when(savedAt)}`; };
+    say();
+    note.lastChild.addEventListener("click", () => location.reload());
+    document.body.append(note); // outside main (see .toast)
+    let timer;
+    const refuse = () => {
+      text.textContent = "Reconnect to make changes";
+      clearTimeout(timer);
+      timer = setTimeout(say, 3000);
+    };
+    document.addEventListener("htmx:beforeRequest", (e) => {
+      e.preventDefault();
+      if (e.detail.elt.matches?.(".ledger-more")) e.detail.elt.textContent = "Reconnect to load more";
+      else refuse();
+    });
+    // Capturing on window gets in before htmx's own submit handling.
+    window.addEventListener("submit", (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      refuse();
+    }, true);
+    window.addEventListener("online", () => location.reload());
+  }
+
+  // The last totals seen online, for /offline when no page has been saved yet.
+  const TOTALS = "reconcile:totals";
+  function saveTotals() {
+    const t = document.getElementById("side-totals") || document.getElementById("totals");
+    if (!t) return;
+    const bal = t.querySelector(".total-balance dd");
+    const last = t.querySelector(".total-last");
+    const snap = {
+      at: Date.now(),
+      balance: bal.textContent.trim(), neg: bal.classList.contains("neg"),
+      lastLabel: last.querySelector("dt").textContent.trim(),
+      lastValue: last.querySelector("dd").textContent.trim(),
+      lastNeg: last.querySelector("dd").classList.contains("neg"),
+    };
+    try { localStorage.setItem(TOTALS, JSON.stringify(snap)); } catch {}
+  }
+  if (!savedAt) {
+    saveTotals();
+    document.addEventListener("htmx:afterSettle", saveTotals); // saves swap the totals out of band
+  }
+  const offlineTotals = document.querySelector("[data-offline-totals]");
+  if (offlineTotals) {
+    let snap = null;
+    try { snap = JSON.parse(localStorage.getItem(TOTALS)); } catch {}
+    if (snap) {
+      const set = (k, value, neg) => {
+        const el = offlineTotals.querySelector(`[data-k="${k}"]`);
+        el.textContent = value;
+        el.classList.toggle("neg", Boolean(neg));
+      };
+      set("at", when(snap.at));
+      set("balance", snap.balance, snap.neg);
+      set("lastLabel", snap.lastLabel);
+      set("lastValue", snap.lastValue, snap.lastNeg);
+      offlineTotals.hidden = false;
+    }
+  }
+
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
   }

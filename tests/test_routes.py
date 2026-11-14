@@ -280,7 +280,10 @@ def test_pwa_endpoints(ready):
     sw = ready.get("/sw.js")
     assert sw.headers["cache-control"] == "no-cache"
     assert ready.app.state.assets.version in sw.text
-    assert ready.get("/offline").status_code == 200
+    assert "reconcile-pages" in sw.text
+    offline = ready.get("/offline")
+    assert offline.status_code == 200
+    assert "data-offline-totals" in offline.text
     assert ready.get("/favicon.ico").status_code == 200
 
 

@@ -598,6 +598,12 @@ button.mark:hover .icon { border-color: var(--dep); }
 .setup h1 { font-size: 2rem; font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; }
 .setup-lede { color: var(--text-soft); max-width: 34ch; }
 .setup-form { display: grid; gap: 1.25rem; margin-top: 1rem; padding: 1.25rem; border-radius: var(--radius-l); }
+/* The last totals seen online, under the double rule. */
+.offline-snap { padding: 0.875rem 1rem 0; border-radius: var(--radius-l); }
+.offline-snap[hidden] { display: none; }
+.offline-when { font-size: 0.875rem; color: var(--text-faint); }
+.offline-snap .totals { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 4px double rgba(255, 255, 255, 0.3); }
+.offline-note span { white-space: nowrap; }
 
 /* ---------- Reconcile ---------- */
 
