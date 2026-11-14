@@ -37,10 +37,12 @@ The image is built on the dev machine (arm64) for amd64 and pushed to Docker Hub
 ### Release
 
 ```sh
-scripts/deploy-reconcile-from-arm64.sh v0.1.0
+./deploy.sh              # patch bump of the newest remote tag, e.g. 1.2.14 -> 1.2.15
+./deploy.sh --minor      # 1.3.0  (--major: 2.0.0)
+./deploy.sh 1.4.0        # explicit tag
 ```
 
-It tags HEAD and pushes the tag, builds `:<tag>` for amd64 and pushes it, then SSHes to the server as root and runs `/home/dockerapps/reconcile/update-app.sh <tag>`. It doesn't run the tests, so run `uv run pytest` first. Only `:<tag>` is pushed, not `:latest`.
+It reads the newest `X.Y.Z` tag from origin with `git ls-remote` (so local tags don't need fetching), shows the new tag and asks for confirmation. Then it tags HEAD and pushes the tag, builds `:<tag>` for amd64 and pushes it, then SSHes to the server as root and runs `/home/dockerapps/reconcile/update-app.sh <tag>`. It doesn't run the tests, so run `uv run pytest` first. Only `:<tag>` is pushed, not `:latest`.
 
 ### Prod server
 
