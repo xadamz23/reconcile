@@ -1,6 +1,7 @@
 {% from "_icons.html" import icon %}
-<article id="rec-{{ row.id }}" class="txn txn-rec is-{{ row.status }}">
-  <button class="mark" type="button" hx-post="/reconcile/{{ row.id }}/toggle" hx-target="#rec-{{ row.id }}" hx-swap="outerHTML"
+<article id="rec-{{ row.id }}" class="txn txn-rec is-{{ row.status }}{{ ' is-just-ticked' if just_ticked == row.id }}">
+  <button class="mark" type="button" hx-post="/reconcile/{{ row.id }}/toggle" hx-vals='{"verified": "{{ 0 if row.status == 'verified' else 1 }}"}'
+          hx-target="#rec-body" hx-swap="innerHTML swap:180ms" data-rec-tick
           aria-pressed="{{ 'true' if row.status == 'verified' else 'false' }}"
           aria-label="{{ 'On statement' if row.status == 'verified' else 'Mark on statement' }}: {{ row.payee }}">{{ icon('check') }}</button>
   <button class="txn-open" type="button" hx-get="/txn/{{ row.id }}/edit" hx-target="#panel-body">

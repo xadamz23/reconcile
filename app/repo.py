@@ -141,17 +141,15 @@ def get_txn(conn: sqlite3.Connection, txn_id: int) -> sqlite3.Row | None:
     return conn.execute("SELECT * FROM transactions WHERE id = ?", (txn_id,)).fetchone()
 
 
-def toggle_verified(conn: sqlite3.Connection, txn_id: int) -> str | None:
+def set_verified(conn: sqlite3.Connection, txn_id: int, verified: bool) -> str | None:
+    """Tick (or untick) an item on the in-progress reconcile. Reconciled items stay as they are.
+
+    Setting a state rather than flipping it means a double tap, or Undo tapped twice, can't
+    undo itself."""
+    new, old = ("verified", "unverified") if verified else ("unverified", "verified")
     conn.execute(
-        """
-        UPDATE transactions
-           SET status = CASE status WHEN 'unverified' THEN 'verified'
-                                    WHEN 'verified' THEN 'unverified'
-                                    ELSE status END,
-               updated_at = datetime('now')
-         WHERE id = ?
-        """,
-        (txn_id,),
+        "UPDATE transactions SET status = ?, updated_at = datetime('now') WHERE id = ? AND status = ?",
+        (new, txn_id, old),
     )
     row = get_txn(conn, txn_id)
     return row["status"] if row else None
@@ -396,6 +394,16 @@ class ReconcileState:
     @property
     def balanced(self) -> bool:
         return self.difference_cents == 0
+
+    @property
+    def to_check(self) -> list[sqlite3.Row]:
+        """Candidates not ticked yet, shown first so they keep the focus."""
+        return [r for r in self.candidates if r["status"] != "verified"]
+
+    @property
+    def ticked(self) -> list[sqlite3.Row]:
+        """Candidates ticked on this reconcile, grouped at the bottom."""
+        return [r for r in self.candidates if r["status"] == "verified"]
 
 
 def get_draft(conn: sqlite3.Connection) -> tuple[str, int] | None:

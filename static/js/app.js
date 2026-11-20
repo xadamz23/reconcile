@@ -125,6 +125,46 @@
     if (!radio.matches(":disabled")) radio.checked = true;
   });
 
+  // Reconcile: a tick or untick moves the row between the To check and On statement
+  // groups. The row collapses while the request runs (the swap waits for it with
+  // swap:180ms), taps on the list are ignored until the new list has settled, so a
+  // quick second tap can't land on the row that slid into place, and keyboard focus
+  // moves to the row that took the old one's place.
+  let recFocus = null;
+  document.addEventListener("htmx:beforeRequest", (e) => {
+    const btn = e.detail.elt;
+    if (!btn.matches?.("[data-rec-tick]") || document.documentElement.dataset.savedAt) return;
+    const row = btn.closest(".txn-rec");
+    const marks = [...row.parentElement.querySelectorAll("[data-rec-tick]")];
+    recFocus = document.activeElement === btn
+      ? { ticked: row.parentElement.classList.contains("rec-ticked"), index: marks.indexOf(btn) }
+      : null;
+    document.getElementById("rec-body").classList.add("is-busy");
+    row.style.height = `${row.offsetHeight}px`;
+    void row.offsetHeight; // start the transition from the measured height
+    row.classList.add("is-leaving");
+    row.style.height = "0px";
+  });
+  document.addEventListener("htmx:afterRequest", (e) => {
+    if (e.detail.successful || !e.detail.elt.matches?.("[data-rec-tick]")) return;
+    const row = e.detail.elt.closest(".txn-rec");
+    row.classList.remove("is-leaving");
+    row.style.height = "";
+    document.getElementById("rec-body").classList.remove("is-busy");
+  });
+  document.addEventListener("htmx:afterSettle", (e) => {
+    const body = e.detail.target;
+    if (body.id !== "rec-body") return;
+    setTimeout(() => body.classList.remove("is-busy"), 250);
+    if (!recFocus) return;
+    const group = body.querySelector(recFocus.ticked ? ".rec-ticked" : ".rec-list:not(.rec-ticked)");
+    const marks = group ? group.querySelectorAll("[data-rec-tick]") : [];
+    const next = marks[Math.min(recFocus.index, marks.length - 1)] ||
+      body.querySelector("[data-rec-tick]") || body.querySelector(".rec-summary button");
+    if (next) next.focus({ preventScroll: true });
+    recFocus = null;
+  });
+
   document.addEventListener("alpine:init", () => {
     // Register filter bar. `searching` shows the bar on mobile (the search line is
     // always shown on desktop). Reconciled items are on while searching and off

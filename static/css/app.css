@@ -441,7 +441,8 @@ button.mark:hover .icon { border-color: var(--dep); }
 .is-reconciled .mark .icon { border-color: var(--text-faint); background: transparent; color: var(--text-faint); border-style: double; border-width: 3px; }
 .is-reconciled .txn-payee, .is-reconciled .txn-amt { color: var(--text-soft); }
 .mark.htmx-request .icon { transform: scale(0.85); }
-.txn.is-verified .mark .icon { animation: stamp 220ms ease-out; }
+/* The reconcile list redraws on every tick, so only the row just ticked stamps there. */
+.txn.is-verified:not(.txn-rec) .mark .icon, .txn-rec.is-just-ticked .mark .icon { animation: stamp 220ms ease-out; }
 @keyframes stamp { 0% { transform: scale(0.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
 
 /* Between the upcoming and past rows: a green "Today" lined up with the payees, then
@@ -619,7 +620,18 @@ button.mark:hover .icon { border-color: var(--dep); }
 .rec-start { display: grid; gap: 1rem; padding: 1rem; justify-items: start; }
 .rec-start .field-row { width: 100%; }
 .rec-hint { color: var(--text-soft); font-size: 0.9375rem; }
-.rec-list .rec-hint { padding: 0.75rem var(--gutter); border-bottom: 1px solid var(--line); }
+.rec-lede { margin: 1rem var(--card-inset) 0; padding-inline: var(--gutter); }
+/* Open items in two groups, headed like the Bills page's: To check, then On statement. */
+.rec-group { display: flex; align-items: baseline; gap: 0.5rem; margin: 1.25rem var(--card-inset) 0.5rem; padding-inline: var(--gutter); font-size: 1rem; font-weight: 650; }
+.rec-group span { font-size: 0.875rem; font-weight: 500; color: var(--text-faint); }
+.rec-group + .card { margin-top: 0; }
+.rec-group-empty { margin: 0 var(--card-inset); padding-inline: var(--gutter); color: var(--text-soft); }
+.rec-lede + .rec-group { margin-top: 0.75rem; }
+.rec-ticked .txn-name { color: var(--text-soft); }
+/* A ticked or unticked row collapses out before the list redraws (see app.js), and the
+   list ignores taps until the new one settles. */
+.txn-rec.is-leaving { overflow: hidden; opacity: 0; transition: height 180ms ease, opacity 140ms ease; }
+#rec-body.is-busy .rec-list { pointer-events: none; }
 .txn-rec { grid-template-columns: 3.25rem 1fr; }
 .txn-rec .txn-open { grid-template-areas: "payee payee amt" "date no no"; padding-left: 0; }
 .rec-actions { display: flex; gap: 0.5rem; }

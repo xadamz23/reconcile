@@ -184,15 +184,18 @@ def test_parse_amount_filter_invalid():
         repo.parse_amount_filter("abc")
 
 
-def test_toggle_verified(ledger):
+def test_set_verified(ledger):
     [row] = repo.list_txns(ledger, q="Sirius")
-    assert repo.toggle_verified(ledger, row["id"]) == "verified"
-    assert repo.toggle_verified(ledger, row["id"]) == "unverified"
+    assert repo.set_verified(ledger, row["id"], True) == "verified"
+    assert repo.set_verified(ledger, row["id"], True) == "verified"
+    assert repo.set_verified(ledger, row["id"], False) == "unverified"
+    assert repo.set_verified(ledger, row["id"], False) == "unverified"
 
 
-def test_toggle_does_not_touch_reconciled(ledger):
+def test_set_verified_does_not_touch_reconciled(ledger):
     opening = repo.list_txns(ledger, show_reconciled=True)[-1]
-    assert repo.toggle_verified(ledger, opening["id"]) == "reconciled"
+    assert repo.set_verified(ledger, opening["id"], True) == "reconciled"
+    assert repo.set_verified(ledger, opening["id"], False) == "reconciled"
 
 
 def test_update_keeps_reconciled_status(ledger):
@@ -277,7 +280,7 @@ def test_reconcile_state(ledger):
 
 def test_finish_statement(ledger):
     fozzys = repo.list_txns(ledger, q="Fozzys")[0]
-    repo.toggle_verified(ledger, fozzys["id"])
+    repo.set_verified(ledger, fozzys["id"], True)
     state = repo.reconcile_state(ledger, "2026-10-06", 295469)
     assert state.balanced
     sid = repo.finish_statement(ledger, "2026-10-06", 295469)
@@ -294,8 +297,8 @@ def test_finish_statement_unticks_items_after_the_end_date(ledger):
     # Ticked while the closing date was later, then the date moved earlier.
     fozzys = repo.list_txns(ledger, q="Fozzys")[0]
     [sirius] = repo.list_txns(ledger, q="Sirius")
-    repo.toggle_verified(ledger, fozzys["id"])
-    repo.toggle_verified(ledger, sirius["id"])
+    repo.set_verified(ledger, fozzys["id"], True)
+    repo.set_verified(ledger, sirius["id"], True)
     repo.finish_statement(ledger, "2026-10-06", 295469)
     t = repo.get_txn(ledger, sirius["id"])
     assert t["status"] == "unverified"
@@ -310,7 +313,7 @@ def test_finish_statement_refuses_when_unbalanced(ledger):
 
 def test_verified_after_end_date_not_cleared(ledger):
     [s] = repo.list_txns(ledger, q="Sirius")
-    repo.toggle_verified(ledger, s["id"])
+    repo.set_verified(ledger, s["id"], True)
     assert repo.reconcile_state(ledger, "2026-10-06", 0).cleared_cents == 300000
 
 
@@ -319,7 +322,7 @@ def test_draft_round_trip_and_finish_clears_it(ledger):
     repo.save_draft(ledger, "2026-10-06", 295469)
     assert repo.get_draft(ledger) == ("2026-10-06", 295469)
     fozzys = repo.list_txns(ledger, q="Fozzys")[0]
-    repo.toggle_verified(ledger, fozzys["id"])
+    repo.set_verified(ledger, fozzys["id"], True)
     repo.finish_statement(ledger, "2026-10-06", 295469)
     assert repo.get_draft(ledger) is None
 
@@ -327,7 +330,7 @@ def test_draft_round_trip_and_finish_clears_it(ledger):
 def test_discard_draft_unticks(ledger):
     repo.save_draft(ledger, "2026-10-06", 1)
     fozzys = repo.list_txns(ledger, q="Fozzys")[0]
-    repo.toggle_verified(ledger, fozzys["id"])
+    repo.set_verified(ledger, fozzys["id"], True)
     repo.discard_draft(ledger)
     assert repo.get_draft(ledger) is None
     assert repo.get_txn(ledger, fozzys["id"])["status"] == "unverified"
@@ -391,10 +394,10 @@ def test_remove_bill_txn_leaves_ticked_items_alone(ledger):
     bill = repo.create_bill(ledger, repo.BillInput("Water", 6240, 5))
     repo.add_bill_txn(ledger, bill, "2026-11")
     txn_id = repo.bills_for_month(ledger, "2026-11")[0]["txn_id"]
-    repo.toggle_verified(ledger, txn_id)
+    repo.set_verified(ledger, txn_id, True)
     repo.remove_bill_txn(ledger, bill, "2026-11")
     assert repo.get_txn(ledger, txn_id) is not None
-    repo.toggle_verified(ledger, txn_id)
+    repo.set_verified(ledger, txn_id, False)
     repo.remove_bill_txn(ledger, bill, "2026-11")
     assert repo.get_txn(ledger, txn_id) is None
 

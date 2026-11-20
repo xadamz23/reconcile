@@ -62,13 +62,26 @@ def reconcile_discard(conn: sqlite3.Connection = Depends(get_conn)):
 
 
 @router.post("/reconcile/{txn_id}/toggle")
-def reconcile_toggle(request: Request, txn_id: int, conn: sqlite3.Connection = Depends(get_conn)):
+def reconcile_toggle(
+    request: Request,
+    txn_id: int,
+    verified: str = Form(...),
+    undo: str = Form(""),
+    conn: sqlite3.Connection = Depends(get_conn),
+):
+    """Tick (verified=1) or untick (verified=0) an item, then redraw the body so it moves
+    between the To check and On statement groups. The toast offers Undo, except after an Undo."""
     if repo.get_txn(conn, txn_id) is None:
         raise HTTPException(404)
     if repo.get_draft(conn) is None:
         raise HTTPException(400, "No reconcile in progress")
-    repo.toggle_verified(conn, txn_id)
-    return render(request, "_reconcile_toggled.html", {"row": repo.get_txn(conn, txn_id), "state": _state(conn)})
+    ticked = verified == "1"
+    repo.set_verified(conn, txn_id, ticked)
+    row = repo.get_txn(conn, txn_id)
+    toast = None if undo else {"row": row, "ticked": ticked}
+    return render(request, "_reconcile_body.html", {
+        "state": _state(conn), "toast_oob": True, "toast": toast, "just_ticked": txn_id if ticked else None,
+    })
 
 
 @router.post("/reconcile/finish")

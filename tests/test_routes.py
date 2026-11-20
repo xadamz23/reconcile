@@ -218,7 +218,7 @@ def test_reconcile_flow(ready):
     r = ready.get("/reconcile")
     assert "Rent" in r.text and "Difference must be $0.00" in r.text and 'value="900.00"' in r.text
     assert '<span class="side-note">In progress</span>' in ready.get("/register").text
-    r = ready.post(f"/reconcile/{tid}/toggle", headers=HX)
+    r = ready.post(f"/reconcile/{tid}/toggle", data={"verified": "1"}, headers=HX)
     assert "is-balanced" in r.text and "Finish statement" in r.text
     r = ready.post("/reconcile/finish", follow_redirects=False)
     assert r.status_code == 303 and "done=" in r.headers["location"]
@@ -249,14 +249,62 @@ def test_reconcile_finish_unbalanced_stays(ready):
 
 def test_reconcile_toggle_needs_draft(ready):
     opening = repo.list_txns(conn_of(ready), show_reconciled=True)[-1]
-    assert ready.post(f"/reconcile/{opening['id']}/toggle", headers=HX).status_code == 400
+    assert ready.post(f"/reconcile/{opening['id']}/toggle", data={"verified": "1"}, headers=HX).status_code == 400
+
+
+def _groups(html):
+    """Payees under each reconcile group heading, in order."""
+    out, current = {}, None
+    for line in html.splitlines():
+        if 'class="rec-group"' in line:
+            current = line.split(">")[1].split("<")[0].strip()
+            out[current] = []
+        elif 'class="txn-name"' in line and current:
+            out[current].append(line.split('class="txn-name">')[1].split("<")[0])
+    return out
+
+
+def test_reconcile_ticked_items_move_to_their_own_group(ready):
+    for payee, day in (("Rent", "05"), ("Water", "08")):
+        ready.post("/txn", data={"sign": "-", "amount": "50", "payee": payee, "date": f"2026-10-{day}"}, headers=HX)
+    rent = repo.list_txns(conn_of(ready), q="Rent")[0]["id"]
+    ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "900"})
+    assert _groups(ready.get("/reconcile").text) == {"To check": ["Rent", "Water"]}
+
+    r = ready.post(f"/reconcile/{rent}/toggle", data={"verified": "1"}, headers=HX)
+    assert _groups(r.text) == {"To check": ["Water"], "On statement": ["Rent"]}
+    assert 'id="toast"' in r.text and "Ticked <strong>Rent</strong>" in r.text
+    assert '"verified": "0", "undo": "1"' in r.text and "is-just-ticked" in r.text
+    # Ticking again (a double tap) leaves it ticked.
+    ready.post(f"/reconcile/{rent}/toggle", data={"verified": "1"}, headers=HX)
+    assert repo.get_txn(conn_of(ready), rent)["status"] == "verified"
+
+    # Undo puts it back and clears the toast instead of offering another Undo.
+    r = ready.post(f"/reconcile/{rent}/toggle", data={"verified": "0", "undo": "1"}, headers=HX)
+    assert _groups(r.text) == {"To check": ["Rent", "Water"]}
+    assert 'id="toast"' in r.text and "Undo" not in r.text
+
+    # Unticking from On statement offers Undo too.
+    ready.post(f"/reconcile/{rent}/toggle", data={"verified": "1"}, headers=HX)
+    r = ready.post(f"/reconcile/{rent}/toggle", data={"verified": "0"}, headers=HX)
+    assert "Unticked <strong>Rent</strong>" in r.text and '"verified": "1", "undo": "1"' in r.text
+
+
+def test_reconcile_all_ticked_says_so(ready):
+    ready.post("/txn", data={"sign": "-", "amount": "50", "payee": "Rent", "date": "2026-10-05"}, headers=HX)
+    ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "900"})
+    for row in repo.reconcile_state(conn_of(ready), "2026-10-31", 0).to_check:
+        ready.post(f"/reconcile/{row['id']}/toggle", data={"verified": "1"}, headers=HX)
+    r = ready.get("/reconcile", headers={**HX, "HX-Target": "rec-body"})
+    assert "Everything on or before Oct 31, 2026 is ticked." in r.text
+    assert 'id="toast"' not in r.text
 
 
 def test_reconcile_discard(ready):
     ready.post("/txn", data={"sign": "-", "amount": "100", "payee": "Rent", "date": "2026-10-05"}, headers=HX)
     tid = repo.list_txns(conn_of(ready), q="Rent")[0]["id"]
     ready.post("/reconcile/start", data={"end_date": "2026-10-31", "balance": "900"})
-    ready.post(f"/reconcile/{tid}/toggle", headers=HX)
+    ready.post(f"/reconcile/{tid}/toggle", data={"verified": "1"}, headers=HX)
     r = ready.post("/reconcile/discard", follow_redirects=False)
     assert r.status_code == 303
     assert repo.get_draft(conn_of(ready)) is None
@@ -534,7 +582,7 @@ def test_ticked_on_a_reconcile_cant_be_taken_back_out(ready):
     bill = _add_bill(ready)
     ready.post(f"/bills/{bill}/add", headers=HX)
     txn_id = conn_of(ready).execute("SELECT id FROM transactions WHERE bill_id = ?", (bill,)).fetchone()["id"]
-    repo.toggle_verified(conn_of(ready), txn_id)
+    repo.set_verified(conn_of(ready), txn_id, True)
     text = ready.get("/bills").text
     assert f"/bills/{bill}/remove" not in text
     ready.post(f"/bills/{bill}/remove", headers=HX)
@@ -852,7 +900,7 @@ def test_done_bill_cards(ready, nov13):
     # Once a reconcile ticks it, it stays put.
     conn = conn_of(ready)
     txn = conn.execute("SELECT id FROM transactions WHERE bill_id = ?", (added,)).fetchone()["id"]
-    repo.toggle_verified(conn, txn)
+    repo.set_verified(conn, txn, True)
     c = card_of(ready.get("/bills").text, added)
     assert "On a reconcile" in c and "/remove" not in c
 
