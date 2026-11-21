@@ -447,7 +447,11 @@ def reconcile_state(conn: sqlite3.Connection, end_date: str, statement_cents: in
         (end_date,),
     ).fetchone()[0]
     candidates = conn.execute(
-        "SELECT * FROM transactions WHERE status != 'reconciled' AND date <= ? ORDER BY date, id",
+        # Deposits, then payments, then checks (payments with a number), each by date.
+        """
+        SELECT * FROM transactions WHERE status != 'reconciled' AND date <= ?
+         ORDER BY CASE WHEN amount_cents >= 0 THEN 0 WHEN number IS NULL THEN 1 ELSE 2 END, date, id
+        """,
         (end_date,),
     ).fetchall()
     return ReconcileState(end_date, statement_cents, cleared, candidates)

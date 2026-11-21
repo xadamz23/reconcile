@@ -278,6 +278,20 @@ def test_reconcile_state(ledger):
     assert not state.balanced
 
 
+def test_reconcile_candidates_grouped_by_kind(conn):
+    repo.setup(conn, "Checking", 100000, "2026-10-01")
+    add(conn, "2026-10-04", "Check 102", -500, number="102")
+    add(conn, "2026-10-05", "Payment B", -300)
+    add(conn, "2026-10-06", "Deposit B", 700)
+    add(conn, "2026-10-02", "Check 101", -400, number="101")
+    add(conn, "2026-10-03", "Payment A", -200)
+    add(conn, "2026-10-02", "Deposit A", 600)
+    state = repo.reconcile_state(conn, "2026-10-31", 0)
+    assert [r["payee"] for r in state.candidates] == [
+        "Deposit A", "Deposit B", "Payment A", "Payment B", "Check 101", "Check 102",
+    ]
+
+
 def test_finish_statement(ledger):
     fozzys = repo.list_txns(ledger, q="Fozzys")[0]
     repo.set_verified(ledger, fozzys["id"], True)
