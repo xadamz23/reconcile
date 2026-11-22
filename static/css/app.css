@@ -467,9 +467,9 @@ button.mark:hover .icon { border-color: var(--dep); }
 
 /* Register, Spending, +, Bills, Reconcile under the thumb. A glass panel floating
    clear of the screen edges (and the home indicator), sized to its tabs and centered.
-   The current tab is a blue-tinted glass tile with a cyan icon, like the desktop
-   sidebar's current page but without its outline, so the + (a flat accent ring) stays
-   the only outlined shape in the bar. Rounded corners rather than pill ends, so the
+   The current tab is a soft white glass tile with an accent-colored icon (as in
+   atmos and watchlist), with no outline, so the + (a flat accent ring) stays the only
+   outlined shape in the bar. Rounded corners rather than pill ends, so the
    ends don't curve in beside the outer tabs. 64px tall, matching atmos. */
 .tabbar {
   position: fixed; z-index: 25;
@@ -492,11 +492,10 @@ button.mark:hover .icon { border-color: var(--dep); }
 .tab:active { transform: scale(0.94); }
 .tab:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .tab[aria-current="page"], .tab[aria-pressed="true"] {
-  color: #fff;
-  background: linear-gradient(135deg, rgba(var(--accent-glow), 0.3), rgba(6, 182, 212, 0.18));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.16);
 }
-.tab[aria-current="page"] .icon, .tab[aria-pressed="true"] .icon { color: #67d4ee; }
+.tab[aria-current="page"] .icon, .tab[aria-pressed="true"] .icon { color: var(--accent-text); }
 .tab-add {
   justify-self: center;
   display: grid; place-items: center;
