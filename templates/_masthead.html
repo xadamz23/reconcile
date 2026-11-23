@@ -24,12 +24,12 @@
       <button class="icon-btn only-mobile" type="button" @click="open()" x-show="!searching"
               aria-label="Search" title="Search (/)">{{ icon('search') }}</button>
       {% else %}
-      <a class="icon-btn only-mobile" href="/register#search" aria-label="Search">{{ icon('search') }}</a>
+      <a class="icon-btn only-mobile" href="/register#search" hx-boost="true" aria-label="Search">{{ icon('search') }}</a>
       {% endif %}
       <div class="menu" x-data="menu" @keydown.escape.window="open = false">
         <button class="icon-btn" type="button" @click="open = !open" :aria-expanded="open" aria-haspopup="menu" aria-label="Menu">{{ icon('more') }}</button>
         <div class="menu-pop glass-strong is-popover" role="menu" x-show="open" x-transition.origin.top.right x-cloak>
-          <a role="menuitem" href="/">{{ icon('overview') }}Overview</a>
+          <a role="menuitem" href="/" hx-boost="true">{{ icon('overview') }}Overview</a>
           <a role="menuitem" href="/export.csv" download>{{ icon('download') }}Export CSV</a>
         </div>
       </div>

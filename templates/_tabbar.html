@@ -7,7 +7,7 @@
 {% macro tab(name, href, label, icon_name) -%}
 <a class="tab" href="{{ href }}"{% if active == name %} aria-current="page"{% endif %}>{{ icon(icon_name) }}<span>{{ label }}</span></a>
 {%- endmacro %}
-<nav class="tabbar glass-strong" aria-label="Main">
+<nav class="tabbar glass-strong" aria-label="Main" hx-boost="true">
   {{ tab("register", "/register", "Register", "ledger") }}
   {{ tab("spending", "/spending", "Spending", "chart") }}
   {% if new_url %}

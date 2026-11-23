@@ -17,10 +17,10 @@
   <button class="btn accent side-new" type="button" hx-get="{{ new_url }}" hx-target="#panel-body" data-new-txn
           title="New transaction (n)">{{ icon('plus') }}New transaction</button>
   {% else %}
-  <a class="btn accent side-new" href="/register#new" data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</a>
+  <a class="btn accent side-new" href="/register#new" hx-boost="true" data-new-txn title="New transaction (n)">{{ icon('plus') }}New transaction</a>
   {% endif %}
 
-  <div class="side-links">
+  <div class="side-links" hx-boost="true">
     {{ item("overview", "/", "Overview", "overview") }}
     {{ item("register", "/register", "Register", "ledger") }}
     {{ item("reconcile", "/reconcile", "Reconcile", "scale", "In progress" if reconciling) }}

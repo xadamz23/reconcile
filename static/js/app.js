@@ -239,23 +239,35 @@
       init() {
         let swallow = false;
         const outside = (e) => this.open && !this.$el.contains(e.target);
-        window.addEventListener("touchstart", (e) => {
+        const onTouch = (e) => {
           if (!outside(e)) return;
           e.preventDefault();
           this.open = false;
-        }, { capture: true, passive: false });
-        window.addEventListener("mousedown", (e) => {
+        };
+        const onDown = (e) => {
           swallow = outside(e); // reset each press, in case the last one never clicked
           if (!swallow) return;
           e.preventDefault();
           this.open = false;
-        }, true);
-        window.addEventListener("click", (e) => {
+        };
+        const onClick = (e) => {
           if (!swallow) return;
           swallow = false;
           e.preventDefault();
           e.stopImmediatePropagation();
-        }, true);
+        };
+        window.addEventListener("touchstart", onTouch, { capture: true, passive: false });
+        window.addEventListener("mousedown", onDown, true);
+        window.addEventListener("click", onClick, true);
+        // A boosted page swaps the masthead out, so take these off with the old menu.
+        this.removeListeners = () => {
+          window.removeEventListener("touchstart", onTouch, { capture: true });
+          window.removeEventListener("mousedown", onDown, true);
+          window.removeEventListener("click", onClick, true);
+        };
+      },
+      destroy() {
+        this.removeListeners?.();
       },
     }));
 
@@ -316,8 +328,10 @@
 
   // The Overview's balance chart: a crosshair and readout for the nearest day under the
   // pointer, or stepped with the arrow keys. data-points holds [x%, y%, date, amount,
-  // projected] per day, as laid out by routes/overview.py.
-  document.querySelectorAll(".bal-chart").forEach((chart) => {
+  // projected] per day, as laid out by routes/overview.py. Run on load and after each
+  // boosted page swap; data-ready stops a chart being set up twice.
+  const initCharts = () => document.querySelectorAll(".bal-chart:not([data-ready])").forEach((chart) => {
+    chart.dataset.ready = "";
     const points = JSON.parse(chart.dataset.points);
     const plot = chart.querySelector(".bal-plot");
     const cross = chart.querySelector(".bal-cross");
@@ -354,16 +368,68 @@
       show(current + step);
     });
   });
+  initCharts();
 
   // The tab bar on other pages links to /register#search and /register#new: act on them once the
-  // register has loaded, then drop the hash so a reload doesn't do it again.
-  window.addEventListener("load", () => {
-    const hash = location.hash;
+  // register has loaded, then drop the hash so a reload doesn't do it again. history.state is
+  // kept, since htmx marks its own entries there (Back from a boosted page needs the mark).
+  function actOnHash(hash) {
     if (hash !== "#search" && hash !== "#new") return;
-    history.replaceState(null, "", location.pathname + location.search);
+    history.replaceState(history.state, "", location.pathname + location.search);
     if (hash === "#search") window.dispatchEvent(new CustomEvent("filters-open"));
     else document.querySelector("[data-new-txn]")?.click();
+  }
+  window.addEventListener("load", () => actOnHash(location.hash));
+
+  // Boosted nav links (hx-boost on the tab bar, sidebar and masthead links) swap in the new
+  // page's body instead of loading it, so the scripts above don't run again. Carry over what
+  // a load would have done. Events fire on each swapped-in element too, so only the body's
+  // own event counts.
+  document.addEventListener("htmx:afterSwap", (e) => {
+    if (!e.detail.boosted || e.target !== document.body) return;
+    const m = e.detail.xhr.responseText.match(/<body\b[^>]*\bclass="([^"]*)"/);
+    document.body.className = m ? m[1] : ""; // the page's class, and drops panel-open
   });
+  document.addEventListener("htmx:afterSettle", (e) => {
+    if (!e.detail.boosted || e.target !== document.body) return;
+    initCharts();
+    // After Alpine has set up the new page's components (its observer runs before this).
+    const hash = new URL(e.detail.pathInfo.requestPath, location.href).hash;
+    setTimeout(() => actOnHash(hash));
+  });
+  // A boosted load that fails (no connection, the server down, an error page, an expired
+  // Cloudflare Access login) falls back to a normal load, which gets the service worker's
+  // saved copy or shows the error just as before.
+  const loadNormally = (e) => {
+    if (e.detail.requestConfig?.boosted) location.assign(e.detail.requestConfig.path);
+  };
+  document.addEventListener("htmx:sendError", loadNormally);
+  document.addEventListener("htmx:responseError", loadNormally);
+  document.addEventListener("htmx:timeout", loadNormally);
+
+  // Prefetch: as a finger or mouse button goes down on a boosted link, ask the service worker
+  // to start loading its page, so it's on its way before the tap ends (see sw.js). Only when
+  // the worker is in charge (without it this would just be a second request), and not on a
+  // saved offline page. A tap fires touchstart and then mousedown: one request is enough.
+  let lastPrefetch = { href: "", at: 0 };
+  function prefetch(e) {
+    const link = e.target.closest?.("a[href]");
+    if (!link || link.hasAttribute("download") || !navigator.serviceWorker?.controller) return;
+    if (document.documentElement.dataset.savedAt) return;
+    if (link.closest("[hx-boost]")?.getAttribute("hx-boost") !== "true") return;
+    const url = new URL(link.href);
+    url.hash = "";
+    if (url.origin !== location.origin) return;
+    if (url.href === lastPrefetch.href && Date.now() - lastPrefetch.at < 2000) return;
+    lastPrefetch = { href: url.href, at: Date.now() };
+    fetch(url, { headers: { "HX-Request": "true", "HX-Boosted": "true", "X-Prefetch": "1" } }).catch(() => {});
+  }
+  document.addEventListener("touchstart", prefetch, { passive: true });
+  document.addEventListener("mousedown", prefetch);
+
+  // Back and Forward reload the page instead of using htmx's snapshots (historyCacheSize is
+  // 0 in base.html). Clear any snapshots older versions saved, so none is ever restored.
+  try { localStorage.removeItem("htmx-history-cache"); } catch {}
 
   // Offline. The service worker saves each main page and serves that copy when there's no
   // connection or the server can't be reached, with <html data-offline> saying which
@@ -397,7 +463,9 @@
     };
     document.addEventListener("htmx:beforeRequest", (e) => {
       e.preventDefault();
-      if (e.detail.elt.matches?.(".ledger-more")) e.detail.elt.textContent = "Reconnect to load more";
+      // A nav link loads normally, so the service worker can serve that page's saved copy.
+      if (e.detail.requestConfig?.boosted) location.assign(e.detail.requestConfig.path);
+      else if (e.detail.elt.matches?.(".ledger-more")) e.detail.elt.textContent = "Reconnect to load more";
       else refuse();
     });
     // Capturing on window gets in before htmx's own submit handling.

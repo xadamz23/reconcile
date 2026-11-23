@@ -10,8 +10,9 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Reconcile">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  {# Settling copies class/style between same-id elements and clobbers Alpine's x-show. #}
-  <meta name="htmx-config" content='{"attributesToSettle": [], "defaultSettleDelay": 0}'>
+  {# Settling copies class/style between same-id elements and clobbers Alpine's x-show.
+     No history snapshots: Back reloads the page, so it never shows an old balance. #}
+  <meta name="htmx-config" content='{"attributesToSettle": [], "defaultSettleDelay": 0, "historyCacheSize": 0, "refreshOnHistoryMiss": true}'>
   <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials">
   <link rel="icon" href="{{ static_url('icons/favicon.svg') }}" type="image/svg+xml">
   <link rel="icon" href="{{ static_url('icons/favicon.ico') }}" sizes="32x32">

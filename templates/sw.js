@@ -21,10 +21,48 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Prefetched pages. When a finger or mouse button goes down on a nav link, app.js asks for
+// its page (X-Prefetch), and the boosted request that follows on release takes that response
+// instead of starting a new one. Each is used once and only for PREFETCH_MS, and any save
+// (a non-GET) drops them all, so a page is never older than the tap that opened it.
+const PREFETCH_MS = 5000;
+const prefetched = new Map(); // url -> { at, res: Promise<Response> }
+
+function takePrefetched(href) {
+  const hit = prefetched.get(href);
+  prefetched.delete(href);
+  return hit && Date.now() - hit.at < PREFETCH_MS ? hit.res : null;
+}
+
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   const url = new URL(req.url);
+  if (req.method !== "GET") prefetched.clear();
   if (req.method !== "GET" || url.origin !== self.location.origin) return;
+
+  if (req.headers.get("X-Prefetch") === "1") {
+    const res = fetch(req);
+    prefetched.set(url.href, { at: Date.now(), res });
+    event.waitUntil(res.catch(() => {}));
+    event.respondWith(new Response(null, { status: 204 })); // app.js doesn't read it
+    return;
+  }
+
+  // A boosted page load (a nav link swapped in by htmx): the prefetched response if there is
+  // one, else the network. Main pages are saved for offline here too, as for navigations.
+  // A failure goes back to htmx, and app.js then does a normal load (which reaches the saved
+  // copy below).
+  if (req.headers.get("HX-Boosted") === "true") {
+    const hit = takePrefetched(url.href);
+    const load = hit ? hit.then((res) => (res.ok ? res : fetch(req)), () => fetch(req)) : fetch(req);
+    event.respondWith(load.then((res) => {
+      if (res.ok && !res.redirected && res.type === "basic" && !url.search && SAVED.has(url.pathname)) {
+        event.waitUntil(savePage(url.pathname, res.clone()));
+      }
+      return res;
+    }));
+    return;
+  }
 
   // Hashed static assets never change: cache first.
   if (url.pathname.startsWith("/static/")) {

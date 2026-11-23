@@ -446,7 +446,7 @@ def test_register_masthead_search_opens_filter_bar(ready):
 @pytest.mark.parametrize("path", ["/", "/spending", "/bills", "/reconcile"])
 def test_masthead_search_links_to_register(ready, path):
     head = masthead(ready.get(path).text)
-    assert '<a class="icon-btn only-mobile" href="/register#search" aria-label="Search">' in head
+    assert '<a class="icon-btn only-mobile" href="/register#search" hx-boost="true" aria-label="Search">' in head
 
 
 def test_spending_tab_bar(ready):
@@ -738,7 +738,7 @@ def test_overview_masthead_and_navigation(ready):
     text = ready.get("/").text
     assert '<h1 class="account">Adam&#39;s Checking</h1>' in text
     assert 'id="totals"' not in text  # the tiles show them
-    assert 'href="/register#new" data-new-txn' in text  # desktop New transaction, and the n key
+    assert 'href="/register#new" hx-boost="true" data-new-txn' in text  # desktop New transaction, and the n key
     menu = text[text.index('class="menu-pop'):text.index("</header>")]
     assert 'href="/"' in menu and 'href="/register"' not in menu
 
@@ -821,7 +821,7 @@ def test_every_page_has_the_sidebar(ready, path, current):
 
 def test_sidebar_new_transaction_opens_the_panel_where_there_is_one(ready):
     assert 'hx-get="/txn/new" hx-target="#panel-body" data-new-txn' in sidebar(ready.get("/register").text)
-    assert 'href="/register#new" data-new-txn' in sidebar(ready.get("/spending").text)
+    assert 'href="/register#new" hx-boost="true" data-new-txn' in sidebar(ready.get("/spending").text)
 
 
 def test_sidebar_shows_a_reconcile_in_progress(ready):
