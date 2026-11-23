@@ -886,6 +886,29 @@ def test_bill_card_actions_match_each_kind(ready, nov13):
     assert f'hx-get="/bills/{sometimes}/add?seq=1"' in c and "Some months on the 20th" in c
 
 
+def test_bill_that_asks_with_a_usual_day(ready, nov13):
+    bill = _bill(ready, payee="Electric", mode="ask", day="15")
+    text = ready.get("/bills").text
+    c = card_of(text, bill)
+    assert "Every month on the 15th, amount varies" in c and "In 2 days" in c and "Enter amount" in c
+    rail = cards(text)
+    assert f'href="#bill-card-{bill}-1"' in rail  # it has a day, so it's on the rail
+    sheet = ready.get(f"/bills/{bill}/add?seq=1", headers=HX).text
+    assert 'value="2026-11-15"' in sheet and 'name="amount" value=""' in sheet
+    form = ready.get(f"/bills/{bill}/edit", headers=HX).text
+    assert 'name="day" value="15"' in form and 'placeholder="Optional"' in form
+    with_amount = _bill(ready, payee="Water", amount="62.40", mode="ask", day="3")
+    assert "Every month on the 3rd, asks for the amount" in card_of(ready.get("/bills").text, with_amount)
+
+
+def test_bill_that_asks_needs_both_days_or_neither(ready):
+    data = {"payee": "Daycare", "amount": "", "day": "1", "times": "2", "day2": "", "mode": "ask"}
+    r = ready.post("/bills", data=data, headers=HX)
+    assert "HX-Trigger" not in r.headers and "Enter a day from 1 to 31" in r.text
+    r = ready.post("/bills", data={**data, "day": "x", "times": "1"}, headers=HX)
+    assert "HX-Trigger" not in r.headers and "Enter a day from 1 to 31" in r.text
+
+
 def test_done_bill_cards(ready, nov13):
     added = _add_bill(ready, "Gym", "45.00", "5")
     other = _bill(ready, payee="Phone", amount="65.00", day="12", source="other")

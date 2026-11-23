@@ -37,13 +37,15 @@ def _ordinal(day: int) -> str:
 
 def _schedule(bill: sqlite3.Row) -> str:
     """When the bill comes out, for the desktop cards: 'Every month on the 10th'."""
-    if bill["ask"]:
+    if bill["day"] is None:
         when = "Asks for the date and amount"
     elif bill["times"] == 2:
         when = f"the {_ordinal(bill['day'])} and {_ordinal(bill['day2'])}"
         when = f"Some months, {when}" if bill["sometimes"] else f"Every month, {when}"
     else:
         when = f"{'Some months' if bill['sometimes'] else 'Every month'} on the {_ordinal(bill['day'])}"
+    if bill["ask"] and bill["day"] is not None:
+        when += ", amount varies" if bill["amount_cents"] is None else ", asks for the amount"
     return f"Another account, {when[0].lower()}{when[1:]}" if bill["elsewhere"] else when
 
 
@@ -192,7 +194,9 @@ def _parse(form: dict) -> tuple[repo.BillInput | None, dict]:
     if not form["payee"].strip():
         errors["payee"] = "Who is the bill paid to?"
     day, day2 = _day(form["day"]), _day(form["day2"])
-    if not ask:
+    # A bill that asks can leave its days blank (no usual day), but not just one of two.
+    blank = not form["day"].strip() and (count == 1 or not form["day2"].strip())
+    if not (ask and blank):
         if not 1 <= day <= 31:
             errors["day"] = "Enter a day from 1 to 31"
         if count == 2 and not 1 <= day2 <= 31:
@@ -200,7 +204,7 @@ def _parse(form: dict) -> tuple[repo.BillInput | None, dict]:
     if errors:
         return None, errors
     return repo.BillInput(
-        form["payee"], cents, day or None, count, day2 if count == 2 and not ask else None,
+        form["payee"], cents, day or None, count, (day2 or None) if count == 2 else None,
         ask, elsewhere, form["sometimes"] == "1",
     ), {}
 

@@ -2,6 +2,7 @@
 {% set times = form.times | string %}
 <form class="txn-form bill-form" hx-post="{{ '/bills/%d' % bill.id if bill else '/bills' }}" hx-target="#panel-body" novalidate
       x-data='{ times: {{ times | tojson }}, mode: {{ form.mode | tojson }}, source: {{ form.source | tojson }},
+               get asks() { return this.mode === "ask" && this.source === "here" },
                get optional() { return this.mode === "ask" || this.source === "other" } }'>
   <div class="panel-bar">
     <button class="icon-btn" type="button" data-panel-close aria-label="Close">{{ icon('close') }}</button>
@@ -53,21 +54,25 @@
       </div>
     </div>
 
+    {# A bill that asks can still have a usual day: it then shows when it's due, and the
+       sheet starts on that date. Blank means it moves around. #}
     {% set asks = form.mode == 'ask' and form.source == 'here' %}
-    <div class="field-row" x-show="mode === 'now' || source === 'other'" :class="times === '1' && 'is-single'" {{ 'x-cloak' if asks }}>
+    <div class="field-row" :class="times === '1' && 'is-single'">
       <label class="field{{ ' has-error' if errors.day }}">
-        <span class="field-label" x-text="times === '2' ? '1st payment day' : 'Day it comes out'">{{ '1st payment day' if times == '2' else 'Day it comes out' }}</span>
-        <input class="glass-input" type="number" name="day" value="{{ form.day }}" inputmode="numeric" min="1" max="31">
+        <span class="field-label" x-text="times === '2' ? '1st payment day' : (asks ? 'Usual day' : 'Day it comes out')">{{ '1st payment day' if times == '2' else 'Usual day' if asks else 'Day it comes out' }}</span>
+        <input class="glass-input" type="number" name="day" value="{{ form.day }}" inputmode="numeric" min="1" max="31"
+               :placeholder="asks ? 'Optional' : ''" {% if asks %}placeholder="Optional"{% endif %}>
         {% if errors.day %}<span class="field-error">{{ errors.day }}</span>{% endif %}
       </label>
       <label class="field{{ ' has-error' if errors.day2 }}" x-show="times === '2'" {{ 'x-cloak' if times != '2' }}>
         <span class="field-label">2nd payment day</span>
-        <input class="glass-input" type="number" name="day2" value="{{ form.day2 }}" inputmode="numeric" min="1" max="31">
+        <input class="glass-input" type="number" name="day2" value="{{ form.day2 }}" inputmode="numeric" min="1" max="31"
+               :placeholder="asks ? 'Optional' : ''" {% if asks %}placeholder="Optional"{% endif %}>
         {% if errors.day2 %}<span class="field-error">{{ errors.day2 }}</span>{% endif %}
       </label>
     </div>
-    <p class="field-help" x-show="mode === 'now' || source === 'other'" {{ 'x-cloak' if asks }}>Day of the month. In shorter months, a late day moves to the last day.</p>
-    <p class="field-help" x-show="mode === 'ask' && source === 'here'" {{ 'x-cloak' if not asks }}>No fixed day. Ticking it opens a sheet where you set the date, amount and check number.</p>
+    <p class="field-help" x-show="!asks" {{ 'x-cloak' if asks }}>Day of the month. In shorter months, a late day moves to the last day.</p>
+    <p class="field-help" x-show="asks" {{ 'x-cloak' if not asks }}>Ticking it opens a sheet where you set the date, amount and check number. With a usual day, the bill shows when it's due and the sheet starts on that date. Leave it blank if the date moves around.</p>
 
     <label class="toggle-switch">
       <input type="checkbox" role="switch" name="sometimes" value="1" {{ 'checked' if form.sometimes }}>

@@ -455,10 +455,41 @@ def test_bill_that_asks_takes_date_number_and_amount(ledger):
     assert (row["txn_date"], row["txn_cents"], row["txn_number"]) == ("2026-11-03", -61000, "1043")
 
 
-def test_switching_a_bill_to_ask_keeps_its_day(ledger):
+def test_bill_that_asks_can_have_a_usual_day(ledger):
+    bill = repo.create_bill(ledger, repo.BillInput("Electric", None, 31, ask=True))
+    assert repo.bill_due_date(repo.get_bill(ledger, bill), "2026-11") == "2026-11-30"
+    assert repo.add_bill_txn(ledger, bill, "2026-11", 1, None, 11840) is True
+    assert repo.bills_for_month(ledger, "2026-11")[0]["txn_date"] == "2026-11-30"
+    twice = repo.BillInput("Daycare", None, 1, times=2, day2=15, ask=True)
+    assert (twice.day, twice.day2) == (1, 15)
+    for kw in [dict(day=1, times=2), dict(day=None, times=2, day2=15), dict(day=32)]:
+        with pytest.raises(ValueError):
+            repo.BillInput("Daycare", None, ask=True, **kw)
+
+
+def test_editing_a_bill_saves_its_day_as_given(ledger):
     bill = repo.create_bill(ledger, repo.BillInput("Water", 6240, 5))
-    repo.update_bill(ledger, bill, repo.BillInput("Water", 6240, None, ask=True))
+    repo.update_bill(ledger, bill, repo.BillInput("Water", None, 5, ask=True))
     assert repo.get_bill(ledger, bill)["day"] == 5
+    repo.update_bill(ledger, bill, repo.BillInput("Water", None, None, ask=True))
+    assert repo.get_bill(ledger, bill)["day"] is None
+    # The second day stays through a switch to once a month.
+    repo.update_bill(ledger, bill, repo.BillInput("Water", 6240, 1, times=2, day2=15))
+    repo.update_bill(ledger, bill, repo.BillInput("Water", 6240, 1))
+    assert repo.get_bill(ledger, bill)["day2"] == 15
+
+
+def test_migration_5_clears_days_left_on_asking_bills():
+    from app import db
+
+    c = db.connect(":memory:")
+    for i, sql in enumerate(db.MIGRATIONS[:4], start=1):
+        c.executescript(f"BEGIN; {sql} PRAGMA user_version = {i}; COMMIT;")
+    c.execute("INSERT INTO bills (payee, amount_cents, day, times, day2, ask) VALUES ('Water', 6240, 5, 2, 20, 1)")
+    c.execute("INSERT INTO bills (payee, amount_cents, day, ask) VALUES ('Rent', 100, 1, 0)")
+    db.migrate(c)
+    assert tuple(c.execute("SELECT day, day2 FROM bills WHERE payee = 'Water'").fetchone()) == (None, None)
+    assert c.execute("SELECT day FROM bills WHERE payee = 'Rent'").fetchone()[0] == 1
 
 
 def test_next_check_number_skips_non_numeric(ledger):

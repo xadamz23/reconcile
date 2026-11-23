@@ -89,6 +89,12 @@ MIGRATIONS = [
         PRIMARY KEY (bill_id, month, seq)
     );
     """,
+    # A bill that asks for its date and amount can now have a usual day too. Until now an
+    # asking bill ignored its day, and switching one to ask kept the old day for switching
+    # back, so clear those leftovers instead of letting them show up as due dates.
+    """
+    UPDATE bills SET day = NULL, day2 = NULL WHERE ask = 1;
+    """,
 ]
 
 

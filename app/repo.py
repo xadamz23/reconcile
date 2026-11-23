@@ -49,10 +49,10 @@ class TxnInput:
 class BillInput:
     payee: str
     amount_cents: int | None  # positive (every bill is a payment); None when it varies
-    day: int | None  # None when the bill asks for its date
+    day: int | None  # None when the bill asks for its date and has no usual day
     times: int = 1  # payments a month: 1 or 2
     day2: int | None = None  # the second payment's day, when times is 2
-    ask: bool = False  # ticking it asks for the date, amount and check number
+    ask: bool = False  # ticking it asks for the date, amount and check number (day, if set, is the usual date)
     elsewhere: bool = False  # paid from another account: ticking it only marks it paid
     sometimes: bool = False  # not due every month: ticking it can mark the month "nothing due"
 
@@ -71,7 +71,9 @@ class BillInput:
             raise ValueError("A bill comes out once or twice a month")
         if self.times == 1:
             self.day2 = None
-        days = [] if self.ask else [self.day] + ([self.day2] if self.times == 2 else [])
+        days = [self.day] + ([self.day2] if self.times == 2 else [])
+        if self.ask and all(d is None for d in days):
+            return  # no usual day: the sheet asks for the date every time
         if not all(d is not None and 1 <= d <= 31 for d in days):
             raise ValueError("Day must be 1 to 31")
 
@@ -510,15 +512,17 @@ def create_bill(conn: sqlite3.Connection, b: BillInput) -> int:
 
 
 def update_bill(conn: sqlite3.Connection, bill_id: int, b: BillInput) -> None:
-    # Transactions already added from this bill keep what they were added with. A day the
-    # form left blank (a bill that asks) keeps the old one, in case it's switched back.
+    # Transactions already added from this bill keep what they were added with. The second
+    # day stays when it's switched to once a month, in case it's switched back.
     conn.execute(
         """
-        UPDATE bills SET payee = ?, amount_cents = ?, day = COALESCE(?, day), times = ?, day2 = COALESCE(?, day2),
+        UPDATE bills SET payee = ?, amount_cents = ?, day = ?, times = ?,
+                         day2 = CASE WHEN ? = 1 THEN day2 ELSE ? END,
                          ask = ?, elsewhere = ?, sometimes = ?, updated_at = datetime('now')
          WHERE id = ?
         """,
-        (b.payee, b.amount_cents, b.day, b.times, b.day2, int(b.ask), int(b.elsewhere), int(b.sometimes), bill_id),
+        (b.payee, b.amount_cents, b.day, b.times, b.times, b.day2, int(b.ask), int(b.elsewhere), int(b.sometimes),
+         bill_id),
     )
 
 
@@ -555,9 +559,10 @@ def bills_for_month(conn: sqlite3.Connection, month: str) -> list[sqlite3.Row]:
 
 
 def bill_due_date(bill: sqlite3.Row, month: str, seq: int = 1) -> str | None:
-    """When payment seq of the bill comes out in month, or None if the bill asks each time."""
+    """When payment seq of the bill comes out in month, or None if the bill has no usual day
+    (it asks for the date each time)."""
     day = bill["day2"] if seq == 2 else bill["day"]
-    if bill["ask"] or day is None:
+    if day is None:
         return None
     return bill_date(day, month)
 
