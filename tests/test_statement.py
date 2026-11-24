@@ -109,6 +109,14 @@ def test_extract_redacts_names_addresses_and_account_numbers():
     assert "2253 70.00" in text  # check numbers and amounts survive
 
 
+def test_only_pdfs_are_read():
+    from app.statement_ai import _content
+    with pytest.raises(StatementReadError, match="isn't a PDF"):
+        _content(b"\x89PNG...", "image/png")
+    with pytest.raises(StatementReadError, match="isn't a PDF"):
+        _content(b"hello", "application/pdf")  # named .pdf but isn't one
+
+
 def test_extract_gives_up_on_unknown_layouts():
     assert statement_text.prepare(["Some other bank\n01/02/2026 STORE 5.00"]) is None
     assert statement_text.extract(b"not a pdf") is None

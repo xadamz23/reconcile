@@ -5,8 +5,8 @@ each line was under, and the sign is applied here from the section, so Claude ne
 decides whether money went in or out. Matching against the register happens elsewhere
 (app/statement_match.py), on this machine.
 
-For a PDF with a text layer, only redacted text from app.statement_text goes out. A photo,
-screenshot or scanned PDF is sent as is.
+Statements are PDFs. For one with a text layer (the bank's monthly statement), only
+redacted text from app.statement_text goes out. A PDF without one (a scan) is sent as is.
 """
 
 import base64
@@ -23,7 +23,6 @@ log = logging.getLogger(__name__)
 
 MODEL = "claude-opus-5-5"
 TIMEOUT_S = 90  # Cloudflare gives up on a request at 100s
-IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
 SIGN = {"deposit": 1, "withdrawal": -1, "check": -1}
 
 SYSTEM = """You transcribe a checking account statement into structured data. Copy what is printed; do not calculate, guess or reformat anything except dates.
@@ -124,17 +123,13 @@ def to_statement(read: Read, filename: str, source: str) -> dict:
 
 
 def _content(data: bytes, media_type: str) -> tuple[list[dict], str]:
-    if media_type == "application/pdf":
-        text = statement_text.extract(data)
-        if text:
-            return [{"type": "text", "text": "Here is the statement:\n\n" + text}], "text"
-        block = {"type": "document", "source": {"type": "base64", "media_type": "application/pdf",
-                                                "data": base64.standard_b64encode(data).decode()}}
-    elif media_type in IMAGE_TYPES:
-        block = {"type": "image", "source": {"type": "base64", "media_type": media_type,
-                                             "data": base64.standard_b64encode(data).decode()}}
-    else:
-        raise StatementReadError("Upload a PDF or a picture (PNG, JPEG, WebP or GIF) of the statement.")
+    if media_type != "application/pdf" or not data.startswith(b"%PDF"):
+        raise StatementReadError("That isn't a PDF. Choose your monthly statement PDF from the bank.")
+    text = statement_text.extract(data)
+    if text:
+        return [{"type": "text", "text": "Here is the statement:\n\n" + text}], "text"
+    block = {"type": "document", "source": {"type": "base64", "media_type": "application/pdf",
+                                            "data": base64.standard_b64encode(data).decode()}}
     return [block, {"type": "text", "text": "Here is the statement."}], "file"
 
 

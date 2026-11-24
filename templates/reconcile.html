@@ -52,7 +52,7 @@
           {% endif %}
           <label class="btn btn-sm {{ 'btn-glass' if statement else 'accent' }} rec-read-btn">
             {{ icon('upload' if statement else 'doc') }}{{ 'Read a different statement' if statement else 'Read statement' }}
-            <input class="visually-hidden" type="file" name="file" form="rec-read" accept="application/pdf,image/*"
+            <input class="visually-hidden" type="file" name="file" form="rec-read" accept="application/pdf,.pdf"
                    @change="if ($el.files.length) { name = $el.files[0].name; reading = true; $el.form.requestSubmit() }">
           </label>
           {% if not statement %}

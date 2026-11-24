@@ -104,7 +104,7 @@ def reconcile_read_statement(request: Request, file: UploadFile = File(...)):
     if not data:
         error = "Choose a statement file to read."
     elif len(data) > MAX_UPLOAD:
-        error = "That file is over 20 MB. Try a PDF from the bank's website, or a smaller photo."
+        error = "That file is over 20 MB, far bigger than a monthly statement. Check you picked the statement PDF."
     else:
         try:
             statement = request.app.state.read_statement(data, media_type, filename)
