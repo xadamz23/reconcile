@@ -1,26 +1,41 @@
 {# The summary, then the open items in two groups: To check (not ticked yet) first, so
    they keep the focus, then On statement (ticked), always shown. Ticking or unticking
-   redraws this whole body (moving the row between groups) and sends the toast with Undo. #}
+   redraws this whole body (moving the row between groups) and sends the toast with Undo.
+   When Claude has read the statement, the review card (_statement_review.html) sits in a
+   column beside the groups on a wide screen, and above them on a narrow one. #}
 {% from "_icons.html" import icon %}
 {% if oob_totals %}
   {% include "_totals_oob.html" %}
 {% endif %}
 {% if toast_oob %}
   <div id="toast" role="status" hx-swap-oob="true">
-    {% if toast %}
+    {% if toast and toast.row %}
     {% set row = toast.row %}
     <div class="toast glass-strong is-popover" x-data x-init="setTimeout(() => $el.remove(), 6000)">
       <span class="toast-text">{{ 'Ticked' if toast.ticked else 'Unticked' }} <strong>{{ row.payee }}</strong></span>
       <button type="button" hx-post="/reconcile/{{ row.id }}/toggle" hx-vals='{"verified": "{{ 0 if toast.ticked else 1 }}", "undo": "1"}'
               hx-target="#rec-body" hx-swap="innerHTML">Undo</button>
     </div>
+    {% elif toast %}
+    <div class="toast glass-strong is-popover" x-data x-init="setTimeout(() => $el.remove(), 6000)">
+      <span class="toast-text">{{ toast.text }}{% if toast.strong %} <strong>{{ toast.strong }}</strong>{% endif %}{% if toast.after %} {{ toast.after }}{% endif %}</span>
+      {% if toast.undo %}
+      <button type="button" hx-post="{{ toast.undo }}" hx-vals='{{ toast.vals | tojson }}'
+              hx-target="#rec-body" hx-swap="innerHTML">Undo</button>
+      {% endif %}
+    </div>
     {% endif %}
   </div>
 {% endif %}
 {% if state %}
 {% include "_reconcile_summary.html" %}
-{% if state.candidates %}
+{% if review %}
+{% set matched_ids, differs_ids = review.matched_ids, review.differs_by_txn %}
+{% endif %}
+{% if state.candidates or review %}
 <p class="rec-hint rec-lede">Tick every item that appears on the statement. Tap an item to edit it.</p>
+{% if review %}<div class="rec-split"><div class="rec-list-col">{% endif %}
+{% if state.candidates %}
 {% set to_check, ticked = state.to_check, state.ticked %}
 <h3 class="rec-group">To check <span>{{ to_check | length }}</span></h3>
 {% if to_check %}
@@ -35,6 +50,20 @@
 <section class="rec-list rec-ticked card card-list glass" aria-label="On statement">
   {% for row in ticked %}{% include "_rec_row.html" %}{% endfor %}
 </section>
+{% endif %}
+{% else %}
+<h3 class="rec-group">To check <span>0</span></h3>
+<section class="rec-list card glass">
+  <p class="ledger-note">No open items on or before {{ state.end_date | pretty_date }}.</p>
+</section>
+{% endif %}
+{% if review %}
+</div>
+<aside class="rec-aside" aria-labelledby="rec-statement-h">
+  <h3 class="rec-group" id="rec-statement-h">Statement <span>{{ review.lines | length }} line{{ 's' if review.lines | length != 1 }}</span></h3>
+  {% include "_statement_review.html" %}
+</aside>
+</div>
 {% endif %}
 {% else %}
 <section class="rec-list card glass">

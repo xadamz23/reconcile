@@ -1,0 +1,97 @@
+{# The statement Claude read, lined up with the register by statement_match: how many
+   lines match, Tick matched, then what needs a look. Redrawn with the reconcile body, so
+   adding, fixing or ticking anything updates it. #}
+{% from "_icons.html" import icon %}
+{% set lines = review.lines %}
+{% set statement = review.statement %}
+{% set n_lines = lines | length %}
+{% set n_matched = review.matched | length %}
+{% set n_ticked = review.ticked_count %}
+{% set n_ready = review.ready | length %}
+{% set n_need = review.missing | length + review.differs | length %}
+{% set pct = 100.0 / n_lines %}
+<section class="review card glass" aria-label="Statement review">
+  <div class="review-head">
+    <div class="review-title">
+      <span class="review-doc">{{ icon('doc') }}</span>
+      <div>
+        <h4>{{ n_matched }} of {{ n_lines }} statement line{{ 's' if n_lines != 1 }} match</h4>
+        <p>{{ statement.file }}{% if statement.period_start %} · {{ statement.period_start | short_date }} to {{ statement.closing_date | short_date }}{% endif %}</p>
+      </div>
+    </div>
+    <div class="meter" aria-hidden="true">
+      <span class="m-ticked" style="--w: {{ n_ticked * pct }}%"></span>
+      <span class="m-ready" style="--w: {{ (n_matched - n_ticked) * pct }}%"></span>
+      <span class="m-need" style="--w: {{ n_need * pct }}%"></span>
+    </div>
+    <p class="meter-key">
+      <span><i class="k-ticked"></i>{{ n_ticked }} ticked</span>
+      <span><i class="k-ready"></i>{{ n_matched - n_ticked }} ready to tick</span>
+      <span><i class="k-need"></i>{{ n_need }} need{{ 's' if n_need == 1 }} you</span>
+    </p>
+    {% if n_ready %}
+    <button class="btn accent" type="button" hx-post="/reconcile/statement/apply" hx-target="#rec-body" hx-swap="innerHTML">
+      {{ icon('check') }}Tick {{ n_ready }} matched</button>
+    {% else %}
+    <button class="btn accent" type="button" disabled>{{ icon('check') }}All matches ticked</button>
+    {% endif %}
+    {% for warning in review.warnings %}
+    <p class="review-warn" role="alert">{{ warning }} Something may have been misread, so check the lines below against the statement.</p>
+    {% endfor %}
+  </div>
+
+  {% if n_need %}
+  <div class="review-group">
+    <h5>On statement, not in register <span>{{ n_need }}</span></h5>
+    {% for i, t in review.differs %}
+    {% set ln = lines[i] %}
+    <div class="rline">
+      <span class="rline-desc" title="{{ ln.description }}">{{ ln.description }}</span>
+      <span class="rline-amt num {{ 'pay' if ln.cents < 0 else 'dep' }}">{{ '−' if ln.cents < 0 else '+' }}{{ ln.cents | money(signed=false) }}</span>
+      <span class="rline-meta">{{ ln.date | short_date }} · <em>Register has {{ t.payee }} for {{ t.amount_cents | money(signed=false) }} on {{ t.date | short_date }}</em></span>
+      <span class="rline-act">
+        <button class="btn btn-glass btn-sm" type="button" hx-post="/reconcile/statement/fix"
+                hx-vals='{"txn": "{{ t.id }}", "line": "{{ i }}"}' hx-target="#rec-body" hx-swap="innerHTML">
+          {{ icon('pencil') }}Use {{ ln.cents | money(signed=false) }}</button>
+      </span>
+    </div>
+    {% endfor %}
+    {% for i in review.missing %}
+    {% set ln = lines[i] %}
+    {% set q = {"date": ln.date, "verified": 1, "payee": suggest[i], "cents": ln.cents} %}
+    {% if ln.number %}{% set _ = q.update({"number": ln.number}) %}{% endif %}
+    <div class="rline">
+      <span class="rline-desc" title="{{ ln.description }}">{{ ln.description }}</span>
+      <span class="rline-amt num {{ 'pay' if ln.cents < 0 else 'dep' }}">{{ '−' if ln.cents < 0 else '+' }}{{ ln.cents | money(signed=false) }}</span>
+      <span class="rline-meta">{{ ln.date | short_date }}{% if ln.number %} · check #{{ ln.number }}{% endif %} · not in your register</span>
+      <span class="rline-act">
+        <button class="btn btn-glass btn-sm" type="button" hx-get="/txn/new?{{ q | urlencode }}" hx-target="#panel-body">
+          {{ icon('plus') }}Add</button>
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if review.unmatched or review.differs %}
+  <div class="review-group">
+    <h5>In register, not on statement <span>{{ review.unmatched | length + review.differs | length }}</span></h5>
+    {% for i, t in review.differs %}
+    <div class="rline">
+      <span class="rline-desc is-payee">{% if t.number %}#{{ t.number }} {% endif %}{{ t.payee }}</span>
+      <span class="rline-amt num {{ 'pay' if t.amount_cents < 0 else 'dep' }}">{{ '−' if t.amount_cents < 0 else '+' }}{{ t.amount_cents | money(signed=false) }}</span>
+      <span class="rline-meta">{{ t.date | short_date }} · <em>Amount differs</em> from the statement's {{ lines[i].cents | money(signed=false) }}</span>
+    </div>
+    {% endfor %}
+    {% for t in review.unmatched %}
+    <div class="rline">
+      <span class="rline-desc is-payee">{% if t.number %}#{{ t.number }} {% endif %}{{ t.payee }}</span>
+      <span class="rline-amt num {{ 'pay' if t.amount_cents < 0 else 'dep' }}">{{ '−' if t.amount_cents < 0 else '+' }}{{ t.amount_cents | money(signed=false) }}</span>
+      <span class="rline-meta">{{ t.date | short_date }} · {{ "Check not cashed yet. Leave it unticked." if t.number and t.amount_cents < 0 else "Not on this statement. Leave it unticked." }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <p class="review-foot">Read by Claude{% if statement.source == 'text' %} from the statement's text, with your name and account numbers left out{% endif %}. Check anything that looks off.</p>
+</section>

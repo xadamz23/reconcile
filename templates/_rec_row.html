@@ -1,5 +1,6 @@
 {% from "_icons.html" import icon %}
-<article id="rec-{{ row.id }}" class="txn txn-rec is-{{ row.status }}{{ ' is-just-ticked' if just_ticked == row.id }}">
+{% set flag = ('on' if row.id in matched_ids else 'differs' if row.id in differs_ids else '') if review else '' %}
+<article id="rec-{{ row.id }}" class="txn txn-rec is-{{ row.status }}{{ ' is-just-ticked' if just_ticked and row.id in just_ticked }}{{ ' is-match' if flag == 'on' and row.status == 'unverified' }}">
   <button class="mark" type="button" hx-post="/reconcile/{{ row.id }}/toggle" hx-vals='{"verified": "{{ 0 if row.status == 'verified' else 1 }}"}'
           hx-target="#rec-body" hx-swap="innerHTML swap:180ms" data-rec-tick
           aria-pressed="{{ 'true' if row.status == 'verified' else 'false' }}"
@@ -9,5 +10,9 @@
     <span class="txn-no">{% if row.number %}<span class="glass-chip">#{{ row.number }}</span>{% endif %}</span>
     <span class="txn-payee"><span class="txn-name">{{ row.payee }}</span></span>
     <span class="txn-amt num {{ 'pay' if row.amount_cents < 0 else 'dep' }}">{{ ('−' if row.amount_cents < 0 else '+') }}{{ row.amount_cents | money(signed=false) }}</span>
+    {% if review %}<span class="txn-flag">
+      {%- if flag == 'on' %}<span class="glass-chip chip-done">On statement</span>
+      {%- elif flag == 'differs' %}<span class="glass-chip chip-warn">Amount differs</span>{% endif -%}
+    </span>{% endif %}
   </button>
 </article>

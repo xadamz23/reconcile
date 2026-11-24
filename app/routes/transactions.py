@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, Response
 
 from app import repo
-from app.money import parse_cents, plain_amount
+from app.money import MAX_CENTS, parse_cents, plain_amount
 from app.routes.deps import get_conn, render
 
 router = APIRouter()
@@ -62,14 +62,30 @@ def _require(conn, txn_id: int) -> sqlite3.Row:
 
 
 @router.get("/txn/new")
-def new_txn(request: Request, on_date: str = Query("", alias="date"), verified: bool = False):
-    """verified=1 and date come from the reconcile screen: the item is on the statement."""
+def new_txn(
+    request: Request,
+    on_date: str = Query("", alias="date"),
+    verified: bool = False,
+    payee: str = "",
+    cents: str = "",
+    number: str = "",
+):
+    """verified=1 and date come from the reconcile screen: the item is on the statement.
+    Adding a statement line that isn't in the register also passes its payee, signed
+    amount in cents and check number, to fill the form in."""
     try:
         on_date = date.fromisoformat(on_date).isoformat()
     except ValueError:
         on_date = date.today().isoformat()
-    form = {"sign": "-", "amount": "", "payee": "", "date": on_date,
-            "number": "", "note": "", "verified": verified}
+    try:
+        amount_cents = int(cents)
+    except ValueError:
+        amount_cents = 0
+    if abs(amount_cents) > MAX_CENTS:
+        amount_cents = 0
+    form = {"sign": "+" if amount_cents > 0 else "-", "amount": plain_amount(amount_cents) if amount_cents else "",
+            "payee": payee.strip()[:200], "date": on_date, "number": number.strip()[:20], "note": "",
+            "verified": verified}
     return _form_response(request, form)
 
 

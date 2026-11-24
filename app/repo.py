@@ -1,6 +1,7 @@
 """All SQL lives here. Functions take a sqlite3 connection opened by app.db."""
 
 import calendar
+import json
 import re
 import sqlite3
 from dataclasses import dataclass, field
@@ -12,6 +13,8 @@ from app.money import MAX_CENTS
 OPENING_PAYEE = "Opening balance"
 KINDS = ("all", "payments", "deposits")
 DRAFT_DATE, DRAFT_BALANCE = "rec_end_date", "rec_balance_cents"
+# The statement Claude read for the in-progress reconcile (see statement_ai.to_statement).
+DRAFT_STATEMENT = "rec_statement"
 
 
 def _like_contains(text: str) -> str:
@@ -157,6 +160,21 @@ def set_verified(conn: sqlite3.Connection, txn_id: int, verified: bool) -> str |
     return row["status"] if row else None
 
 
+def set_verified_many(conn: sqlite3.Connection, txn_ids: list[int]) -> int:
+    """Tick several unverified items at once (Tick matched). Returns how many were ticked."""
+    if not txn_ids:
+        return 0
+    marks = ",".join("?" * len(txn_ids))
+    with conn:
+        conn.execute("BEGIN")
+        cur = conn.execute(
+            f"UPDATE transactions SET status = 'verified', updated_at = datetime('now') "
+            f"WHERE status = 'unverified' AND id IN ({marks})",
+            txn_ids,
+        )
+    return cur.rowcount
+
+
 def balance(conn: sqlite3.Connection) -> int:
     """Balance in cents, future-dated items included."""
     return conn.execute("SELECT COALESCE(SUM(amount_cents), 0) FROM transactions").fetchone()[0]
@@ -283,6 +301,11 @@ def suggest_payees(conn: sqlite3.Connection, q: str | None, limit: int = 8) -> l
     latest.sort(key=lambda r: r["last_used"], reverse=True)
     latest.sort(key=lambda r: (not r["payee"].lower().startswith(needle), -r["uses"]))
     return [r["payee"] for r in latest[:limit]]
+
+
+def all_payees(conn: sqlite3.Connection) -> list[str]:
+    """Every distinct payee in the register, most recent spelling."""
+    return suggest_payees(conn, None, limit=100_000)
 
 
 def spending_by_payee(conn: sqlite3.Connection, start: str, end: str) -> list[sqlite3.Row]:
@@ -426,7 +449,24 @@ def save_draft(conn: sqlite3.Connection, end_date: str, statement_cents: int) ->
 
 
 def _clear_draft(conn: sqlite3.Connection) -> None:
-    conn.execute("DELETE FROM settings WHERE key IN (?, ?)", (DRAFT_DATE, DRAFT_BALANCE))
+    conn.execute("DELETE FROM settings WHERE key IN (?, ?, ?)", (DRAFT_DATE, DRAFT_BALANCE, DRAFT_STATEMENT))
+
+
+def get_statement(conn: sqlite3.Connection) -> dict | None:
+    """The statement Claude read for the in-progress reconcile, if any."""
+    raw = get_setting(conn, DRAFT_STATEMENT)
+    return json.loads(raw) if raw else None
+
+
+def start_from_statement(conn: sqlite3.Connection, statement: dict) -> None:
+    """Start (or update) the draft from a statement: its closing date and ending balance,
+    and its lines for the review. Ticks already made stay."""
+    Date.fromisoformat(statement["closing_date"])
+    with conn:
+        conn.execute("BEGIN")
+        set_setting(conn, DRAFT_DATE, statement["closing_date"])
+        set_setting(conn, DRAFT_BALANCE, str(statement["ending_cents"]))
+        set_setting(conn, DRAFT_STATEMENT, json.dumps(statement, separators=(",", ":")))
 
 
 def discard_draft(conn: sqlite3.Connection) -> None:

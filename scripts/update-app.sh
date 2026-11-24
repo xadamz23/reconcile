@@ -21,6 +21,14 @@ if ! docker network inspect cf-tunnel >/dev/null 2>&1; then
     exit 1
 fi
 
+# The app's secrets (ANTHROPIC_API_KEY, for reading statements with Claude) live in
+# .env beside the compose file, which loads them into the container. Without a key the
+# app runs as before and just doesn't offer Read statement, but the file must exist.
+if [[ ! -f .env ]]; then
+    echo "[ERROR] /home/dockerapps/reconcile/.env is missing. Create it with ANTHROPIC_API_KEY=... and chmod 600 it (an empty file runs the app without statement reading)."
+    exit 1
+fi
+
 echo "[INFO] stopping the container"
 docker compose down
 
@@ -41,6 +49,9 @@ services:
     environment:
       # Sets what "today" means (default transaction date, the Today divider).
       TZ: America/Chicago
+    # ANTHROPIC_API_KEY, for reading statements with Claude. Not in this file: it's
+    # rewritten on every deploy, and the key mustn't be in the repo's copy of this script.
+    env_file: .env
     # No published ports: cloudflared reaches it at http://reconcile:8000 over cf-tunnel.
     networks:
       - cf-tunnel

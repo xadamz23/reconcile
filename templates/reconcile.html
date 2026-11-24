@@ -20,23 +20,52 @@
       </p>
       <div class="field-row">
         <label class="field">
-          <span class="field-label">Statement closing date</span>
+          <span class="field-label">Statement closing date{% if from_statement %} <span class="glass-chip chip-ai">From statement</span>{% endif %}</span>
           <input class="glass-input" type="date" name="end_date" value="{{ form.end_date }}" required>
         </label>
         <label class="field">
-          <span class="field-label">Ending balance</span>
+          <span class="field-label">Ending balance{% if from_statement %} <span class="glass-chip chip-ai">From statement</span>{% endif %}</span>
           <span class="amount-input glass-input"><span class="dollar" aria-hidden="true">$</span>
             <input name="balance" value="{{ form.balance }}" inputmode="numeric" data-cents="signed" autocomplete="off" placeholder="0.00" required></span>
         </label>
       </div>
       {% if error %}<p class="field-error" role="alert">{{ error }}</p>{% endif %}
       <div class="rec-actions">
-        <button class="btn {{ 'btn-glass' if state else 'accent' }}" type="submit">{{ 'Update' if state else 'Start reconciling' }}</button>
+        <button class="btn {{ 'btn-glass' if state or ai_enabled else 'accent' }}" type="submit">{{ 'Update' if state else 'Start reconciling' }}</button>
         {% if state %}
         <button class="btn btn-glass btn-danger" type="submit" form="rec-discard">Discard</button>
         {% endif %}
       </div>
+      {% if ai_enabled %}
+      {# Read statement: the file input belongs to the separate #rec-read form (forms can't
+         nest), and choosing a file sends it straight away. Claude takes 10 to 40 seconds,
+         so the strip shows that it's reading until the page comes back. #}
+      <div class="rec-read" x-data="{ reading: false, name: '' }">
+        <div class="rec-read-busy" x-show="reading" x-cloak role="status">
+          <p class="rec-read-title"><span class="spinner" aria-hidden="true"></span>Reading statement…</p>
+          <span class="rec-read-bar" aria-hidden="true"><span></span></span>
+          <p class="rec-read-hint">Claude is reading <strong x-text="name"></strong>. This takes about 20 seconds.</p>
+        </div>
+        <div class="rec-read-idle" x-show="!reading">
+          {% if statement %}
+          <p class="rec-read-file">{{ icon('doc') }}<span>{{ statement.file }} · {{ statement.lines | length }} lines read</span></p>
+          {% endif %}
+          <label class="btn btn-sm {{ 'btn-glass' if statement else 'accent' }} rec-read-btn">
+            {{ icon('upload' if statement else 'doc') }}{{ 'Read a different statement' if statement else 'Read statement' }}
+            <input class="visually-hidden" type="file" name="file" form="rec-read" accept="application/pdf,image/*"
+                   @change="if ($el.files.length) { name = $el.files[0].name; reading = true; $el.form.requestSubmit() }">
+          </label>
+          {% if not statement %}
+          <p class="rec-read-hint">Or let Claude fill these in from the bank's PDF, a screenshot or a photo of the statement.</p>
+          {% endif %}
+        </div>
+        {% if read_error %}<p class="field-error" role="alert">{{ read_error }}</p>{% endif %}
+      </div>
+      {% endif %}
     </form>
+    {% if ai_enabled %}
+    <form id="rec-read" method="post" action="/reconcile/statement" enctype="multipart/form-data" hidden></form>
+    {% endif %}
 
     {% if state %}
     <form id="rec-discard" method="post" action="/reconcile/discard"

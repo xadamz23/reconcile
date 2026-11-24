@@ -4,6 +4,7 @@
 #
 #   TZ=America/Chicago
 #   RECONCILE_TAG=v0.1.0      # a git tag; defaults to latest
+#   ANTHROPIC_API_KEY=...     # optional: reading statements with Claude
 #
 # It publishes no ports. cloudflared, in its own container, reaches it at
 # http://reconcile:8000 over the external cf-tunnel network. Create that once:
@@ -22,6 +23,10 @@ services:
     environment:
       # Sets what "today" means (default transaction date, the Today divider).
       TZ: ${TZ:-UTC}
+    # Put ANTHROPIC_API_KEY=... in the same .env to turn on reading statements with Claude.
+    env_file:
+      - path: .env
+        required: false
     networks:
       - cf-tunnel
     volumes:

@@ -1,3 +1,4 @@
+import os
 import threading
 from contextlib import asynccontextmanager
 from datetime import date
@@ -9,7 +10,7 @@ from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from app import config, db
+from app import config, db, statement_ai
 from app.assets import Assets
 from app.money import format_cents, plain_amount
 
@@ -56,6 +57,12 @@ def _day_date(iso: str) -> str:
     return f"{d:%a}, {d:%b} {d.day}"
 
 
+def _short_date(iso: str) -> str:
+    """'Nov 9': a date in a list that's all one statement period."""
+    d = date.fromisoformat(iso)
+    return f"{d:%b} {d.day}"
+
+
 def create_app(db_path: Path | str | None = None) -> FastAPI:
     path = db_path or config.db_path()
 
@@ -74,9 +81,14 @@ def create_app(db_path: Path | str | None = None) -> FastAPI:
     templates = Jinja2Templates(directory=config.TEMPLATES_DIR)
     templates.env.globals.update(static_url=assets.url, asset_version=assets.version)
     templates.env.filters.update(money=format_cents, plain_amount=plain_amount, pretty_date=_pretty_date,
-                                 day_date=_day_date)
+                                 day_date=_day_date, short_date=_short_date)
     app.state.assets = assets
     app.state.templates = templates
+    # Reading statements with Claude: offered only when the server has an API key (from
+    # the environment; on the server, docker compose loads it from .env). Tests swap in a
+    # fake reader.
+    app.state.ai_enabled = bool(os.environ.get("ANTHROPIC_API_KEY"))
+    app.state.read_statement = statement_ai.read_statement
 
     @app.middleware("http")
     async def reject_cross_site_writes(request: Request, call_next):
