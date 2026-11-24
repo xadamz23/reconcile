@@ -271,6 +271,46 @@
       },
     }));
 
+    // Reconcile's Read statement strip. Choosing a file sends it at once, and while Claude
+    // reads (usually about 20 seconds) the strip shows how long it's been. Past SLOW_S it
+    // says it's slow, so a slow read doesn't look stuck; the server gives up at 90s.
+    const SLOW_S = 45;
+    window.Alpine.data("statementRead", () => ({
+      reading: false,
+      name: "",
+      secs: 0,
+      timer: null,
+      init() {
+        // Back to this page from the result (bfcache) shouldn't show it still reading.
+        const onShow = (e) => { if (e.persisted) this.stop(); };
+        window.addEventListener("pageshow", onShow);
+        this.removeListeners = () => window.removeEventListener("pageshow", onShow);
+      },
+      choose(input) {
+        if (!input.files.length) return;
+        this.name = input.files[0].name;
+        this.reading = true;
+        const started = Date.now();
+        this.secs = 0;
+        this.timer = setInterval(() => { this.secs = Math.floor((Date.now() - started) / 1000); }, 250);
+        input.form.requestSubmit();
+      },
+      stop() {
+        clearInterval(this.timer);
+        this.reading = false;
+      },
+      get elapsed() {
+        return `${Math.floor(this.secs / 60)}:${String(this.secs % 60).padStart(2, "0")}`;
+      },
+      get slow() {
+        return this.secs >= SLOW_S;
+      },
+      destroy() {
+        clearInterval(this.timer);
+        this.removeListeners?.();
+      },
+    }));
+
     // Payee combobox: suggests past payees only. Never fills in the amount.
     window.Alpine.data("payeeBox", (initial) => ({
       value: initial,

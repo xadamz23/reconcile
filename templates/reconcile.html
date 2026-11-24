@@ -40,11 +40,12 @@
       {# Read statement: the file input belongs to the separate #rec-read form (forms can't
          nest), and choosing a file sends it straight away. Claude takes 10 to 40 seconds,
          so the strip shows that it's reading until the page comes back. #}
-      <div class="rec-read" x-data="{ reading: false, name: '' }">
-        <div class="rec-read-busy" x-show="reading" x-cloak role="status">
-          <p class="rec-read-title"><span class="spinner" aria-hidden="true"></span>Reading statement…</p>
+      <div class="rec-read" x-data="statementRead">
+        <div class="rec-read-busy" x-show="reading" x-cloak role="status" :class="slow && 'is-slow'">
+          <p class="rec-read-title"><span class="spinner" aria-hidden="true"></span>Reading statement…<span class="rec-read-elapsed" x-text="elapsed" aria-hidden="true"></span></p>
           <span class="rec-read-bar" aria-hidden="true"><span></span></span>
-          <p class="rec-read-hint">Claude is reading <strong x-text="name"></strong>. This takes about 20 seconds.</p>
+          <p class="rec-read-hint" x-show="!slow">Claude is reading <strong x-text="name"></strong>. This usually takes about 20 seconds.</p>
+          <p class="rec-read-hint" x-show="slow" x-cloak>Taking longer than usual. Claude gives up after 90 seconds, and you'll be able to try again.</p>
         </div>
         <div class="rec-read-idle" x-show="!reading">
           {% if statement %}
@@ -53,7 +54,7 @@
           <label class="btn btn-sm {{ 'btn-glass' if statement else 'accent' }} rec-read-btn">
             {{ icon('upload' if statement else 'doc') }}{{ 'Read a different statement' if statement else 'Read statement' }}
             <input class="visually-hidden" type="file" name="file" form="rec-read" accept="application/pdf,.pdf"
-                   @change="if ($el.files.length) { name = $el.files[0].name; reading = true; $el.form.requestSubmit() }">
+                   @change="choose($el)">
           </label>
           {% if not statement %}
           <p class="rec-read-hint">Or let Claude fill these in from your monthly statement PDF.</p>

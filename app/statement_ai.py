@@ -22,7 +22,7 @@ from app.money import MAX_CENTS, parse_cents
 log = logging.getLogger(__name__)
 
 MODEL = "claude-opus-5-5"
-TIMEOUT_S = 90  # Cloudflare gives up on a request at 100s
+TIMEOUT_S = 90  # Cloudflare gives up on a request at 100s; the page says Claude gives up at 90
 SIGN = {"deposit": 1, "withdrawal": -1, "check": -1}
 
 SYSTEM = """You transcribe a checking account statement into structured data. Copy what is printed; do not calculate, guess or reformat anything except dates.
@@ -138,7 +138,9 @@ def read_statement(data: bytes, media_type: str, filename: str) -> dict:
     import anthropic
 
     content, source = _content(data, media_type)
-    client = anthropic.Anthropic(timeout=TIMEOUT_S, max_retries=1)
+    # No retries: a retry after a slow read would run past Cloudflare's limit anyway, and the
+    # person can simply try again.
+    client = anthropic.Anthropic(timeout=TIMEOUT_S, max_retries=0)
     try:
         response = client.beta.messages.parse(
             model=MODEL,

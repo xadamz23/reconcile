@@ -684,6 +684,10 @@ button.mark:hover .icon { border-color: var(--dep); }
 }
 .rec-read-title { display: flex; align-items: center; gap: 0.625rem; font-weight: 600; }
 .rec-read-busy .spinner { width: 1.125rem; height: 1.125rem; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); border-top-color: var(--accent-text); animation: spin 800ms linear infinite; }
+.rec-read-elapsed { margin-left: auto; padding-left: 1rem; min-width: 4ch; text-align: right; color: var(--text-soft); }
+/* Past 45 seconds: still reading, but slower than usual. */
+.rec-read-busy.is-slow { background: rgba(251, 191, 119, 0.07); border-color: rgba(251, 191, 119, 0.4); }
+.rec-read-busy.is-slow .rec-read-elapsed { color: var(--warn); }
 .rec-read-bar { display: block; height: 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
 .rec-read-bar span { display: block; width: 40%; height: 100%; border-radius: 4px; background: var(--accent-text); animation: read-slide 1.4s ease-in-out infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
