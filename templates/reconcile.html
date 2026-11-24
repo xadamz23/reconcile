@@ -56,7 +56,7 @@
                    @change="if ($el.files.length) { name = $el.files[0].name; reading = true; $el.form.requestSubmit() }">
           </label>
           {% if not statement %}
-          <p class="rec-read-hint">Or let Claude fill these in from the bank's PDF, a screenshot or a photo of the statement.</p>
+          <p class="rec-read-hint">Or let Claude fill these in from your monthly statement PDF.</p>
           {% endif %}
         </div>
         {% if read_error %}<p class="field-error" role="alert">{{ read_error }}</p>{% endif %}
