@@ -151,12 +151,11 @@
 
   {% if next %}
   <section class="sec bills-next{{ ' is-collapsed' if 'next' in folds }}" data-sec="next" aria-labelledby="bills-next-rows">
-    <div class="bills-head">
-      <div>
-        <h2 id="bills-next-rows">{% call fold_toggle('next', 'fold-next-rows', 'next' in folds, peeks.next) %}Coming up in {{ next.name }}{% endcall %}</h2>
-        <p>{{ next.done_count }} of {{ next.rows | length }} done{% if next.before_cents %}, {{ next.before_cents | money }} due before payday{% endif %}</p>
-      </div>
-    </div>
+    <h3 class="bill-group" id="bills-next-rows">
+      {%- call fold_toggle('next', 'fold-next-rows', 'next' in folds, peeks.next) -%}
+      Coming up in {{ next.name }}<span class="sec-sub">{{ next.done_count }} of {{ next.rows | length }} done{% if next.before_cents %}, {{ next.before_cents | money }} due before payday{% endif %}</span>
+      {%- endcall -%}
+    </h3>
     <div class="sec-body" id="fold-next-rows"><div class="sec-inner">
       <div class="card card-list glass">
         {% for b in next.rows %}{% if loop.index0 == next.split %}{{ payday_rule(next) }}{% endif %}{{ bill_row(b) }}{% endfor %}

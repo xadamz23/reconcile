@@ -82,3 +82,10 @@ def test_desktop_next_month_summary_shares_the_title_line(billed):
     head = text[text.index('aria-labelledby="bill-cards-next"'):text.index('id="fold-next-cards"')]
     assert re.search(r'Coming up in \w+<span class="sec-sub">0 of 2 done, \$1,312\.40 due before payday</span></span>', head)
     assert "<p>" not in head
+
+
+def test_next_month_has_the_same_heading_as_the_other_sections(billed):
+    text = billed.get("/bills").text
+    for heading_id in ("bills-next-rows", "bill-cards-next"):  # phone rows, desktop cards
+        assert f'<h3 class="bill-group" id="{heading_id}">' in text
+    assert "<h2 id=" not in text

@@ -111,16 +111,13 @@
 
   {% if next %}
   <section class="sec bills-next{{ ' is-collapsed' if 'next' in folds }}" data-sec="next" aria-labelledby="bill-cards-next">
-    <div class="bills-head">
-      <div>
-        {# The summary shares the title's line here; the phone rows put it underneath. #}
-        <h2 id="bill-cards-next">
-          {%- call fold_toggle('next', 'fold-next-cards', 'next' in folds, peeks.next) -%}
-          Coming up in {{ next.name }}<span class="sec-sub">{{ next.done_count }} of {{ next.rows | length }} done{% if next.before_cents %}, {{ next.before_cents | money }} due before payday{% endif %}</span>
-          {%- endcall -%}
-        </h2>
-      </div>
-    </div>
+    {# The same heading as the other sections; the summary shares the title's line here,
+       and the phone rows put it underneath. #}
+    <h3 class="bill-group" id="bill-cards-next">
+      {%- call fold_toggle('next', 'fold-next-cards', 'next' in folds, peeks.next) -%}
+      Coming up in {{ next.name }}<span class="sec-sub">{{ next.done_count }} of {{ next.rows | length }} done{% if next.before_cents %}, {{ next.before_cents | money }} due before payday{% endif %}</span>
+      {%- endcall -%}
+    </h3>
     <div class="sec-body" id="fold-next-cards"><div class="sec-inner">
       <div class="bill-grid">
         {% for b in next.rows %}{% if loop.index0 == next.split %}{{ payday_rule(next) }}{% endif %}{{ card(b) }}{% endfor %}
