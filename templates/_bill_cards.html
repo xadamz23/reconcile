@@ -2,13 +2,15 @@
    the rows in _bills_body.html instead; both post to the same endpoints and refresh
    #bills-body. A card's status pill and action sit in fixed places at its foot, so they
    line up across a row: on a card still to add the pill gets its own line over a
-   full-width button; on a done card it shares the line with Take back out / Undo. #}
+   full-width button; on a done card it shares the line with Take back out / Undo.
+   Last month's leftovers come first (with Dismiss), next month's bills last, in one date
+   ordered grid with the mid-month payday as a full-width rule. #}
 {% from "_icons.html" import icon %}
-{% macro card(b) -%}
+{% macro card(b, dismiss=false) -%}
 {% set name = b.payee ~ (' (' ~ b.seq_label ~ ')' if b.seq_label else '') %}
-{% set vals = '{"seq": %d}' % b.seq %}
-<article id="bill-card-{{ b.id }}-{{ b.seq }}"
-         class="bill-card glass{{ ' is-done' if b.state != 'open' }}{{ ' is-skipped' if b.state == 'skipped' }}{{ ' is-late' if b.tone == 'warn' }}{{ ' is-soon' if b.tone == 'soon' and b.state == 'open' }}{{ ' is-just-added' if toast and toast.bill_id == b.id and toast.seq == b.seq }}">
+{% set vals = '{"seq": %d, "month": "%s"}' % (b.seq, b.month) %}
+<article id="bill-card-{{ b.month }}-{{ b.id }}-{{ b.seq }}"
+         class="bill-card glass{{ ' is-done' if b.state != 'open' }}{{ ' is-skipped' if b.state == 'skipped' }}{{ ' is-late' if b.tone == 'warn' }}{{ ' is-soon' if b.tone == 'soon' and b.state == 'open' }}{{ ' is-just-added' if toast and toast.bill_id == b.id and toast.seq == b.seq and toast.month == b.month }}">
   <div class="bc-top">
     <span class="bc-day{{ ' is-any' if not b.day_num }}" aria-hidden="true">
       {%- if b.day_num %}<small>{{ b.weekday }}</small><strong>{{ b.day_num }}</strong>{% else %}<small>ANY</small><strong>day</strong>{% endif -%}
@@ -26,14 +28,18 @@
   <div class="bc-status">{{ pill }}</div>
   <div class="bc-foot">
     {% if b.ask or b.sometimes %}
-    <button class="btn btn-glass bc-act" type="button" hx-get="/bills/{{ b.id }}/add?seq={{ b.seq }}" hx-target="#panel-body">
+    <button class="btn btn-glass bc-act" type="button" hx-get="/bills/{{ b.id }}/add?seq={{ b.seq }}&amp;month={{ b.month }}" hx-target="#panel-body">
       {{- icon('check' if b.elsewhere else 'plus') }}{{ 'Mark paid' if b.elsewhere else 'Enter amount' if b.ask else 'Add to register' }}</button>
     {% elif b.elsewhere %}
-    <button class="btn btn-glass bc-act" type="button" hx-post="/bills/{{ b.id }}/mark" hx-vals='{"seq": {{ b.seq }}, "kind": "paid"}' hx-target="#bills-body">
+    <button class="btn btn-glass bc-act" type="button" hx-post="/bills/{{ b.id }}/mark" hx-vals='{"seq": {{ b.seq }}, "month": "{{ b.month }}", "kind": "paid"}' hx-target="#bills-body">
       {{- icon('check') }}Mark paid</button>
     {% else %}
     <button class="btn btn-glass bc-act" type="button" hx-post="/bills/{{ b.id }}/add" hx-vals='{{ vals }}' hx-target="#bills-body">
       {{- icon('plus') }}Add to register</button>
+    {% endif %}
+    {% if dismiss %}
+    <button class="bc-link bc-dismiss" type="button" hx-post="/bills/{{ b.id }}/mark" hx-vals='{"seq": {{ b.seq }}, "month": "{{ b.month }}", "kind": "skipped"}'
+            hx-target="#bills-body" aria-label="Dismiss {{ name }}, nothing more to add">Dismiss</button>
     {% endif %}
   </div>
   {% else %}
@@ -59,12 +65,19 @@
       {% for t in rail.ticks %}<span class="bill-rail-tick" style="left: {{ t.x }}" aria-hidden="true">{{ t.day }}</span>{% endfor %}
       <span class="bill-rail-today" style="left: {{ rail.today }}" aria-hidden="true"><span>Today</span></span>
       {% for d in rail.dots %}
-      <a class="bill-rail-dot{{ ' is-' ~ d.tone if d.tone }}" href="#bill-card-{{ d.row.id }}-{{ d.row.seq }}"
+      <a class="bill-rail-dot{{ ' is-' ~ d.tone if d.tone }}" href="#bill-card-{{ d.row.month }}-{{ d.row.id }}-{{ d.row.seq }}"
          style="left: {{ d.x }}; --level: {{ d.level }}" title="{{ d.row.payee }}{{ ' (' ~ d.row.seq_label ~ ')' if d.row.seq_label }}, {{ month_name[:3] }} {{ d.day }}"
          aria-label="{{ d.row.payee }}{{ ' (' ~ d.row.seq_label ~ ')' if d.row.seq_label }}, {{ month_name }} {{ d.day }}, {{ d.row.status }}"></a>
       {% endfor %}
     </div>
   </div>
+  {% endif %}
+
+  {% if overdue %}
+  <section aria-labelledby="bill-cards-overdue">
+    <h3 class="bill-group is-overdue" id="bill-cards-overdue">Overdue from {{ overdue.name }} <span>{{ overdue.rows | length }}</span></h3>
+    <div class="bill-grid">{% for b in overdue.rows %}{{ card(b, dismiss=true) }}{% endfor %}</div>
+  </section>
   {% endif %}
 
   <section aria-labelledby="bill-cards-open">
@@ -79,6 +92,21 @@
   <section aria-labelledby="bill-cards-done">
     <h3 class="bill-group" id="bill-cards-done">Done this month <span>{{ done_rows | length }}</span></h3>
     <div class="bill-grid">{% for b in done_rows %}{{ card(b) }}{% endfor %}</div>
+  </section>
+  {% endif %}
+
+  {% if next %}
+  <section class="bills-next" aria-labelledby="bill-cards-next">
+    <div class="bills-head">
+      <div>
+        <h2 id="bill-cards-next">Coming up in {{ next.name }}</h2>
+        <p>{{ next.done_count }} of {{ next.rows | length }} done{% if next.before_cents %}, {{ next.before_cents | money }} due before payday{% endif %}</p>
+      </div>
+    </div>
+    <div class="bill-grid">
+      {% for b in next.rows %}{% if loop.index0 == next.split %}{{ payday_rule(next) }}{% endif %}{{ card(b) }}{% endfor %}
+      {% if next.split == next.rows | length %}{{ payday_rule(next) }}{% endif %}
+    </div>
   </section>
   {% endif %}
 </div>

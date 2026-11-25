@@ -5,13 +5,16 @@
      which can also mark the month "nothing due";
    - another account: marks it paid, adding nothing.
    A reconcile's tick or lock makes an added bill stay put. A twice-a-month bill has a row
-   (and a tick) per payment. Nothing is ever added without a tap. #}
+   (and a tick) per payment. Nothing is ever added without a tap.
+   Every action carries the month it's for: last month's leftovers (Overdue, at the top,
+   each with Dismiss), this month, and next month (Coming up, at the bottom, in date order
+   with the mid-month payday marked) so bills can go in the register before they're due. #}
 {% from "_icons.html" import icon %}
-{% macro bill_row(b) %}
+{% macro bill_row(b, dismiss=false) %}
   {% set name = b.payee ~ (' (' ~ b.seq_label ~ ')' if b.seq_label else '') %}
-  {% set tick_id = 'bill-tick-%d-%d' % (b.id, b.seq) %}
-  {% set vals = '{"seq": %d}' % b.seq %}
-  <article class="bill{{ ' is-added' if b.state in ('added', 'paid') }}{{ ' is-skipped' if b.state == 'skipped' }}{{ ' is-elsewhere' if b.elsewhere }}{{ ' is-just-added' if toast and toast.bill_id == b.id and toast.seq == b.seq }}">
+  {% set tick_id = 'bill-tick-%s-%d-%d' % (b.month, b.id, b.seq) %}
+  {% set vals = '{"seq": %d, "month": "%s"}' % (b.seq, b.month) %}
+  <article class="bill{{ ' is-added' if b.state in ('added', 'paid') }}{{ ' is-skipped' if b.state == 'skipped' }}{{ ' is-elsewhere' if b.elsewhere }}{{ ' has-dismiss' if dismiss }}{{ ' is-just-added' if toast and toast.bill_id == b.id and toast.seq == b.seq and toast.month == b.month }}">
     {% if b.locked %}
     <span class="mark" title="Ticked on a reconcile, so it stays in the register">{{ icon('check') }}</span>
     {% elif b.state == 'added' %}
@@ -24,10 +27,10 @@
       {{- icon('minus' if b.state == 'skipped' else 'check') -}}
     </button>
     {% elif b.ask or b.sometimes %}
-    <button id="{{ tick_id }}" class="mark" type="button" hx-get="/bills/{{ b.id }}/add?seq={{ b.seq }}" hx-target="#panel-body"
+    <button id="{{ tick_id }}" class="mark" type="button" hx-get="/bills/{{ b.id }}/add?seq={{ b.seq }}&amp;month={{ b.month }}" hx-target="#panel-body"
             aria-pressed="false" aria-label="{{ ('Mark ' ~ name ~ ' paid') if b.elsewhere else ('Add ' ~ name ~ ' to the register') }}">{{ icon('check') }}</button>
     {% elif b.elsewhere %}
-    <button id="{{ tick_id }}" class="mark" type="button" hx-post="/bills/{{ b.id }}/mark" hx-vals='{"seq": {{ b.seq }}, "kind": "paid"}' hx-target="#bills-body"
+    <button id="{{ tick_id }}" class="mark" type="button" hx-post="/bills/{{ b.id }}/mark" hx-vals='{"seq": {{ b.seq }}, "month": "{{ b.month }}", "kind": "paid"}' hx-target="#bills-body"
             aria-pressed="false" aria-label="Mark {{ name }} paid">{{ icon('check') }}</button>
     {% else %}
     <button id="{{ tick_id }}" class="mark" type="button" hx-post="/bills/{{ b.id }}/add" hx-vals='{{ vals }}' hx-target="#bills-body"
@@ -43,8 +46,18 @@
         {% endif %}
       </span>
     </button>
+    {% if dismiss %}
+    <button class="bill-dismiss" type="button" hx-post="/bills/{{ b.id }}/mark" hx-vals='{"seq": {{ b.seq }}, "month": "{{ b.month }}", "kind": "skipped"}'
+            hx-target="#bills-body" aria-label="Dismiss {{ name }}, nothing more to add">Dismiss</button>
+    {% endif %}
   </article>
 {% endmacro %}
+
+{# The mid-month payday among next month's bills: those above it come out before the
+   paycheck. Only a guide (the 15th, or the Friday before a weekend). #}
+{% macro payday_rule(next) -%}
+  <div class="payday-rule" role="separator" aria-label="{{ next.payday_label }}">{{ icon('wallet') }}<span>{{ next.payday_label }}</span></div>
+{%- endmacro %}
 
 {% if oob_totals %}
   {% include "_totals_oob.html" %}
@@ -52,7 +65,7 @@
     {% if toast %}
     <div class="toast glass-strong is-popover" x-data x-init="setTimeout(() => $el.remove(), 6000)">
       <span class="num">{{ toast.text }}</span>
-      <button type="button" hx-post="/bills/{{ toast.bill_id }}/{{ toast.undo }}" hx-vals='{"seq": {{ toast.seq }}}' hx-target="#bills-body">Undo</button>
+      <button type="button" hx-post="/bills/{{ toast.bill_id }}/{{ toast.undo }}" hx-vals='{"seq": {{ toast.seq }}, "month": "{{ toast.month }}"}' hx-target="#bills-body">Undo</button>
     </div>
     {% endif %}
   </div>
@@ -67,6 +80,12 @@
 {% if bills %}
 {# Phones: rows in two groups, still to add then done. Desktop shows _bill_cards.html instead. #}
 <div class="bill-rows">
+  {% if overdue %}
+  <h3 class="bill-group is-overdue">Overdue from {{ overdue.name }} <span>{{ overdue.rows | length }}</span></h3>
+  <div class="card card-list glass">
+    {% for b in overdue.rows %}{{ bill_row(b, dismiss=true) }}{% endfor %}
+  </div>
+  {% endif %}
   <h3 class="bill-group">Still to add <span>{{ open_rows | length }}</span></h3>
   {% if open_rows %}
   <div class="card card-list glass">
@@ -80,6 +99,21 @@
   <div class="card card-list glass">
     {% for b in done_rows %}{{ bill_row(b) }}{% endfor %}
   </div>
+  {% endif %}
+
+  {% if next %}
+  <section class="bills-next" aria-labelledby="bills-next-rows">
+    <div class="bills-head">
+      <div>
+        <h2 id="bills-next-rows">Coming up in {{ next.name }}</h2>
+        <p>{{ next.done_count }} of {{ next.rows | length }} done{% if next.before_cents %}, {{ next.before_cents | money }} due before payday{% endif %}</p>
+      </div>
+    </div>
+    <div class="card card-list glass">
+      {% for b in next.rows %}{% if loop.index0 == next.split %}{{ payday_rule(next) }}{% endif %}{{ bill_row(b) }}{% endfor %}
+      {% if next.split == next.rows | length %}{{ payday_rule(next) }}{% endif %}
+    </div>
+  </section>
   {% endif %}
 </div>
 {% include "_bill_cards.html" %}

@@ -95,6 +95,11 @@ MIGRATIONS = [
     """
     UPDATE bills SET day = NULL, day2 = NULL WHERE ask = 1;
     """,
+    # Bills left open when their month ends now show as overdue the next month. Start that
+    # with the month this arrived, so older months that were never ticked don't all show up.
+    """
+    INSERT OR IGNORE INTO settings (key, value) VALUES ('bills_overdue_from', strftime('%Y-%m', 'now', 'localtime'));
+    """,
 ]
 
 

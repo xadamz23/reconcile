@@ -19,6 +19,9 @@ def ready(client):
     return client
 
 
+THIS_MONTH = date.today().strftime("%Y-%m")
+
+
 def conn_of(client):
     return client.app.state.conn
 
@@ -606,7 +609,7 @@ def test_bill_that_asks_shows_two_rows_and_opens_a_sheet(ready):
     bill = _add_daycare(ready)
     text = ready.get("/bills").text
     assert "1st of 2" in text and "2nd of 2" in text and "Any day this month" in text
-    assert f'hx-get="/bills/{bill}/add?seq=2"' in text
+    assert f'hx-get="/bills/{bill}/add?seq=2&amp;month={THIS_MONTH}"' in text
     repo.create_txn(conn_of(ready), repo.TxnInput("2026-10-20", "Daycare", -60000, number="1042"))
     sheet = ready.get(f"/bills/{bill}/add?seq=2", headers=HX).text
     assert "Use next check, 1043" in sheet and 'value="600.00"' in sheet and "2nd of 2 for" in sheet
@@ -671,7 +674,7 @@ def test_another_account_bill_marks_paid_and_adds_nothing(ready):
 def test_bill_that_varies_and_isnt_due_every_month(ready):
     bill = _bill(ready, payee="Credit card", mode="ask", day="", sometimes="1")
     text = ready.get("/bills").text
-    assert "Varies" in text and f'hx-get="/bills/{bill}/add?seq=1"' in text
+    assert "Varies" in text and f'hx-get="/bills/{bill}/add?seq=1&amp;month={THIS_MONTH}"' in text
     sheet = ready.get(f"/bills/{bill}/add?seq=1", headers=HX).text
     assert "amount varies" in sheet and "Nothing due this month" in sheet
     r = ready.post(f"/bills/{bill}/mark", data={"seq": "1", "kind": "skipped", "sheet": "1"}, headers=HX)
@@ -843,8 +846,8 @@ def cards(text):
     return text[text.index('class="bill-cards"'):]
 
 
-def card_of(text, bill, seq=1):
-    start = text.index(f'id="bill-card-{bill}-{seq}"')
+def card_of(text, bill, seq=1, month="2026-11"):
+    start = text.index(f'id="bill-card-{month}-{bill}-{seq}"')
     return text[start:text.index("</article>", start)]
 
 
@@ -877,13 +880,13 @@ def test_bill_card_actions_match_each_kind(ready, nov13):
     assert f'hx-post="/bills/{now}/add"' in c and "Add to register" in c
     assert "Every month on the 22nd" in c and "In 9 days" in c and "SUN" in c
     c = card_of(text, ask)
-    assert f'hx-get="/bills/{ask}/add?seq=1"' in c and "Enter amount" in c and "Varies" in c
+    assert f'hx-get="/bills/{ask}/add?seq=1&amp;month=2026-11"' in c and "Enter amount" in c and "Varies" in c
     assert "Asks for the date and amount" in c and "Any day this month" in c
     c = card_of(text, other)
     assert f'hx-post="/bills/{other}/mark"' in c and "Mark paid" in c
     assert "Another account, every month on the 12th" in c and "Date passed" in c and "is-late" in c
     c = card_of(text, sometimes)
-    assert f'hx-get="/bills/{sometimes}/add?seq=1"' in c and "Some months on the 20th" in c
+    assert f'hx-get="/bills/{sometimes}/add?seq=1&amp;month=2026-11"' in c and "Some months on the 20th" in c
 
 
 def test_bill_that_asks_with_a_usual_day(ready, nov13):
@@ -892,7 +895,7 @@ def test_bill_that_asks_with_a_usual_day(ready, nov13):
     c = card_of(text, bill)
     assert "Every month on the 15th, amount varies" in c and "In 2 days" in c and "Enter amount" in c
     rail = cards(text)
-    assert f'href="#bill-card-{bill}-1"' in rail  # it has a day, so it's on the rail
+    assert f'href="#bill-card-2026-11-{bill}-1"' in rail  # it has a day, so it's on the rail
     sheet = ready.get(f"/bills/{bill}/add?seq=1", headers=HX).text
     assert 'value="2026-11-15"' in sheet and 'name="amount" value=""' in sheet
     form = ready.get(f"/bills/{bill}/edit", headers=HX).text
@@ -936,10 +939,10 @@ def test_bill_rail(ready, nov13):
     ready.post(f"/bills/{first}/add", data={"seq": "1"}, headers=HX)
     text = cards(ready.get("/bills").text)
     rail = text[:text.index("</div>", text.index('class="bill-rail-track"'))]
-    assert f'href="#bill-card-{first}-1"' in rail and f'href="#bill-card-{second}-1"' in rail
-    assert f'href="#bill-card-{ask}-1"' not in rail  # no day until it's added
+    assert f'href="#bill-card-2026-11-{first}-1"' in rail and f'href="#bill-card-2026-11-{second}-1"' in rail
+    assert f'href="#bill-card-2026-11-{ask}-1"' not in rail  # no day until it's added
     def dot(bill):
-        return re.search(rf'class="bill-rail-dot([^"]*)" href="#bill-card-{bill}-1"\s+style="left: ([\d.]+)%; --level: (\d)"', rail).groups()
+        return re.search(rf'class="bill-rail-dot([^"]*)" href="#bill-card-2026-11-{bill}-1"\s+style="left: ([\d.]+)%; --level: (\d)"', rail).groups()
 
     # Both on the 1st: the second one there stacks above the first.
     assert sorted([dot(first), dot(second)]) == sorted([(" is-done", "0.00", "1"), (" is-late", "0.00", "0")])
@@ -960,3 +963,144 @@ def test_phone_bill_rows_are_grouped_with_their_schedule(ready, nov13):
     assert "In register · Nov 5" in rows
     assert "In 2 days" in rows  # Electric, due soon
     assert "In 9 days" not in rows  # Internet: more than a week out, so no pill on a phone row
+
+
+# --- Next month's bills, the payday guide, and last month's leftovers ---
+
+
+def _fake_today(monkeypatch, *ymd):
+    class FakeDate(date):
+        @classmethod
+        def today(cls):
+            return cls(*ymd)
+
+    monkeypatch.setattr("app.routes.bills.date", FakeDate)
+
+
+def _made_on(client, bill, day):
+    conn_of(client).execute("UPDATE bills SET created_at = ? WHERE id = ?", (f"{day} 09:00:00", bill))
+
+
+def test_next_month_bill_goes_in_the_register_early(ready, monkeypatch):
+    _fake_today(monkeypatch, 2026, 11, 25)
+    bill = _add_bill(ready, "Backblaze", "9.00", "3")
+    text = ready.get("/bills").text
+    assert "Coming up in December" in text
+    assert "&#34;month&#34;: &#34;2026-12&#34;" in text
+    r = ready.post(f"/bills/{bill}/add", data={"seq": "1", "month": "2026-12"}, headers=HX)
+    assert r.status_code == 200 and "Added Backblaze" in r.text
+    row = conn_of(ready).execute("SELECT date, bill_month, amount_cents FROM transactions WHERE bill_id = ?",
+                                 (bill,)).fetchone()
+    assert tuple(row) == ("2026-12-03", "2026-12", -900)
+    assert f'id="bill-card-2026-12-{bill}-1"' in r.text and "is-just-added" in card_of(r.text, bill, month="2026-12")
+    # November's payment is still to add, on its own.
+    assert "Add to register" in card_of(r.text, bill)
+    ready.post(f"/bills/{bill}/add", data={"seq": "1", "month": "2026-12"}, headers=HX)  # a double tap
+    assert _txn_count(ready, bill) == 1
+    ready.post(f"/bills/{bill}/remove", data={"seq": "1", "month": "2026-12"}, headers=HX)
+    assert _txn_count(ready, bill) == 0
+
+
+def test_next_month_sheet_and_marks(ready, monkeypatch):
+    _fake_today(monkeypatch, 2026, 11, 25)
+    ask = _bill(ready, payee="Electric", mode="ask", day="12")
+    other = _bill(ready, payee="Car", amount="284.61", day="2", source="other")
+    sheet = ready.get(f"/bills/{ask}/add?seq=1&month=2026-12", headers=HX).text
+    assert 'value="2026-12-12"' in sheet and 'name="month" value="2026-12"' in sheet and "December" in sheet
+    r = ready.post(f"/bills/{ask}/add", data={"seq": "1", "month": "2026-12", "sheet": "1", "amount": "80.00",
+                                              "date": "2026-12-12", "number": ""}, headers=HX)
+    assert r.status_code == 200
+    assert conn_of(ready).execute("SELECT bill_month FROM transactions WHERE bill_id = ?", (ask,)).fetchone()[0] == "2026-12"
+    r = ready.post(f"/bills/{other}/mark", data={"seq": "1", "month": "2026-12", "kind": "paid"}, headers=HX)
+    assert "Marked Car paid" in r.text
+    assert conn_of(ready).execute("SELECT month FROM bill_marks WHERE bill_id = ?", (other,)).fetchone()[0] == "2026-12"
+    # Only Nothing due for a bill that isn't due every month, even next month.
+    assert ready.post(f"/bills/{ask}/mark", data={"seq": "1", "month": "2026-12", "kind": "skipped"},
+                      headers=HX).status_code == 400
+
+
+def test_bill_actions_reject_other_months(ready, monkeypatch):
+    _fake_today(monkeypatch, 2026, 11, 25)
+    repo.set_setting(conn_of(ready), "bills_overdue_from", "2026-11")
+    bill = _add_bill(ready, "Backblaze", "9.00", "3")
+    for month in ("2027-01", "2026-10", "nope"):
+        assert ready.post(f"/bills/{bill}/add", data={"seq": "1", "month": month}, headers=HX).status_code == 400
+    assert ready.get(f"/bills/{bill}/add?seq=1&month=2027-01", headers=HX).status_code == 400
+    assert _txn_count(ready, bill) == 0
+
+
+def test_mid_payday():
+    from app.routes.bills import mid_payday
+    assert mid_payday("2026-12") == date(2026, 12, 15)  # a Tuesday
+    assert mid_payday("2026-11") == date(2026, 11, 13)  # the 15th is a Sunday
+    assert mid_payday("2026-08") == date(2026, 8, 14)  # the 15th is a Saturday
+
+
+def test_payday_rule_sits_among_next_months_bills(ready, monkeypatch):
+    _fake_today(monkeypatch, 2026, 11, 25)
+    _add_bill(ready, "Citi", "1.50", "12")
+    _add_bill(ready, "Jackson Food", "797.25", "16")
+    _add_bill(ready, "Backblaze", "9.00", "3")
+    text = ready.get("/bills").text
+    rows = text[text.index('class="bills-next"'):text.index('class="bill-cards"')]
+    assert "Payday, around Tue Dec 15" in rows and 'role="separator"' in rows
+    assert rows.index("Backblaze") < rows.index("Citi") < rows.index("Payday") < rows.index("Jackson Food")
+    assert "0 of 3 done, $10.50 due before payday" in rows
+
+
+def test_last_months_leftover_shows_as_overdue(ready, monkeypatch):
+    repo.set_setting(conn_of(ready), "bills_overdue_from", "2026-11")
+    bill = _add_bill(ready, "Internet", "79.99", "22")
+    new = _add_bill(ready, "Gym", "15.00", "17")
+    _made_on(ready, bill, "2026-10-01")
+    _made_on(ready, new, "2026-12-01")  # made after November's date, so it doesn't owe it
+    _fake_today(monkeypatch, 2026, 12, 2)
+    text = ready.get("/bills").text
+    assert "Overdue from November" in text
+    c = card_of(text, bill, month="2026-11")
+    assert "Was due Nov 22" in c and "Dismiss" in c and "is-late" in c
+    assert f'id="bill-card-2026-11-{new}-1"' not in text
+    # Adding it uses November's date.
+    ready.post(f"/bills/{bill}/add", data={"seq": "1", "month": "2026-11"}, headers=HX)
+    row = conn_of(ready).execute("SELECT date, bill_month FROM transactions WHERE bill_id = ?", (bill,)).fetchone()
+    assert tuple(row) == ("2026-11-22", "2026-11")
+    assert "Overdue from November" not in ready.get("/bills").text
+
+
+def test_dismissing_an_overdue_bill(ready, monkeypatch):
+    repo.set_setting(conn_of(ready), "bills_overdue_from", "2026-11")
+    bill = _add_bill(ready, "Internet", "79.99", "22")
+    _made_on(ready, bill, "2026-10-01")
+    _fake_today(monkeypatch, 2026, 12, 2)
+    r = ready.post(f"/bills/{bill}/mark", data={"seq": "1", "month": "2026-11", "kind": "skipped"}, headers=HX)
+    assert r.status_code == 200 and "Dismissed Internet for November" in r.text
+    assert "Overdue from November" not in r.text and _txn_count(ready, bill) == 0
+    ready.post(f"/bills/{bill}/unmark", data={"seq": "1", "month": "2026-11"}, headers=HX)  # Undo
+    assert "Overdue from November" in ready.get("/bills").text
+    # This month's payment can't be dismissed: it isn't a sometimes bill.
+    assert ready.post(f"/bills/{bill}/mark", data={"seq": "1", "month": "2026-12", "kind": "skipped"},
+                      headers=HX).status_code == 400
+
+
+def test_no_overdue_before_it_started(ready, monkeypatch):
+    repo.set_setting(conn_of(ready), "bills_overdue_from", "2026-11")
+    bill = _add_bill(ready, "Internet", "79.99", "22")
+    _made_on(ready, bill, "2026-09-01")
+    _fake_today(monkeypatch, 2026, 11, 5)  # October's leftovers never show
+    text = ready.get("/bills").text
+    assert "Overdue from" not in text
+    assert ready.post(f"/bills/{bill}/add", data={"seq": "1", "month": "2026-10"}, headers=HX).status_code == 400
+
+
+def test_migration_seeds_overdue_start(conn):
+    assert repo.get_setting(conn, "bills_overdue_from") == date.today().strftime("%Y-%m")
+
+
+def test_overview_counts_overdue_bills(ready):
+    repo.set_setting(conn_of(ready), "bills_overdue_from", "2026-11")
+    bill = _add_bill(ready, "Internet", "79.99", "22")
+    _made_on(ready, bill, "2026-10-01")
+    ctx = overview.overview_context(conn_of(ready), date(2026, 12, 2))
+    assert ctx["overdue_cents"] == 7999
+    assert ctx["free_cents"] == ctx["balance"] - ctx["left_cents"] - 7999
+    assert any(a["title"] == "Internet was due Nov 22" for a in ctx["attention"])

@@ -7,6 +7,7 @@
 <form class="txn-form bill-form" hx-post="/bills/{{ bill.id }}/{{ 'mark' if bill.elsewhere else 'add' }}" hx-target="#bills-body" novalidate
       x-data='{ number: {{ form.number | tojson }} }'>
   <input type="hidden" name="seq" value="{{ seq }}">
+  <input type="hidden" name="month" value="{{ month }}">
   <input type="hidden" name="sheet" value="1">
   {% if bill.elsewhere %}<input type="hidden" name="kind" value="paid">{% endif %}
   <div class="panel-bar">
@@ -56,7 +57,7 @@
 
     {% if bill.sometimes %}
     <button class="btn btn-glass btn-wide form-submit" type="button" hx-post="/bills/{{ bill.id }}/mark"
-            hx-vals='{"kind": "skipped"}' hx-target="#bills-body">Nothing due this month</button>
+            hx-vals='{"kind": "skipped"}' hx-target="#bills-body">Nothing due {{ 'this month' if is_current else 'in ' ~ month_name }}</button>
     {% endif %}
   </fieldset>
 </form>

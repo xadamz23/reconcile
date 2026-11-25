@@ -22,6 +22,8 @@
         <span class="ov-tile-value{{ ' neg' if free_cents < 0 }}">{{ free_cents | money }}</span>
         <span class="ov-tile-note">
           {% if left_cents %}Balance less <b>{{ left_cents | money }}</b> in {{ left_count }} bill{{ 's' if left_count != 1 }} still to add this month
+          {%- if overdue_cents %}, and <b>{{ overdue_cents | money }}</b> overdue from last month{% endif %}
+          {% elif overdue_cents %}Balance less <b>{{ overdue_cents | money }}</b> in {{ overdue_count }} bill{{ 's' if overdue_count != 1 }} overdue from last month
           {% else %}No bills left to add this month{% endif %}
         </span>
       </a>

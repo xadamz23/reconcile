@@ -157,7 +157,7 @@ def flow_chart(conn: sqlite3.Connection, today: date) -> list[dict]:
     } for m, i, o in data]
 
 
-def attention(conn: sqlite3.Connection, today: date, bill_rows: list[dict]) -> list[dict]:
+def attention(conn: sqlite3.Connection, today: date, bill_rows: list[dict], overdue: dict | None = None) -> list[dict]:
     items = []
     draft = repo.get_draft(conn)
     stmt = repo.last_statement(conn)
@@ -170,7 +170,7 @@ def attention(conn: sqlite3.Connection, today: date, bill_rows: list[dict]) -> l
                else "No statement reconciled yet")
         items.append({"icon": "scale", "title": "Time to reconcile", "sub": sub,
                       "href": "/reconcile", "link": "Reconcile a statement"})
-    for r in bill_rows:
+    for r in (overdue["rows"] if overdue else []) + bill_rows:
         if r["state"] == "open" and r["days"] is not None and r["days"] < 0:
             items.append({"icon": "repeat", "warn": True, "title": f"{r['payee']} was due {r['date_label']}",
                           "sub": "Not added or marked yet", "href": "/bills", "link": "Open Bills"})
@@ -203,9 +203,12 @@ def overview_context(conn: sqlite3.Connection, today: date) -> dict:
         "balance": balance,
         "month_change": balance - repo.balance_on(conn, (today.replace(day=1) - timedelta(days=1)).isoformat()),
         "month_start": _short(today.replace(day=1)),
-        "free_cents": balance - left,
+        # Last month's leftovers are still to come out too.
+        "free_cents": balance - left - month["overdue_cents"],
         "left_cents": left,
         "left_count": sum(1 for r in here if r["state"] == "open" and r["cents"]),
+        "overdue_cents": month["overdue_cents"],
+        "overdue_count": sum(1 for r in (month["overdue"] or {}).get("rows", []) if not r["elsewhere"] and r["cents"]),
         "uncleared": uncleared,
         "oldest_label": _short(date.fromisoformat(uncleared["oldest"])) if uncleared["oldest"] else None,
         "stmt": stmt,
@@ -228,7 +231,7 @@ def overview_context(conn: sqlite3.Connection, today: date) -> dict:
         "spend_rest": {"count": len(rest), "total_cents": sum(i["total_cents"] for i in rest),
                        "bar": f"{min(100, 100 * sum(i['total_cents'] for i in rest) / top[0]['total_cents']):.1f}%"}
         if rest else None,
-        "attention": attention(conn, today, rows),
+        "attention": attention(conn, today, rows, month["overdue"]),
     }
 
 

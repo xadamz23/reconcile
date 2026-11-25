@@ -1,7 +1,8 @@
 import calendar
 import json
+import re
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, Response
@@ -24,6 +25,48 @@ CLOSE_PANEL = {"HX-Trigger": json.dumps({"panel-close": True})}
 
 def _month(today: date) -> str:
     return today.strftime("%Y-%m")
+
+
+def _first(month: str) -> date:
+    return date(int(month[:4]), int(month[5:7]), 1)
+
+
+def _shift(month: str, by: int) -> str:
+    """The month by months after month (YYYY-MM)."""
+    n = int(month[:4]) * 12 + int(month[5:7]) - 1 + by
+    return f"{n // 12:04d}-{n % 12 + 1:02d}"
+
+
+def _last_day(month: str) -> date:
+    first = _first(month)
+    return first.replace(day=calendar.monthrange(first.year, first.month)[1])
+
+
+def _overdue_month(conn: sqlite3.Connection, today: date) -> str | None:
+    """Last month, if its leftovers can show as overdue: only from bills_overdue_from on
+    (set when this arrived), so older months never flood the page."""
+    prev = _shift(_month(today), -1)
+    start = repo.get_setting(conn, "bills_overdue_from")
+    return prev if start and prev >= start else None
+
+
+def _target_month(conn: sqlite3.Connection, value: str, today: date) -> str:
+    """The month a bill action is for: this month, next month, or last month while its
+    leftovers show as overdue. Anything else is a stale or made-up request."""
+    current = _month(today)
+    value = value or current
+    if not re.fullmatch(r"\d{4}-\d{2}", value):
+        raise HTTPException(400, "Bad month")
+    if value in (current, _shift(current, 1)) or value == _overdue_month(conn, today):
+        return value
+    raise HTTPException(400, "That month can't be changed from here")
+
+
+def mid_payday(month: str) -> date:
+    """Roughly when the mid-month paycheck lands: the 15th, or the Friday before when the
+    15th is on a weekend. Only a visual guide on the Bills page."""
+    day = _first(month).replace(day=15)
+    return day - timedelta(days=max(0, day.weekday() - 4))
 
 
 def _label(on: date) -> str:
@@ -49,7 +92,7 @@ def _schedule(bill: sqlite3.Row) -> str:
     return f"Another account, {when[0].lower()}{when[1:]}" if bill["elsewhere"] else when
 
 
-def _status(state: str, days: int | None, date_label: str | None) -> tuple[str, str]:
+def _status(state: str, days: int | None, date_label: str | None, month: str, today: date) -> tuple[str, str]:
     """The desktop card's pill: (text, tone) for where the bill stands this month."""
     if state == "added":
         return f"In register · {date_label}", "done"
@@ -57,10 +100,13 @@ def _status(state: str, days: int | None, date_label: str | None) -> tuple[str, 
         return "Paid from another account", "done"
     if state == "skipped":
         return "Nothing due this month", ""
-    if days is None:
-        return "Any day this month", ""
+    if days is None:  # no usual day
+        current = _month(today)
+        if month < current:
+            return f"Not added in {_first(month):%B}", "warn"
+        return ("Any day this month" if month == current else f"Any day in {_first(month):%B}"), ""
     if days < 0:
-        return "Date passed", "warn"
+        return (f"Was due {date_label}" if month < _month(today) else "Date passed"), "warn"
     if days == 0:
         return "Today", "soon"
     return ("Tomorrow" if days == 1 else f"In {days} days"), "soon" if days <= 3 else ""
@@ -76,10 +122,11 @@ def _row(bill: sqlite3.Row, month: str, today: date) -> dict:
         on = date.fromisoformat(bill["marked_on"])
     days = (due - today).days if due else None
     date_label = _label(on) if on else None
-    status, tone = _status(state, days, date_label)
+    status, tone = _status(state, days, date_label, month, today)
     return {
         "id": bill["id"],
         "seq": bill["seq"],
+        "month": month,
         "seq_label": SEQ_LABELS[bill["seq"]] if bill["times"] == 2 else None,
         "payee": bill["payee"],
         "ask": bool(bill["ask"]),
@@ -101,6 +148,7 @@ def _row(bill: sqlite3.Row, month: str, today: date) -> dict:
         "tone": tone,
         # Date order, with paid and nothing-due rows at the bottom. A bill that asks for its
         # date goes after the dated ones until it's added.
+        "created": bill["created_at"][:10],
         "sort": (state in ("paid", "skipped"), on.day if on else 99, bill["payee"].casefold(), bill["id"], bill["seq"]),
     }
 
@@ -127,9 +175,49 @@ def _rail(rows: list[dict], today: date) -> dict:
     return {"dots": dots, "today": x(today.day), "ticks": [{"x": x(d), "day": d} for d in ticks]}
 
 
+def _rows(conn: sqlite3.Connection, month: str, today: date) -> list[dict]:
+    return sorted((_row(b, month, today) for b in repo.bills_for_month(conn, month)), key=lambda r: r["sort"])
+
+
+def _next_month(conn: sqlite3.Connection, today: date) -> dict:
+    """Next month's bills, so they can go in the register early (paid from this paycheck).
+    One list in date order, done ones in place, with the mid-month payday marked: rows
+    before it are the ones this paycheck covers."""
+    month = _shift(_month(today), 1)
+    payday = mid_payday(month)
+    rows = sorted((_row(b, month, today) for b in repo.bills_for_month(conn, month)),
+                  key=lambda r: (r["day_num"] or 99, r["payee"].casefold(), r["id"], r["seq"]))
+    before = [r for r in rows if r["due"] and r["due"] < payday.isoformat()]
+    return {
+        "month": month,
+        "name": f"{_first(month):%B}",
+        "rows": rows,
+        "split": len(before),  # the payday rule goes before rows[split]
+        "payday_label": f"Payday, around {payday:%a} {payday:%b} {payday.day}",
+        "before_cents": sum(r["cents"] or 0 for r in before if r["state"] == "open" and not r["elsewhere"]),
+        "done_count": sum(r["state"] != "open" for r in rows),
+    }
+
+
+def _overdue(conn: sqlite3.Connection, today: date) -> dict | None:
+    """Last month's bills that were never added or marked, if that month counts (see
+    _overdue_month). A bill made after a payment's date doesn't owe it."""
+    month = _overdue_month(conn, today)
+    if month is None:
+        return None
+    rows = []
+    for r in _rows(conn, month, today):
+        if r["state"] != "open":
+            continue
+        if r["created"] <= (r["due"] or _last_day(month).isoformat()):
+            rows.append(r)
+    return {"month": month, "name": f"{_first(month):%B}", "rows": rows} if rows else None
+
+
 def month_context(conn: sqlite3.Connection, today: date) -> dict:
     month = _month(today)
-    rows = sorted((_row(b, month, today) for b in repo.bills_for_month(conn, month)), key=lambda r: r["sort"])
+    rows = _rows(conn, month, today)
+    overdue = _overdue(conn, today)
     return {
         "bills": rows,
         "month_name": f"{today:%B}",
@@ -140,6 +228,10 @@ def month_context(conn: sqlite3.Connection, today: date) -> dict:
         "open_rows": [r for r in rows if r["state"] == "open"],
         "done_rows": [r for r in rows if r["state"] != "open"],
         "rail": _rail(rows, today) if rows else None,
+        "next": _next_month(conn, today) if rows else None,
+        "overdue": overdue,
+        # Last month's leftovers that come out of this account and have an amount.
+        "overdue_cents": sum(r["cents"] or 0 for r in overdue["rows"] if not r["elsewhere"]) if overdue else 0,
     }
 
 
@@ -276,27 +368,30 @@ def _seq(bill: sqlite3.Row, seq: int) -> int:
     return seq
 
 
-def _sheet(request: Request, conn, bill: sqlite3.Row, seq: int, form: dict, errors: dict | None = None):
+def _sheet(request: Request, conn, bill: sqlite3.Row, seq: int, month: str, form: dict, errors: dict | None = None):
     ctx = {"bill": bill, "seq": seq, "seq_label": SEQ_LABELS[seq] if bill["times"] == 2 else None,
-           "month_name": f"{date.today():%B}", "form": form, "errors": errors or {},
+           "month": month, "month_name": f"{_first(month):%B}", "is_current": month == _month(date.today()),
+           "form": form, "errors": errors or {},
            "next_number": repo.next_check_number(conn)}
     return render(request, "_bill_add_form.html", ctx)
 
 
 @router.get("/bills/{bill_id}/add")
-def add_sheet(request: Request, bill_id: int, seq: int = Query(1), conn: sqlite3.Connection = Depends(get_conn)):
+def add_sheet(request: Request, bill_id: int, seq: int = Query(1), month: str = Query(""),
+              conn: sqlite3.Connection = Depends(get_conn)):
     """What the tick opens for a bill that asks or isn't due every month: the date, amount
     and check number (or Mark paid, for another account), and Nothing due if it can skip."""
     bill = _require(conn, bill_id)
     seq = _seq(bill, seq)
-    due = repo.bill_due_date(bill, _month(date.today()), seq)
+    month = _target_month(conn, month, date.today())
+    due = repo.bill_due_date(bill, month, seq)
     form = {"amount": plain_amount(bill["amount_cents"]) if bill["amount_cents"] else "",
             "date": due or date.today().isoformat(), "number": ""}
-    return _sheet(request, conn, bill, seq, form)
+    return _sheet(request, conn, bill, seq, month, form)
 
 
-def _toast(bill: sqlite3.Row, seq: int, text: str, undo: str) -> dict:
-    return {"bill_id": bill["id"], "seq": seq, "text": text, "undo": undo}
+def _toast(bill: sqlite3.Row, seq: int, month: str, text: str, undo: str) -> dict:
+    return {"bill_id": bill["id"], "seq": seq, "month": month, "text": text, "undo": undo}
 
 
 @router.post("/bills/{bill_id}/add")
@@ -304,6 +399,7 @@ def add_to_register(
     request: Request,
     bill_id: int,
     seq: int = Form(1),
+    month: str = Form(""),
     sheet: str = Form(""),
     amount: str = Form(""),
     on_date: str = Form("", alias="date"),
@@ -314,6 +410,7 @@ def add_to_register(
     check number too."""
     bill = _require(conn, bill_id)
     seq = _seq(bill, seq)
+    month = _target_month(conn, month, date.today())
     cents = None
     if sheet:
         errors = {}
@@ -328,21 +425,22 @@ def add_to_register(
         except ValueError:
             errors["date"] = "Pick a date"
         if errors:
-            response = _sheet(request, conn, bill, seq, {"amount": amount, "date": on_date, "number": number}, errors)
+            response = _sheet(request, conn, bill, seq, month, {"amount": amount, "date": on_date, "number": number}, errors)
             response.headers.update({"HX-Retarget": "#panel-body", "HX-Reswap": "innerHTML"})
             return response
     elif bill["ask"] or bill["sometimes"] or bill["elsewhere"] or not bill["amount_cents"]:
         raise HTTPException(400, "This bill is added from its sheet")  # a stale page
     toast = None
-    if repo.add_bill_txn(conn, bill_id, _month(date.today()), seq, on_date or None, cents, number):
-        toast = _toast(bill, seq, f"Added {bill['payee']}, −{format_cents(cents or bill['amount_cents'])}", "remove")
+    if repo.add_bill_txn(conn, bill_id, month, seq, on_date or None, cents, number):
+        toast = _toast(bill, seq, month, f"Added {bill['payee']}, −{format_cents(cents or bill['amount_cents'])}", "remove")
     return _body(request, conn, toast, CLOSE_PANEL if sheet else None)
 
 
 @router.post("/bills/{bill_id}/remove")
-def remove_from_register(request: Request, bill_id: int, seq: int = Form(1), conn: sqlite3.Connection = Depends(get_conn)):
+def remove_from_register(request: Request, bill_id: int, seq: int = Form(1), month: str = Form(""),
+                         conn: sqlite3.Connection = Depends(get_conn)):
     bill = _require(conn, bill_id)
-    repo.remove_bill_txn(conn, bill_id, _month(date.today()), _seq(bill, seq))
+    repo.remove_bill_txn(conn, bill_id, _target_month(conn, month, date.today()), _seq(bill, seq))
     return _body(request, conn)
 
 
@@ -351,27 +449,36 @@ def mark(
     request: Request,
     bill_id: int,
     seq: int = Form(1),
+    month: str = Form(""),
     kind: str = Form(...),
     sheet: str = Form(""),
     conn: sqlite3.Connection = Depends(get_conn),
 ):
     """Mark the month done without adding anything: paid (another account) or skipped
-    (nothing due)."""
+    (nothing due, or dismissing last month's leftover)."""
     bill = _require(conn, bill_id)
     seq = _seq(bill, seq)
-    if kind not in ("paid", "skipped") or (kind == "paid" and not bill["elsewhere"]) or (
-            kind == "skipped" and not bill["sometimes"]):
-        raise HTTPException(400)
     today = date.today()
+    month = _target_month(conn, month, today)
+    past = month < _month(today)
+    if kind not in ("paid", "skipped") or (kind == "paid" and not bill["elsewhere"]) or (
+            kind == "skipped" and not (bill["sometimes"] or past)):
+        raise HTTPException(400)
     toast = None
-    if repo.mark_bill(conn, bill_id, _month(today), seq, kind):
-        text = f"Marked {bill['payee']} paid" if kind == "paid" else f"Nothing due for {bill['payee']}"
-        toast = _toast(bill, seq, text, "unmark")
+    if repo.mark_bill(conn, bill_id, month, seq, kind):
+        if kind == "paid":
+            text = f"Marked {bill['payee']} paid"
+        elif past:
+            text = f"Dismissed {bill['payee']} for {_first(month):%B}"
+        else:
+            text = f"Nothing due for {bill['payee']}"
+        toast = _toast(bill, seq, month, text, "unmark")
     return _body(request, conn, toast, CLOSE_PANEL if sheet else None)
 
 
 @router.post("/bills/{bill_id}/unmark")
-def unmark(request: Request, bill_id: int, seq: int = Form(1), conn: sqlite3.Connection = Depends(get_conn)):
+def unmark(request: Request, bill_id: int, seq: int = Form(1), month: str = Form(""),
+           conn: sqlite3.Connection = Depends(get_conn)):
     bill = _require(conn, bill_id)
-    repo.unmark_bill(conn, bill_id, _month(date.today()), _seq(bill, seq))
+    repo.unmark_bill(conn, bill_id, _target_month(conn, month, date.today()), _seq(bill, seq))
     return _body(request, conn)
