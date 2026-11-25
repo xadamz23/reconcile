@@ -175,6 +175,23 @@ def _rail(rows: list[dict], today: date) -> dict:
     return {"dots": dots, "today": x(today.day), "ticks": [{"x": x(d), "day": d} for d in ticks]}
 
 
+def _calendar(today: date) -> list[dict]:
+    """This month and next as calendars for the desktop Calendar button, weeks starting on
+    Sunday, with the 15th and the last day marked as paydays."""
+    months = []
+    for month in (_month(today), _shift(_month(today), 1)):
+        first = _first(month)
+        last = _last_day(month).day
+        days = []
+        for d in range(1, last + 1):
+            on = first.replace(day=d)
+            payday = d in (15, last)
+            label = f"{on:%B} {d}" + (", payday" if payday else "") + (", today" if on == today else "")
+            days.append({"day": d, "payday": payday, "past": on < today, "today": on == today, "label": label})
+        months.append({"name": f"{first:%B}", "blanks": (first.weekday() + 1) % 7, "days": days})
+    return months
+
+
 def _rows(conn: sqlite3.Connection, month: str, today: date) -> list[dict]:
     return sorted((_row(b, month, today) for b in repo.bills_for_month(conn, month)), key=lambda r: r["sort"])
 
@@ -230,6 +247,7 @@ def month_context(conn: sqlite3.Connection, today: date) -> dict:
         "rail": _rail(rows, today) if rows else None,
         "next": _next_month(conn, today) if rows else None,
         "overdue": overdue,
+        "calendar": _calendar(today),
         # Last month's leftovers that come out of this account and have an amount.
         "overdue_cents": sum(r["cents"] or 0 for r in overdue["rows"] if not r["elsewhere"]) if overdue else 0,
     }

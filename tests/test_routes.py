@@ -1104,3 +1104,17 @@ def test_overview_counts_overdue_bills(ready):
     assert ctx["overdue_cents"] == 7999
     assert ctx["free_cents"] == ctx["balance"] - ctx["left_cents"] - 7999
     assert any(a["title"] == "Internet was due Nov 22" for a in ctx["attention"])
+
+
+def test_bills_calendar_marks_paydays(ready, monkeypatch):
+    _fake_today(monkeypatch, 2026, 11, 25)
+    _add_bill(ready, "Backblaze", "9.00", "3")
+    text = ready.get("/bills").text
+    pop = text[text.index('id="cal-pop"'):text.index("Add bill")]
+    assert "<h3>November</h3>" in pop and "<h3>December</h3>" in pop
+    paydays = re.findall(r'class="cal-day is-payday[^"]*" aria-label="([^"]+)"', pop)
+    assert paydays == ["November 15, payday", "November 30, payday", "December 15, payday", "December 31, payday"]
+    assert 'class="cal-day is-today" aria-label="November 25, today"' in pop
+    # Nov 1 2026 is a Sunday (no blanks); Dec 1 is a Tuesday (two).
+    dec = pop[pop.index("<h3>December</h3>"):]
+    assert dec.count('<span></span>') == 2

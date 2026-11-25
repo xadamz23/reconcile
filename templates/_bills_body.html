@@ -75,7 +75,32 @@
     <h2>{{ month_name }} bills</h2>
     {% if bills %}<p>{{ done_count }} of {{ bills | length }} done{% if left_cents %}, {{ left_cents | money }} left to add{% endif %}</p>{% endif %}
   </div>
-  <button class="btn btn-glass" type="button" hx-get="/bills/new" hx-target="#panel-body">{{ icon('plus') }}Add bill</button>
+  <div class="bills-head-actions">
+    {# Desktop only: this month and next as calendars, paydays (the 15th and the last day) marked. #}
+    <div class="cal-anchor" x-data="{ open: false }" @keydown.escape.window="if (open) { open = false; $refs.btn.focus() }"
+         @click.outside="open = false">
+      <button class="btn btn-glass cal-btn" type="button" x-ref="btn" @click="open = !open"
+              aria-haspopup="dialog" aria-controls="cal-pop" :aria-expanded="open" aria-expanded="false">{{ icon('calendar') }}Calendar</button>
+      <div id="cal-pop" class="cal-pop glass-strong is-popover" role="dialog" aria-label="{{ calendar | map(attribute='name') | join(' and ') }}"
+           x-show="open" x-cloak>
+        <div class="cal-top">
+          <span class="cal-key"><i></i>Payday, the 15th and the last day</span>
+          <button class="cal-x" type="button" @click="open = false; $refs.btn.focus()" aria-label="Close calendar">{{ icon('close') }}</button>
+        </div>
+        {% for m in calendar %}
+        <section class="cal-month">
+          <h3>{{ m.name }}</h3>
+          <div class="cal-grid">
+            {% for d in ['S', 'M', 'T', 'W', 'T', 'F', 'S'] %}<span class="cal-dow" aria-hidden="true">{{ d }}</span>{% endfor %}
+            {% for _ in range(m.blanks) %}<span></span>{% endfor %}
+            {% for d in m.days %}<span class="cal-day{{ ' is-payday' if d.payday }}{{ ' is-past' if d.past }}{{ ' is-today' if d.today }}" aria-label="{{ d.label }}">{{ d.day }}</span>{% endfor %}
+          </div>
+        </section>
+        {% endfor %}
+      </div>
+    </div>
+    <button class="btn btn-glass" type="button" hx-get="/bills/new" hx-target="#panel-body">{{ icon('plus') }}Add bill</button>
+  </div>
 </div>
 {% if bills %}
 {# Phones: rows in two groups, still to add then done. Desktop shows _bill_cards.html instead. #}
