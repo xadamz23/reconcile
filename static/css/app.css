@@ -47,7 +47,13 @@
 *, *::before, *::after { box-sizing: border-box; }
 [x-cloak] { display: none !important; }
 
-html { -webkit-text-size-adjust: 100%; background: var(--bg); }
+html {
+  -webkit-text-size-adjust: 100%;
+  background: var(--bg);
+  /* No overscroll stretch: on Android Chrome it stretches the whole viewport,
+     fixed tab bar included. Also turns off pull-to-refresh. */
+  overscroll-behavior-y: none;
+}
 
 body {
   margin: 0;
