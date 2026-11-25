@@ -1354,6 +1354,10 @@ button.mark:hover .icon { border-color: var(--dep); }
   .cal-anchor { display: block; }
   .plan-link { display: inline-flex; }
   .bill-cards .sec .bill-group { margin: 0.75rem 0 0.25rem; }
+  /* Next month's summary on its title's line, in the count's place. */
+  .bill-cards .sec .sec-sub { margin-left: 0.25rem; font-size: 0.875rem; font-weight: 500; color: var(--text-soft); }
+  .bill-cards .bills-next .sec-toggle { min-height: 2.75rem; }
+  .bill-cards .bills-next.is-collapsed > .bills-head { padding-bottom: 0; }
   .bill-cards .sec-inner > .bill-grid, .bill-cards .sec-inner > .bill-group-empty { padding-bottom: 0.75rem; }
 
   /* The form slides in from the right over a scrim, only while it's in use. */

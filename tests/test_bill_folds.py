@@ -75,3 +75,10 @@ def test_a_folded_section_shows_its_total_but_not_its_bills(billed):
     head = text[text.index('data-sec="done"'):text.index('id="fold-done-rows"')]
     assert re.search(r'<span class="sec-total num">\$62\.40</span>', head)
     assert "Water" not in head
+
+
+def test_desktop_next_month_summary_shares_the_title_line(billed):
+    text = billed.get("/bills").text
+    head = text[text.index('aria-labelledby="bill-cards-next"'):text.index('id="fold-next-cards"')]
+    assert re.search(r'Coming up in \w+<span class="sec-sub">0 of 2 done, \$1,312\.40 due before payday</span></span>', head)
+    assert "<p>" not in head
