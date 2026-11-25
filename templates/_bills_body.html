@@ -10,6 +10,7 @@
    each with Dismiss), this month, and next month (Coming up, at the bottom, in date order
    with the mid-month payday marked) so bills can go in the register before they're due. #}
 {% from "_icons.html" import icon %}
+{% from "_fold.html" import fold_toggle %}
 {% macro bill_row(b, dismiss=false) %}
   {% set name = b.payee ~ (' (' ~ b.seq_label ~ ')' if b.seq_label else '') %}
   {% set tick_id = 'bill-tick-%s-%d-%d' % (b.month, b.id, b.seq) %}
@@ -108,39 +109,60 @@
 {% if bills %}
 {# Phones: rows in two groups, still to add then done. Desktop shows _bill_cards.html instead. #}
 <div class="bill-rows">
+  {# Each group folds (see _fold.html), sharing its state with the desktop cards. #}
   {% if overdue %}
-  <h3 class="bill-group is-overdue">Overdue from {{ overdue.name }} <span>{{ overdue.rows | length }}</span></h3>
-  <div class="card card-list glass">
-    {% for b in overdue.rows %}{{ bill_row(b, dismiss=true) }}{% endfor %}
-  </div>
+  <section class="sec{{ ' is-collapsed' if 'overdue' in folds }}" data-sec="overdue">
+    <h3 class="bill-group is-overdue">
+      {%- call fold_toggle('overdue', 'fold-overdue-rows', 'overdue' in folds, peeks.overdue) %}Overdue from {{ overdue.name }} <span>{{ overdue.rows | length }}</span>{% endcall -%}
+    </h3>
+    <div class="sec-body" id="fold-overdue-rows"><div class="sec-inner">
+      <div class="card card-list glass">
+        {% for b in overdue.rows %}{{ bill_row(b, dismiss=true) }}{% endfor %}
+      </div>
+    </div></div>
+  </section>
   {% endif %}
-  <h3 class="bill-group">Still to add <span>{{ open_rows | length }}</span></h3>
-  {% if open_rows %}
-  <div class="card card-list glass">
-    {% for b in open_rows %}{{ bill_row(b) }}{% endfor %}
-  </div>
-  {% else %}
-  <p class="bill-group-empty">All done for {{ month_name }}.</p>
-  {% endif %}
+  <section class="sec{{ ' is-collapsed' if 'open' in folds }}" data-sec="open">
+    <h3 class="bill-group">
+      {%- call fold_toggle('open', 'fold-open-rows', 'open' in folds, peeks.open) %}Still to add <span>{{ open_rows | length }}</span>{% endcall -%}
+    </h3>
+    <div class="sec-body" id="fold-open-rows"><div class="sec-inner">
+      {% if open_rows %}
+      <div class="card card-list glass">
+        {% for b in open_rows %}{{ bill_row(b) }}{% endfor %}
+      </div>
+      {% else %}
+      <p class="bill-group-empty">All done for {{ month_name }}.</p>
+      {% endif %}
+    </div></div>
+  </section>
   {% if done_rows %}
-  <h3 class="bill-group">Done this month <span>{{ done_rows | length }}</span></h3>
-  <div class="card card-list glass">
-    {% for b in done_rows %}{{ bill_row(b) }}{% endfor %}
-  </div>
+  <section class="sec{{ ' is-collapsed' if 'done' in folds }}" data-sec="done">
+    <h3 class="bill-group">
+      {%- call fold_toggle('done', 'fold-done-rows', 'done' in folds, peeks.done) %}Done this month <span>{{ done_rows | length }}</span>{% endcall -%}
+    </h3>
+    <div class="sec-body" id="fold-done-rows"><div class="sec-inner">
+      <div class="card card-list glass">
+        {% for b in done_rows %}{{ bill_row(b) }}{% endfor %}
+      </div>
+    </div></div>
+  </section>
   {% endif %}
 
   {% if next %}
-  <section class="bills-next" aria-labelledby="bills-next-rows">
+  <section class="sec bills-next{{ ' is-collapsed' if 'next' in folds }}" data-sec="next" aria-labelledby="bills-next-rows">
     <div class="bills-head">
       <div>
-        <h2 id="bills-next-rows">Coming up in {{ next.name }}</h2>
+        <h2 id="bills-next-rows">{% call fold_toggle('next', 'fold-next-rows', 'next' in folds, peeks.next) %}Coming up in {{ next.name }}{% endcall %}</h2>
         <p>{{ next.done_count }} of {{ next.rows | length }} done{% if next.before_cents %}, {{ next.before_cents | money }} due before payday{% endif %}</p>
       </div>
     </div>
-    <div class="card card-list glass">
-      {% for b in next.rows %}{% if loop.index0 == next.split %}{{ payday_rule(next) }}{% endif %}{{ bill_row(b) }}{% endfor %}
-      {% if next.split == next.rows | length %}{{ payday_rule(next) }}{% endif %}
-    </div>
+    <div class="sec-body" id="fold-next-rows"><div class="sec-inner">
+      <div class="card card-list glass">
+        {% for b in next.rows %}{% if loop.index0 == next.split %}{{ payday_rule(next) }}{% endif %}{{ bill_row(b) }}{% endfor %}
+        {% if next.split == next.rows | length %}{{ payday_rule(next) }}{% endif %}
+      </div>
+    </div></div>
   </section>
   {% endif %}
 </div>

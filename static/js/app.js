@@ -563,6 +563,30 @@
     }
   }
 
+  // Bills: folding a section. Every copy of it (phone rows and desktop cards) folds at
+  // once, and the server saves it so every device matches. A rail dot pointing into a
+  // folded section opens it first, so the jump lands on the card.
+  function setFold(key, folded) {
+    document.querySelectorAll(`.sec[data-sec="${key}"]`).forEach((sec) => {
+      sec.classList.toggle("is-collapsed", folded);
+      sec.querySelector("[data-fold]")?.setAttribute("aria-expanded", String(!folded));
+    });
+    const body = new FormData();
+    body.set("key", key);
+    body.set("folded", folded ? "1" : "0");
+    fetch("/bills/fold", { method: "POST", body }).catch(() => {});
+  }
+  document.addEventListener("click", (e) => {
+    const toggle = e.target.closest("[data-fold]");
+    if (toggle) {
+      setFold(toggle.dataset.fold, toggle.getAttribute("aria-expanded") === "true");
+      return;
+    }
+    const dot = e.target.closest(".bill-rail-dot");
+    const sec = dot && document.querySelector(dot.getAttribute("href"))?.closest(".sec.is-collapsed");
+    if (sec) setFold(sec.dataset.sec, false);
+  });
+
   // Bills' Plan button opens the worksheet as a small window of its own, or brings it to
   // the front if it's already open. Opening by name with no URL returns an open Plan
   // window as it is (no reload); a new one starts blank and is then sent to /plan. If

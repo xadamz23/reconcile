@@ -871,9 +871,10 @@ button.mark:hover .icon { border-color: var(--dep); }
 .bill-payee { font-size: 1.0625rem; font-weight: 550; overflow-wrap: anywhere; }
 .bill-amt { grid-row: 1 / span 2; grid-column: 2; font-size: 1.0625rem; font-weight: 650; color: var(--pay); white-space: nowrap; }
 .bill-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; font-size: 0.875rem; color: var(--text-soft); }
-/* Phones: the rows in two groups (still to add, done), headed in line with the page head. */
-.bill-rows .bill-group { margin: 1.25rem var(--card-inset) 0.5rem; padding-inline: var(--gutter); }
-.bill-rows .bill-group + .card { margin-top: 0; }
+/* Phones: the rows in groups (still to add, done), headed in line with the page head. Each
+   heading is a 2.75rem fold toggle, so the margins are tighter than plain text needs. */
+.bill-rows .bill-group { margin: 0.75rem var(--card-inset) 0.25rem; padding-inline: var(--gutter) 0.5rem; }
+.bill-rows .sec .card { margin-top: 0; }
 .bill-rows .bill-group-empty { margin: 0 var(--card-inset); padding-inline: var(--gutter); }
 .glass-chip.chip-warn { color: var(--warn); border-color: rgba(251, 191, 119, 0.4); }
 .glass-chip.chip-done { color: var(--dep); border-color: rgba(74, 222, 154, 0.35); }
@@ -921,7 +922,7 @@ button.mark:hover .icon { border-color: var(--dep); }
 }
 .bill-dismiss:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
 /* Next month, so its bills can go in early. */
-.bills-next { margin-top: 2rem; }
+.bills-next { margin-top: 1.5rem; }
 .bills-next .bills-head { padding-top: 0; }
 .bill-rows .bills-next .card { margin-top: 0.75rem; }
 /* The mid-month payday among next month's bills: a dashed deposit-green rule with the
@@ -1128,6 +1129,47 @@ button.mark:hover .icon { border-color: var(--dep); }
 .bill-group { display: flex; align-items: baseline; gap: 0.5rem; margin: 1.5rem 0 0.75rem; font-size: 1rem; font-weight: 650; }
 .bill-group span { font-size: 0.875rem; font-weight: 500; color: var(--text-faint); }
 .bill-group-empty { color: var(--text-soft); }
+
+/* Folding sections (_fold.html, app.js). The heading is a button with a chevron; while a
+   section is folded it shows its payees (desktop) and their total instead. The .sec
+   prefix lifts these over .bill-group span, which styles the count. */
+.sec-toggle {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 2.75rem;
+  padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left;
+}
+.sec-toggle:hover .sec-title { color: #fff; }
+.sec .sec-chev {
+  display: grid; place-items: center; width: 1.75rem; height: 1.75rem; flex: none;
+  border-radius: 8px; color: var(--text-soft); transition: transform 200ms ease, background-color 150ms;
+}
+.sec-toggle:hover .sec-chev { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+.sec .sec-chev .icon { width: 1.125rem; height: 1.125rem; }
+.sec.is-collapsed .sec-chev { transform: rotate(-90deg); }
+.sec .sec-title { display: inline-flex; align-items: baseline; gap: 0.5rem; white-space: nowrap; font-size: inherit; font-weight: inherit; color: inherit; }
+.sec .sec-peek {
+  flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: flex-end; gap: 1rem;
+  font-size: 0.875rem; font-weight: 500; color: var(--text-faint); opacity: 0; transition: opacity 150ms;
+}
+.sec.is-collapsed .sec-peek { opacity: 1; }
+/* Phones have no room for the names; desktop shows them (in the 900px block). */
+.sec .sec-names { display: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font: inherit; color: inherit; }
+.sec .sec-total { flex: none; font-size: inherit; font-weight: 650; color: var(--text-soft); }
+.sec .is-overdue .sec-total { color: var(--warn); }
+/* The body folds by animating its row from 1fr to 0fr. Overflow is clipped only while
+   folded or folding, so card shadows and focus rings show when it's open. */
+.sec-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 220ms ease; }
+.sec-body > .sec-inner { min-height: 0; }
+.sec.is-collapsed .sec-body { grid-template-rows: 0fr; }
+.sec.is-collapsed .sec-body > .sec-inner { overflow: hidden; visibility: hidden; transition: visibility 0s 220ms; }
+/* A folded section keeps a hairline under its heading, so it still reads as a group. */
+.sec.is-collapsed > .bill-group, .sec.is-collapsed > .bills-head { border-bottom: 1px solid var(--line); }
+.bills-next .sec-toggle { min-height: 0; }
+.bills-next.is-collapsed > .bills-head { padding-bottom: 0.75rem; }
+/* Next month's summary lines up under its title, past the chevron. */
+.bills-next.sec .bills-head p { padding-left: 2.25rem; }
+@media (prefers-reduced-motion: reduce) {
+  .sec .sec-chev, .sec-body, .sec .sec-peek { transition: none; }
+}
 /* As many 17.5rem cards as fit: four on a wide window (main's 88rem cap means never five). */
 .bill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(17.5rem, 1fr)); gap: 0.875rem; }
 
@@ -1313,6 +1355,9 @@ button.mark:hover .icon { border-color: var(--dep); }
   .bill-cards { display: block; }
   .cal-anchor { display: block; }
   .plan-link { display: inline-flex; }
+  .sec .sec-names { display: block; }
+  .bill-cards .sec .bill-group { margin: 0.75rem 0 0.25rem; }
+  .bill-cards .sec-inner > .bill-grid, .bill-cards .sec-inner > .bill-group-empty { padding-bottom: 0.75rem; }
 
   /* The form slides in from the right over a scrim, only while it's in use. */
   .panel {

@@ -550,6 +550,33 @@ def list_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
     ).fetchall()
 
 
+# --- Bills page folds ---
+
+# The Bills page's foldable sections. Which are folded is saved as a setting (so every
+# device matches); until it's first changed, Done this month and next month start folded.
+BILL_SECTIONS = ("overdue", "open", "done", "next")
+BILL_FOLDS = "bills_folded"
+DEFAULT_BILL_FOLDS = frozenset({"done", "next"})
+
+
+def bill_folds(conn: sqlite3.Connection) -> set[str]:
+    value = get_setting(conn, BILL_FOLDS)
+    if value is None:
+        return set(DEFAULT_BILL_FOLDS)
+    return {key for key in value.split(",") if key in BILL_SECTIONS}
+
+
+def set_bill_fold(conn: sqlite3.Connection, key: str, folded: bool) -> None:
+    if key not in BILL_SECTIONS:
+        raise ValueError(f"No such section: {key!r}")
+    folds = bill_folds(conn)
+    if folded:
+        folds.add(key)
+    else:
+        folds.discard(key)
+    set_setting(conn, BILL_FOLDS, ",".join(sorted(folds)))
+
+
 # --- Plan ---
 
 

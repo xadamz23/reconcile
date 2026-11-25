@@ -231,10 +231,21 @@ def _overdue(conn: sqlite3.Connection, today: date) -> dict | None:
     return {"month": month, "name": f"{_first(month):%B}", "rows": rows} if rows else None
 
 
+def _peek(rows: list[dict]) -> dict:
+    """What a folded section shows in its heading: its payees and their total."""
+    return {
+        "names": ", ".join(dict.fromkeys(r["payee"] for r in rows)),
+        "cents": sum(r["cents"] or 0 for r in rows),
+    }
+
+
 def month_context(conn: sqlite3.Connection, today: date) -> dict:
     month = _month(today)
     rows = _rows(conn, month, today)
     overdue = _overdue(conn, today)
+    nxt = _next_month(conn, today) if rows else None
+    open_rows = [r for r in rows if r["state"] == "open"]
+    done_rows = [r for r in rows if r["state"] != "open"]
     return {
         "bills": rows,
         "month_name": f"{today:%B}",
@@ -242,15 +253,24 @@ def month_context(conn: sqlite3.Connection, today: date) -> dict:
         # Only money leaving this account; a bill whose amount varies adds nothing.
         "left_cents": sum(r["cents"] or 0 for r in rows if r["state"] == "open" and not r["elsewhere"]),
         "soon_days": SOON_DAYS,
-        "open_rows": [r for r in rows if r["state"] == "open"],
-        "done_rows": [r for r in rows if r["state"] != "open"],
+        "open_rows": open_rows,
+        "done_rows": done_rows,
         "rail": _rail(rows, today) if rows else None,
-        "next": _next_month(conn, today) if rows else None,
+        "next": nxt,
         "overdue": overdue,
         "calendar": _calendar(today),
         # Last month's leftovers that come out of this account and have an amount.
         "overdue_cents": sum(r["cents"] or 0 for r in overdue["rows"] if not r["elsewhere"]) if overdue else 0,
+        # Folded sections, and what each shows in its heading while folded.
+        "folds": repo.bill_folds(conn),
+        "peeks": {
+            "overdue": _peek(overdue["rows"]) if overdue else None,
+            "open": _peek(open_rows),
+            "done": _peek(done_rows),
+            "next": _peek(nxt["rows"]) if nxt else None,
+        },
     }
+
 
 
 def _body(request: Request, conn: sqlite3.Connection, toast: dict | None = None, headers: dict | None = None):
@@ -267,6 +287,16 @@ def bills(request: Request, conn: sqlite3.Connection = Depends(get_conn)):
     if is_htmx(request) and request.headers.get("HX-Target") == "bills-body":
         return _body(request, conn)
     return render(request, "bills.html", {**month_context(conn, date.today()), **masthead_context(conn)})
+
+
+@router.post("/bills/fold")
+def fold(key: str = Form(...), folded: str = Form("1"), conn: sqlite3.Connection = Depends(get_conn)):
+    """Folds or opens a section. app.js has already done it on the page; this saves it."""
+    try:
+        repo.set_bill_fold(conn, key, folded == "1")
+    except ValueError:
+        raise HTTPException(400, "No such section")
+    return Response(status_code=204)
 
 
 def _require(conn, bill_id: int) -> sqlite3.Row:

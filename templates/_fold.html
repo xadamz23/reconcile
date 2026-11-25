@@ -1,0 +1,13 @@
+{# A foldable Bills section's heading: the chevron, the title (the caller's content) and,
+   shown only while it's folded, its payees and their total. app.js folds every section
+   with the same key at once (phone rows and desktop cards) and posts to /bills/fold. #}
+{% from "_icons.html" import icon %}
+{% macro fold_toggle(key, body_id, folded, peek) -%}
+<button class="sec-toggle" type="button" data-fold="{{ key }}" aria-controls="{{ body_id }}" aria-expanded="{{ 'false' if folded else 'true' }}">
+  <span class="sec-chev">{{ icon('chevron') }}</span>
+  <span class="sec-title">{{ caller() }}</span>
+  {%- if peek and peek.names %}
+  <span class="sec-peek" aria-hidden="true"><span class="sec-names">{{ peek.names }}</span>{% if peek.cents %}<span class="sec-total num">{{ peek.cents | money }}</span>{% endif %}</span>
+  {%- endif %}
+</button>
+{%- endmacro %}

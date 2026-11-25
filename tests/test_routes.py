@@ -1042,10 +1042,11 @@ def test_payday_rule_sits_among_next_months_bills(ready, monkeypatch):
     _add_bill(ready, "Jackson Food", "797.25", "16")
     _add_bill(ready, "Backblaze", "9.00", "3")
     text = ready.get("/bills").text
-    rows = text[text.index('class="bills-next"'):text.index('class="bill-cards"')]
+    head = text[text.index('data-sec="next"'):text.index('id="fold-next-rows"')]
+    rows = text[text.index('id="fold-next-rows"'):text.index('class="bill-cards"')]
     assert "Payday, around Tue Dec 15" in rows and 'role="separator"' in rows
     assert rows.index("Backblaze") < rows.index("Citi") < rows.index("Payday") < rows.index("Jackson Food")
-    assert "0 of 3 done, $10.50 due before payday" in rows
+    assert "0 of 3 done, $10.50 due before payday" in head
 
 
 def test_last_months_leftover_shows_as_overdue(ready, monkeypatch):
