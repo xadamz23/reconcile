@@ -1,0 +1,64 @@
+<!doctype html>
+{# Plan: its own small window, opened from the desktop Bills page. Deliberately not the
+   app's dark glass (and not base.html): a light, flat accountant's columnar pad, so the
+   numbers being played with never read as the register's. See plan.css and plan.js. #}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Plan</title>
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#eef2e6">
+  <link rel="icon" href="{{ static_url('icons/favicon.svg') }}" type="image/svg+xml">
+  <link rel="preload" href="{{ static_url('fonts/schibsted-grotesk.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <style>
+    @font-face {
+      font-family: "Schibsted Grotesk";
+      src: url("{{ static_url('fonts/schibsted-grotesk.woff2') }}") format("woff2");
+      font-weight: 400 900;
+      font-display: swap;
+    }
+  </style>
+  <link rel="stylesheet" href="{{ static_url('css/plan.css') }}">
+  <script src="{{ static_url('js/plan.js') }}" defer></script>
+</head>
+<body>
+<svg width="0" height="0" style="position: absolute" aria-hidden="true">
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></symbol>
+</svg>
+
+<main class="plan">
+  <header class="plan-head">
+    <h1>Plan</h1>
+    <span class="saved" id="saved" role="status" aria-live="polite"></span>
+  </header>
+
+  <div class="row cols" aria-hidden="true"><span></span><span>What</span><span class="amt-col"><span>Amount</span></span><span>Note</span><span></span></div>
+
+  <div class="row start">
+    <span></span>
+    <span class="label-text">Register balance</span>
+    <span class="amt-col"><span class="num" id="start">{{ balance | money }}</span></span>
+    <span class="hint">Live from the register</span>
+    <span></span>
+  </div>
+
+  <section aria-label="Coming out">
+    <div id="lines"></div>
+    <div class="row add-row"><span></span><button class="add-line" type="button" id="add"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg>Add line</button></div>
+  </section>
+
+  <section class="totals" aria-label="Totals">
+    <div class="row sub"><span></span><span class="label-text" id="count">Coming out</span><span class="amt-col"><span class="num" id="out"></span></span></div>
+    <div class="row total"><span></span><span class="label-text">Left</span><span class="amt-col"><span class="num" id="left" aria-live="polite"></span></span></div>
+  </section>
+</main>
+
+<div class="toast" id="toast" hidden><span id="toast-text"></span><button type="button" id="undo">Undo</button></div>
+
+<script id="plan-data" type="application/json">{{ {"balance": balance, "lines": lines} | tojson }}</script>
+</body>
+</html>

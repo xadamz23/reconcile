@@ -100,6 +100,17 @@ MIGRATIONS = [
     """
     INSERT OR IGNORE INTO settings (key, value) VALUES ('bills_overdue_from', strftime('%Y-%m', 'now', 'localtime'));
     """,
+    # The Plan worksheet: what might come out before payday, taken off the register balance
+    # to see what's left. A blank amount isn't counted. Not linked to bills or transactions.
+    """
+    CREATE TABLE plan_lines (
+        id           INTEGER PRIMARY KEY,
+        position     INTEGER NOT NULL,
+        label        TEXT NOT NULL DEFAULT '',
+        amount_cents INTEGER CHECK (amount_cents IS NULL OR amount_cents >= 0),
+        note         TEXT
+    );
+    """,
 ]
 
 

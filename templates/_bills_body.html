@@ -99,6 +99,9 @@
         {% endfor %}
       </div>
     </div>
+    {# Desktop only: the Plan worksheet in its own window (app.js opens it as a popup). #}
+    <a class="btn btn-glass plan-link" href="/plan" target="reconcile-plan" data-plan
+       title="What's left after what's coming out">{{ icon('wallet') }}Plan</a>
     <button class="btn btn-glass" type="button" hx-get="/bills/new" hx-target="#panel-body">{{ icon('plus') }}Add bill</button>
   </div>
 </div>

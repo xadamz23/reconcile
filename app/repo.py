@@ -81,6 +81,19 @@ class BillInput:
             raise ValueError("Day must be 1 to 31")
 
 
+@dataclass
+class PlanLine:
+    label: str  # may be blank: Add line saves before anything is typed
+    amount_cents: int | None  # positive, money going out; None when not counted
+    note: str | None
+
+    def __post_init__(self) -> None:
+        self.label = clean_text(self.label) or ""
+        self.note = clean_text(self.note)
+        if self.amount_cents is not None and not 0 <= self.amount_cents <= MAX_CENTS:
+            raise ValueError("Amount is out of range")
+
+
 # --- Settings / setup ---
 
 
@@ -535,6 +548,25 @@ def list_statements(conn: sqlite3.Connection) -> list[sqlite3.Row]:
          ORDER BY s.end_date DESC, s.id DESC
         """
     ).fetchall()
+
+
+# --- Plan ---
+
+
+def plan_lines(conn: sqlite3.Connection) -> list[sqlite3.Row]:
+    return conn.execute("SELECT label, amount_cents, note FROM plan_lines ORDER BY position, id").fetchall()
+
+
+def save_plan(conn: sqlite3.Connection, lines: list[PlanLine]) -> None:
+    """Replace the whole plan. The window sends every line on each change, which keeps
+    adding, removing and reordering simple."""
+    with conn:
+        conn.execute("BEGIN IMMEDIATE")
+        conn.execute("DELETE FROM plan_lines")
+        conn.executemany(
+            "INSERT INTO plan_lines (position, label, amount_cents, note) VALUES (?, ?, ?, ?)",
+            [(i, line.label, line.amount_cents, line.note) for i, line in enumerate(lines)],
+        )
 
 
 # --- Bills ---

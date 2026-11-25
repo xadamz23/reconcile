@@ -563,6 +563,22 @@
     }
   }
 
+  // Bills' Plan button opens the worksheet as a small window of its own, or brings it to
+  // the front if it's already open. Opening by name with no URL returns an open Plan
+  // window as it is (no reload); a new one starts blank and is then sent to /plan. If
+  // popups are blocked, the link opens it in a tab instead.
+  document.addEventListener("click", (e) => {
+    const link = e.target.closest("[data-plan]");
+    if (!link || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    const w = 700;
+    const left = Math.max(0, window.screenX + window.outerWidth - w - 40);
+    const win = window.open("", link.target, `popup,width=${w},height=640,left=${left},top=${window.screenY + 80}`);
+    if (!win) return;
+    e.preventDefault();
+    if (win.location.href === "about:blank") win.location.replace(link.href);
+    win.focus();
+  });
+
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
   }

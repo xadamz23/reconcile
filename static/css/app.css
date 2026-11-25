@@ -830,6 +830,7 @@ button.mark:hover .icon { border-color: var(--dep); }
 .bills-head > .bills-head-actions { flex: none; display: flex; align-items: center; gap: 0.5rem; }
 /* The Calendar button and its panel: desktop only (shown in the 900px block). */
 .cal-anchor { display: none; position: relative; }
+.plan-link { display: none; }
 .cal-btn[aria-expanded="true"] { border-color: rgba(var(--accent-glow), 0.7); }
 .cal-pop {
   position: absolute; z-index: 40; right: 0; top: calc(100% + 0.5rem);
@@ -1311,6 +1312,7 @@ button.mark:hover .icon { border-color: var(--dep); }
   .bill-rows { display: none; }
   .bill-cards { display: block; }
   .cal-anchor { display: block; }
+  .plan-link { display: inline-flex; }
 
   /* The form slides in from the right over a scrim, only while it's in use. */
   .panel {

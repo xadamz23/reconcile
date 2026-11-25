@@ -11,6 +11,7 @@ Built for phone use as an installed PWA, with a bottom bar for the register, sea
 - **Payee autocomplete**: suggests past payees by prefix, then by how often they're used. It never fills in an amount.
 - **Reconcile a statement**: enter the closing date and ending balance, then tick items (oldest first) until the difference is $0.00 and finish. Tap an item to fix it, or add one that's on the statement but missing; it's dated on the closing date and already ticked. An unfinished reconcile is remembered until you finish or discard it. Finished items become *reconciled*: locked, hidden from the register by default, and editable only after confirming.
 - **Spending**: payments totalled per payee for this month, the last 3 months or the year so far, biggest first, each with a bar and its share. Tap a payee to see its transactions in the register.
+- **Plan** (desktop, from Bills): a small window listing what might come out before payday (card payments, transfers to savings, anything) with an amount and a note, taken off the register balance to show what's left. Blank amounts aren't counted, and the lines stay for next time.
 - **CSV export** from the menu, on demand only.
 - All text input is trimmed before it's saved.
 - Light/dark follows the system setting.
