@@ -1181,6 +1181,16 @@ button.mark:hover .icon { border-color: var(--dep); }
 .bill-card.is-skipped .bc-day small { color: var(--text-faint); }
 .bill-card.is-skipped .bc-amt { text-decoration: line-through; color: var(--text-faint); }
 .bill-card.is-just-added .bc-day { animation: stamp 220ms ease-out; }
+/* Done cards (added, paid elsewhere, nothing due) step back so the ones still to add stand
+   out, most of all in next month's mixed list. Hover or focus brings one back to full
+   strength, so Take back out / Undo stay readable. */
+.bill-card.is-done {
+  opacity: 0.5; filter: saturate(0.35);
+  background: rgba(255, 255, 255, 0.015); border-color: rgba(255, 255, 255, 0.06);
+  transition: opacity 160ms ease, filter 160ms ease, border-color 150ms, box-shadow 300ms;
+}
+.bill-card.is-done:hover, .bill-card.is-done:focus-within, .bill-card.is-done:target { opacity: 1; filter: none; }
+@media (prefers-reduced-motion: reduce) { .bill-card.is-done { transition: none; } }
 
 /* Two tiles a row once they fit; the full grid once the cards do. */
 @container ledger (min-width: 36rem) {
