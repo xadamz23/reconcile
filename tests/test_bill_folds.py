@@ -70,6 +70,8 @@ def test_refreshing_the_list_keeps_the_folds(billed):
     assert folds(r.text) == {"open", "done", "next"}
 
 
-def test_a_folded_section_names_its_bills_and_total(billed):
+def test_a_folded_section_shows_its_total_but_not_its_bills(billed):
     text = billed.get("/bills").text
-    assert re.search(r'<span class="sec-names">Water</span><span class="sec-total num">\$62\.40</span>', text)
+    head = text[text.index('data-sec="done"'):text.index('id="fold-done-rows"')]
+    assert re.search(r'<span class="sec-total num">\$62\.40</span>', head)
+    assert "Water" not in head

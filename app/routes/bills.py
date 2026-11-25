@@ -232,11 +232,8 @@ def _overdue(conn: sqlite3.Connection, today: date) -> dict | None:
 
 
 def _peek(rows: list[dict]) -> dict:
-    """What a folded section shows in its heading: its payees and their total."""
-    return {
-        "names": ", ".join(dict.fromkeys(r["payee"] for r in rows)),
-        "cents": sum(r["cents"] or 0 for r in rows),
-    }
+    """What a folded section shows in its heading: its bills' total."""
+    return {"cents": sum(r["cents"] or 0 for r in rows)}
 
 
 def month_context(conn: sqlite3.Connection, today: date) -> dict:

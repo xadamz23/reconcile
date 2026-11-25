@@ -1131,7 +1131,7 @@ button.mark:hover .icon { border-color: var(--dep); }
 .bill-group-empty { color: var(--text-soft); }
 
 /* Folding sections (_fold.html, app.js). The heading is a button with a chevron; while a
-   section is folded it shows its payees (desktop) and their total instead. The .sec
+   section is folded it shows its bills' total. The .sec
    prefix lifts these over .bill-group span, which styles the count. */
 .sec-toggle {
   display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 2.75rem;
@@ -1147,12 +1147,10 @@ button.mark:hover .icon { border-color: var(--dep); }
 .sec.is-collapsed .sec-chev { transform: rotate(-90deg); }
 .sec .sec-title { display: inline-flex; align-items: baseline; gap: 0.5rem; white-space: nowrap; font-size: inherit; font-weight: inherit; color: inherit; }
 .sec .sec-peek {
-  flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: flex-end; gap: 1rem;
-  font-size: 0.875rem; font-weight: 500; color: var(--text-faint); opacity: 0; transition: opacity 150ms;
+  flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: flex-end;
+  font-size: 0.875rem; opacity: 0; transition: opacity 150ms;
 }
 .sec.is-collapsed .sec-peek { opacity: 1; }
-/* Phones have no room for the names; desktop shows them (in the 900px block). */
-.sec .sec-names { display: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; font: inherit; color: inherit; }
 .sec .sec-total { flex: none; font-size: inherit; font-weight: 650; color: var(--text-soft); }
 .sec .is-overdue .sec-total { color: var(--warn); }
 /* The body folds by animating its row from 1fr to 0fr. Overflow is clipped only while
@@ -1355,7 +1353,6 @@ button.mark:hover .icon { border-color: var(--dep); }
   .bill-cards { display: block; }
   .cal-anchor { display: block; }
   .plan-link { display: inline-flex; }
-  .sec .sec-names { display: block; }
   .bill-cards .sec .bill-group { margin: 0.75rem 0 0.25rem; }
   .bill-cards .sec-inner > .bill-grid, .bill-cards .sec-inner > .bill-group-empty { padding-bottom: 0.75rem; }
 
